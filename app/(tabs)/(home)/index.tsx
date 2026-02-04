@@ -12,9 +12,11 @@ import {
   ActivityIndicator,
   useColorScheme,
   Platform,
-  Dimensions
+  Dimensions,
+  ImageBackground
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,22 +37,37 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-  heroImage: {
+  heroContainer: {
     width: '100%',
+    height: 300,
+  },
+  heroContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  logo: {
+    width: 200,
     height: 200,
-    resizeMode: 'cover',
+    resizeMode: 'contain',
+    marginBottom: spacing.md,
+  },
+  dateLocationText: {
+    ...typography.h2,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    lineHeight: 28,
   },
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: Platform.OS === 'android' ? spacing.lg : spacing.md,
     paddingBottom: spacing.lg,
     alignItems: 'center',
-  },
-  logo: {
-    width: 180,
-    height: 80,
-    resizeMode: 'contain',
-    marginBottom: spacing.md,
   },
   conferenceName: {
     ...typography.h1,
@@ -192,26 +209,34 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Image */}
-          <Image
+          {/* Hero Image with Gradient Overlay */}
+          <ImageBackground
             source={require('@/assets/images/97923d23-03e6-4821-a00d-7dd935532e6d.jpeg')}
-            style={styles.heroImage}
-          />
+            style={styles.heroContainer}
+            resizeMode="cover"
+          >
+            <LinearGradient
+              colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)']}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View style={styles.heroContent}>
+              <Image
+                source={require('@/assets/images/final_quest_240x240.png')}
+                style={styles.logo}
+              />
+              <Text style={styles.dateLocationText}>
+                March 24-25, 2026
+              </Text>
+              <Text style={styles.dateLocationText}>
+                Houston, Texas
+              </Text>
+            </View>
+          </ImageBackground>
 
           {/* Header Section */}
           <View style={styles.header}>
-            <Image
-              source={require('@/assets/images/9cdd342e-b43f-4337-a7e6-c13a14fe6ac8.jpeg')}
-              style={styles.logo}
-            />
             <Text style={[styles.conferenceName, { color: appColors.text }]}>
               Port of the Future 2026
-            </Text>
-            <Text style={[styles.conferenceDetails, { color: appColors.textSecondary }]}>
-              March 24-25, 2026
-            </Text>
-            <Text style={[styles.conferenceDetails, { color: appColors.textSecondary }]}>
-              Houston, Texas
             </Text>
             <Text style={[styles.conferenceDetails, { color: appColors.primary, marginTop: spacing.sm }]}>
               {welcomeText}
