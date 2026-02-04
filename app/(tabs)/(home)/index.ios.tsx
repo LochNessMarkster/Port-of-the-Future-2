@@ -38,7 +38,11 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 250,
+    height: 300,
+    marginBottom: -50,
+  },
+  heroImageStyle: {
+    marginTop: -50,
   },
   heroContent: {
     flex: 1,
@@ -202,12 +206,12 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Image with Gradient Overlay */}
+          {/* Hero Image with Gradient Overlay - Frame brought up higher */}
           <ImageBackground
             source={require('@/assets/images/97923d23-03e6-4821-a00d-7dd935532e6d.jpeg')}
             style={styles.heroContainer}
             resizeMode="cover"
-            imageStyle={{ marginTop: -50 }}
+            imageStyle={styles.heroImageStyle}
           >
             <LinearGradient
               colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)']}

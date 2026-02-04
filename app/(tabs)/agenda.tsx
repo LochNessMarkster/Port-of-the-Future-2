@@ -47,8 +47,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   brandingLogo: {
-    width: 40,
-    height: 40,
+    width: 120,
+    height: 120,
     resizeMode: 'contain',
     marginRight: spacing.sm,
   },
@@ -275,7 +275,7 @@ export default function AgendaScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding */}
+        {/* Header with Back Button and Branding - Logo 3x larger */}
         <View style={styles.headerBranding}>
           <TouchableOpacity 
             style={styles.backButton}
