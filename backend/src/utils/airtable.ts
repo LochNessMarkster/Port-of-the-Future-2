@@ -1,14 +1,34 @@
 import axios from 'axios';
 
 const BASE_ID = 'appcNhRl5vEqug2D1';
-const API_KEY = process.env.AIRTABLE_API_KEY;
 
-const airtableClient = axios.create({
-  baseURL: `https://api.airtable.com/v0/${BASE_ID}`,
-  headers: {
-    Authorization: `Bearer ${API_KEY}`,
-  },
-});
+// Initialize axios client with proper API key handling
+function createAirtableClient() {
+  const apiKey = process.env.AIRTABLE_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      'AIRTABLE_API_KEY environment variable is not set. Please set it to: patZyEbyPVImqOPC9.3f079360e07787946058e636a2e8c6692588f57faa491dc915770953d4c57689'
+    );
+  }
+
+  return axios.create({
+    baseURL: `https://api.airtable.com/v0/${BASE_ID}`,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+let airtableClient: ReturnType<typeof createAirtableClient> | null = null;
+
+function getAirtableClient() {
+  if (!airtableClient) {
+    airtableClient = createAirtableClient();
+  }
+  return airtableClient;
+}
 
 export interface AirtableRecord<T> {
   id: string;
@@ -44,7 +64,8 @@ export async function fetchAirtableRecords<T>(
   if (options?.offset) params.offset = options.offset;
   if (options?.fields) params.fields = options.fields;
 
-  const response = await airtableClient.get<AirtableListResponse<T>>(
+  const client = getAirtableClient();
+  const response = await client.get<AirtableListResponse<T>>(
     `/${tableId}`,
     { params }
   );
@@ -58,7 +79,8 @@ export async function fetchAirtableRecord<T>(
   tableId: string,
   recordId: string
 ): Promise<AirtableRecord<T>> {
-  const response = await airtableClient.get<AirtableRecord<T>>(
+  const client = getAirtableClient();
+  const response = await client.get<AirtableRecord<T>>(
     `/${tableId}/${recordId}`
   );
   return response.data;
@@ -71,7 +93,8 @@ export async function createAirtableRecord<T>(
   tableId: string,
   fields: T
 ): Promise<AirtableRecord<T>> {
-  const response = await airtableClient.post<{ records: AirtableRecord<T>[] }>(
+  const client = getAirtableClient();
+  const response = await client.post<{ records: AirtableRecord<T>[] }>(
     `/${tableId}`,
     { records: [{ fields }] }
   );
@@ -86,7 +109,8 @@ export async function updateAirtableRecord<T>(
   recordId: string,
   fields: Partial<T>
 ): Promise<AirtableRecord<T>> {
-  const response = await airtableClient.patch<{ records: AirtableRecord<T>[] }>(
+  const client = getAirtableClient();
+  const response = await client.patch<{ records: AirtableRecord<T>[] }>(
     `/${tableId}/${recordId}`,
     { records: [{ id: recordId, fields }] }
   );
@@ -100,7 +124,8 @@ export async function deleteAirtableRecord(
   tableId: string,
   recordId: string
 ): Promise<void> {
-  await airtableClient.delete(`/${tableId}/${recordId}`);
+  const client = getAirtableClient();
+  await client.delete(`/${tableId}/${recordId}`);
 }
 
 // Type definitions for Airtable records
