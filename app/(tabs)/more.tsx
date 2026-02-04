@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, useColorScheme, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, Link } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -37,6 +37,20 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+      web: {
+        boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+      },
+    }),
   },
   menuIcon: {
     marginRight: spacing.md,

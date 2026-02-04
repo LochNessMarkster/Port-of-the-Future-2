@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 300,
+    height: 175,
     marginBottom: -50,
   },
   heroImageStyle: {
@@ -94,11 +94,20 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+      },
+    }),
   },
   navIcon: {
     marginBottom: spacing.xs,
@@ -121,11 +130,20 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.1)',
+      },
+    }),
   },
   announcementTitle: {
     ...typography.h3,

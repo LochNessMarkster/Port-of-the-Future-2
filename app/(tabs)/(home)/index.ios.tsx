@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 300,
+    height: 175,
     marginBottom: -50,
   },
   heroImageStyle: {
