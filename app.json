@@ -1,14 +1,15 @@
+
 {
   "expo": {
     "name": "Future Port 2026",
     "slug": "Future Port 2026",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon-mmd.png",
+    "icon": "./assets/images/914b4040-3525-4b66-9cb8-88293e02f44c.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/app-icon-mmd.png",
+      "image": "./assets/images/6ded066f-a6fc-4764-8faa-1029b74a8283.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -21,14 +22,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icon-mmd.png",
+        "foregroundImage": "./assets/images/914b4040-3525-4b66-9cb8-88293e02f44c.png",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Natively"
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
+      "favicon": "./assets/images/914b4040-3525-4b66-9cb8-88293e02f44c.png",
       "bundler": "metro"
     },
     "plugins": [

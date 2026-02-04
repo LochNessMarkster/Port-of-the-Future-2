@@ -1,6 +1,6 @@
 
 import { useTheme } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { 
   StyleSheet, 
@@ -11,7 +11,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme,
-  Platform
+  Platform,
+  Dimensions
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
@@ -25,6 +26,8 @@ interface Announcement {
   createdAt: string;
 }
 
+const { width } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -32,22 +35,28 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
+  heroImage: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+  },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? spacing.xxl : spacing.md,
+    paddingTop: Platform.OS === 'android' ? spacing.lg : spacing.md,
     paddingBottom: spacing.lg,
     alignItems: 'center',
   },
   logo: {
-    width: 120,
-    height: 120,
-    borderRadius: borderRadius.lg,
+    width: 180,
+    height: 80,
+    resizeMode: 'contain',
     marginBottom: spacing.md,
   },
   conferenceName: {
     ...typography.h1,
     textAlign: 'center',
     marginBottom: spacing.xs,
+    fontSize: 24,
   },
   conferenceDetails: {
     ...typography.body,
@@ -60,14 +69,14 @@ const styles = StyleSheet.create({
   },
   gridRow: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
-    gap: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   navTile: {
     flex: 1,
-    aspectRatio: 1,
+    height: 80,
     borderRadius: borderRadius.md,
-    padding: spacing.md,
+    padding: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -77,12 +86,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   navIcon: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   navLabel: {
     ...typography.bodySmall,
     fontWeight: '600',
     textAlign: 'center',
+    fontSize: 12,
   },
   section: {
     paddingHorizontal: spacing.lg,
@@ -129,6 +139,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const { user } = useAuth();
+  const router = useRouter();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -146,7 +157,6 @@ export default function HomeScreen() {
       console.log('HomeScreen - Loaded announcements:', data.length);
     } catch (error) {
       console.error('HomeScreen - Error loading announcements:', error);
-      // Show empty state on error
       setAnnouncements([]);
     } finally {
       setLoading(false);
@@ -159,6 +169,11 @@ export default function HomeScreen() {
     const day = String(date.getDate()).padStart(2, '0');
     const year = date.getFullYear();
     return `${month}/${day}/${year}`;
+  };
+
+  const handleNavigation = (route: string) => {
+    console.log('HomeScreen - Navigating to:', route);
+    router.push(route as any);
   };
 
   const userName = user?.name || 'Guest';
@@ -177,10 +192,16 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Hero Image */}
+          <Image
+            source={require('@/assets/images/97923d23-03e6-4821-a00d-7dd935532e6d.jpeg')}
+            style={styles.heroImage}
+          />
+
           {/* Header Section */}
           <View style={styles.header}>
             <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=400' }}
+              source={require('@/assets/images/9cdd342e-b43f-4337-a7e6-c13a14fe6ac8.jpeg')}
               style={styles.logo}
             />
             <Text style={[styles.conferenceName, { color: appColors.text }]}>
@@ -203,11 +224,12 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
+                onPress={() => handleNavigation('/agenda')}
               >
                 <IconSymbol
                   ios_icon_name="calendar"
                   android_material_icon_name="calendar-today"
-                  size={32}
+                  size={24}
                   color={appColors.primary}
                   style={styles.navIcon}
                 />
@@ -217,11 +239,12 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
+                onPress={() => handleNavigation('/speakers')}
               >
                 <IconSymbol
                   ios_icon_name="person.2"
                   android_material_icon_name="group"
-                  size={32}
+                  size={24}
                   color={appColors.secondary}
                   style={styles.navIcon}
                 />
@@ -233,11 +256,12 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
+                onPress={() => handleNavigation('/exhibitors')}
               >
                 <IconSymbol
                   ios_icon_name="building.2"
                   android_material_icon_name="store"
-                  size={32}
+                  size={24}
                   color={appColors.accent}
                   style={styles.navIcon}
                 />
@@ -247,11 +271,12 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
+                onPress={() => handleNavigation('/sponsors')}
               >
                 <IconSymbol
                   ios_icon_name="star"
                   android_material_icon_name="star"
-                  size={32}
+                  size={24}
                   color={appColors.highlight}
                   style={styles.navIcon}
                 />
@@ -263,11 +288,12 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
+                onPress={() => handleNavigation('/ports')}
               >
                 <IconSymbol
                   ios_icon_name="map"
                   android_material_icon_name="place"
-                  size={32}
+                  size={24}
                   color={appColors.primary}
                   style={styles.navIcon}
                 />
@@ -277,11 +303,12 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
+                onPress={() => handleNavigation('/networking')}
               >
                 <IconSymbol
                   ios_icon_name="person.3"
                   android_material_icon_name="people"
-                  size={32}
+                  size={24}
                   color={appColors.secondary}
                   style={styles.navIcon}
                 />
