@@ -13,7 +13,7 @@ import {
   Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
@@ -35,9 +35,25 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
+  headerBranding: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  backButton: {
+    marginRight: spacing.md,
+  },
+  brandingLogo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+    marginRight: spacing.sm,
+  },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
   title: {
@@ -145,6 +161,7 @@ const styles = StyleSheet.create({
 export default function SpeakersScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
+  const router = useRouter();
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
@@ -177,6 +194,26 @@ export default function SpeakersScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
+        {/* Header with Back Button and Branding */}
+        <View style={styles.headerBranding}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="chevron.left"
+              android_material_icon_name="arrow-back"
+              size={28}
+              color={appColors.text}
+            />
+          </TouchableOpacity>
+          <Image
+            source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
+            style={styles.brandingLogo}
+          />
+        </View>
+
         <View style={styles.header}>
           <Text style={[styles.title, { color: appColors.text }]}>
             Speakers

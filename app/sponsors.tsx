@@ -14,6 +14,7 @@ import {
   Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
@@ -35,6 +36,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
+  },
+  headerBranding: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  backButton: {
+    marginRight: spacing.md,
+  },
+  brandingLogo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+    marginRight: spacing.sm,
   },
   tierSection: {
     marginBottom: spacing.xl,
@@ -150,6 +167,7 @@ const styles = StyleSheet.create({
 export default function SponsorsScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
+  const router = useRouter();
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSponsor, setSelectedSponsor] = useState<Sponsor | null>(null);
@@ -205,147 +223,174 @@ export default function SponsorsScreen() {
   const tierOrder = ['Platinum', 'Gold', 'Silver', 'Bronze', 'Partner'];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={appColors.primary} />
-          </View>
-        ) : sponsors.length === 0 ? (
-          <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
-            No sponsors available yet
-          </Text>
-        ) : (
-          tierOrder.map(tier => {
-            const tierSponsors = groupedSponsors[tier];
-            if (!tierSponsors || tierSponsors.length === 0) return null;
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+        }}
+      />
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
+        {/* Header with Back Button and Branding */}
+        <View style={styles.headerBranding}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="chevron.left"
+              android_material_icon_name="arrow-back"
+              size={28}
+              color={appColors.text}
+            />
+          </TouchableOpacity>
+          <Image
+            source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
+            style={styles.brandingLogo}
+          />
+        </View>
 
-            return (
-              <View key={tier} style={styles.tierSection}>
-                <Text style={[styles.tierTitle, { color: appColors.text }]}>
-                  {tier}
-                </Text>
-                {tierSponsors.map((sponsor) => (
-                  <TouchableOpacity
-                    key={sponsor.id}
-                    style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
-                    onPress={() => setSelectedSponsor(sponsor)}
-                    activeOpacity={0.7}
-                  >
-                    <Image
-                      source={{ uri: sponsor.logo }}
-                      style={styles.sponsorLogo}
-                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                    />
-                    <View style={styles.sponsorInfo}>
-                      <Text style={[styles.sponsorName, { color: appColors.text }]}>
-                        {sponsor.name}
-                      </Text>
-                      <Text style={[styles.sponsorIntro, { color: appColors.textSecondary }]} numberOfLines={2}>
-                        {sponsor.intro}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={appColors.primary} />
+            </View>
+          ) : sponsors.length === 0 ? (
+            <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
+              No sponsors available yet
+            </Text>
+          ) : (
+            tierOrder.map(tier => {
+              const tierSponsors = groupedSponsors[tier];
+              if (!tierSponsors || tierSponsors.length === 0) return null;
 
-      {/* Sponsor Detail Modal */}
-      <Modal
-        visible={selectedSponsor !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedSponsor(null)}
-      >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setSelectedSponsor(null)}
+              return (
+                <View key={tier} style={styles.tierSection}>
+                  <Text style={[styles.tierTitle, { color: appColors.text }]}>
+                    {tier}
+                  </Text>
+                  {tierSponsors.map((sponsor) => (
+                    <TouchableOpacity
+                      key={sponsor.id}
+                      style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
+                      onPress={() => setSelectedSponsor(sponsor)}
+                      activeOpacity={0.7}
+                    >
+                      <Image
+                        source={{ uri: sponsor.logo }}
+                        style={styles.sponsorLogo}
+                        defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                      />
+                      <View style={styles.sponsorInfo}>
+                        <Text style={[styles.sponsorName, { color: appColors.text }]}>
+                          {sponsor.name}
+                        </Text>
+                        <Text style={[styles.sponsorIntro, { color: appColors.textSecondary }]} numberOfLines={2}>
+                          {sponsor.intro}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+
+        {/* Sponsor Detail Modal */}
+        <Modal
+          visible={selectedSponsor !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedSponsor(null)}
         >
           <Pressable 
-            style={[styles.modalContent, { backgroundColor: appColors.card }]}
-            onPress={(e) => e.stopPropagation()}
+            style={styles.modalOverlay}
+            onPress={() => setSelectedSponsor(null)}
           >
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={() => setSelectedSponsor(null)}
+            <Pressable 
+              style={[styles.modalContent, { backgroundColor: appColors.card }]}
+              onPress={(e) => e.stopPropagation()}
             >
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="cancel"
-                size={32}
-                color={appColors.textSecondary}
-              />
-            </TouchableOpacity>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalHeader}>
-                <Image
-                  source={{ uri: selectedSponsor?.logo }}
-                  style={styles.modalLogo}
-                  defaultSource={require('@/assets/images/app-icon-mmd.png')}
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setSelectedSponsor(null)}
+              >
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={32}
+                  color={appColors.textSecondary}
                 />
-                <Text style={[styles.modalName, { color: appColors.text }]}>
-                  {selectedSponsor?.name}
-                </Text>
-                <Text style={[
-                  styles.modalTier,
-                  { 
-                    backgroundColor: getTierColor(selectedSponsor?.tier || '') + '40',
-                    color: appColors.text
-                  }
-                ]}>
-                  {selectedSponsor?.tier}
-                </Text>
-              </View>
+              </TouchableOpacity>
 
-              {selectedSponsor?.intro && (
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Introduction
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.modalHeader}>
+                  <Image
+                    source={{ uri: selectedSponsor?.logo }}
+                    style={styles.modalLogo}
+                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                  />
+                  <Text style={[styles.modalName, { color: appColors.text }]}>
+                    {selectedSponsor?.name}
                   </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedSponsor.intro}
+                  <Text style={[
+                    styles.modalTier,
+                    { 
+                      backgroundColor: getTierColor(selectedSponsor?.tier || '') + '40',
+                      color: appColors.text
+                    }
+                  ]}>
+                    {selectedSponsor?.tier}
                   </Text>
                 </View>
-              )}
 
-              <View style={styles.modalSection}>
-                <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                  About
-                </Text>
-                <Text style={[styles.modalText, { color: appColors.text }]}>
-                  {selectedSponsor?.bio}
-                </Text>
-              </View>
+                {selectedSponsor?.intro && (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Introduction
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSponsor.intro}
+                    </Text>
+                  </View>
+                )}
 
-              {selectedSponsor?.website && (
-                <TouchableOpacity
-                  style={[styles.websiteButton, { backgroundColor: appColors.primary }]}
-                  onPress={() => openWebsite(selectedSponsor.website)}
-                  activeOpacity={0.7}
-                >
-                  <IconSymbol
-                    ios_icon_name="globe"
-                    android_material_icon_name="language"
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                  <Text style={[styles.websiteButtonText, { color: '#FFFFFF' }]}>
-                    Visit Website
+                <View style={styles.modalSection}>
+                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                    About
                   </Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
+                  <Text style={[styles.modalText, { color: appColors.text }]}>
+                    {selectedSponsor?.bio}
+                  </Text>
+                </View>
+
+                {selectedSponsor?.website && (
+                  <TouchableOpacity
+                    style={[styles.websiteButton, { backgroundColor: appColors.primary }]}
+                    onPress={() => openWebsite(selectedSponsor.website)}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol
+                      ios_icon_name="globe"
+                      android_material_icon_name="language"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={[styles.websiteButtonText, { color: '#FFFFFF' }]}>
+                      Visit Website
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </>
   );
 }

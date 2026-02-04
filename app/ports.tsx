@@ -14,6 +14,7 @@ import {
   Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
@@ -33,6 +34,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
+  },
+  headerBranding: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  backButton: {
+    marginRight: spacing.md,
+  },
+  brandingLogo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+    marginRight: spacing.sm,
   },
   portGrid: {
     flexDirection: 'row',
@@ -131,6 +148,7 @@ const styles = StyleSheet.create({
 export default function PortsScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
+  const router = useRouter();
   const [ports, setPorts] = useState<Port[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPort, setSelectedPort] = useState<Port | null>(null);
@@ -160,112 +178,139 @@ export default function PortsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={appColors.primary} />
-          </View>
-        ) : ports.length === 0 ? (
-          <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
-            No ports available yet
-          </Text>
-        ) : (
-          <View style={styles.portGrid}>
-            {ports.map((port) => (
-              <TouchableOpacity
-                key={port.id}
-                style={[styles.portCard, { backgroundColor: appColors.card }]}
-                onPress={() => setSelectedPort(port)}
-                activeOpacity={0.7}
-              >
-                <Image
-                  source={{ uri: port.logo }}
-                  style={styles.portLogo}
-                  defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                />
-                <Text style={[styles.portName, { color: appColors.text }]} numberOfLines={2}>
-                  {port.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Port Detail Modal */}
-      <Modal
-        visible={selectedPort !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedPort(null)}
-      >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setSelectedPort(null)}
-        >
-          <Pressable 
-            style={[styles.modalContent, { backgroundColor: appColors.card }]}
-            onPress={(e) => e.stopPropagation()}
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+        }}
+      />
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
+        {/* Header with Back Button and Branding */}
+        <View style={styles.headerBranding}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
           >
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={() => setSelectedPort(null)}
-            >
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="cancel"
-                size={32}
-                color={appColors.textSecondary}
-              />
-            </TouchableOpacity>
+            <IconSymbol
+              ios_icon_name="chevron.left"
+              android_material_icon_name="arrow-back"
+              size={28}
+              color={appColors.text}
+            />
+          </TouchableOpacity>
+          <Image
+            source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
+            style={styles.brandingLogo}
+          />
+        </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalHeader}>
-                <Image
-                  source={{ uri: selectedPort?.logo }}
-                  style={styles.modalLogo}
-                  defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                />
-                <Text style={[styles.modalName, { color: appColors.text }]}>
-                  {selectedPort?.name}
-                </Text>
-              </View>
-
-              <View style={styles.modalSection}>
-                <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                  About
-                </Text>
-                <Text style={[styles.modalText, { color: appColors.text }]}>
-                  {selectedPort?.bio}
-                </Text>
-              </View>
-
-              {selectedPort?.website && (
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={appColors.primary} />
+            </View>
+          ) : ports.length === 0 ? (
+            <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
+              No ports available yet
+            </Text>
+          ) : (
+            <View style={styles.portGrid}>
+              {ports.map((port) => (
                 <TouchableOpacity
-                  style={[styles.websiteButton, { backgroundColor: appColors.primary }]}
-                  onPress={() => openWebsite(selectedPort.website)}
+                  key={port.id}
+                  style={[styles.portCard, { backgroundColor: appColors.card }]}
+                  onPress={() => setSelectedPort(port)}
                   activeOpacity={0.7}
                 >
-                  <IconSymbol
-                    ios_icon_name="globe"
-                    android_material_icon_name="language"
-                    size={20}
-                    color="#FFFFFF"
+                  <Image
+                    source={{ uri: port.logo }}
+                    style={styles.portLogo}
+                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
                   />
-                  <Text style={[styles.websiteButtonText, { color: '#FFFFFF' }]}>
-                    Visit Website
+                  <Text style={[styles.portName, { color: appColors.text }]} numberOfLines={2}>
+                    {port.name}
                   </Text>
                 </TouchableOpacity>
-              )}
-            </ScrollView>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Port Detail Modal */}
+        <Modal
+          visible={selectedPort !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedPort(null)}
+        >
+          <Pressable 
+            style={styles.modalOverlay}
+            onPress={() => setSelectedPort(null)}
+          >
+            <Pressable 
+              style={[styles.modalContent, { backgroundColor: appColors.card }]}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setSelectedPort(null)}
+              >
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={32}
+                  color={appColors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.modalHeader}>
+                  <Image
+                    source={{ uri: selectedPort?.logo }}
+                    style={styles.modalLogo}
+                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                  />
+                  <Text style={[styles.modalName, { color: appColors.text }]}>
+                    {selectedPort?.name}
+                  </Text>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                    About
+                  </Text>
+                  <Text style={[styles.modalText, { color: appColors.text }]}>
+                    {selectedPort?.bio}
+                  </Text>
+                </View>
+
+                {selectedPort?.website && (
+                  <TouchableOpacity
+                    style={[styles.websiteButton, { backgroundColor: appColors.primary }]}
+                    onPress={() => openWebsite(selectedPort.website)}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol
+                      ios_icon_name="globe"
+                      android_material_icon_name="language"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={[styles.websiteButtonText, { color: '#FFFFFF' }]}>
+                      Visit Website
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </>
   );
 }

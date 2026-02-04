@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 300,
+    height: 250,
   },
   heroContent: {
     flex: 1,
@@ -47,10 +47,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: 180,
+    height: 180,
     resizeMode: 'contain',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   dateLocationText: {
     ...typography.h2,
@@ -67,12 +67,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     alignItems: 'center',
-  },
-  conferenceName: {
-    ...typography.h1,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-    fontSize: 24,
   },
   conferenceDetails: {
     ...typography.body,
@@ -213,6 +207,7 @@ export default function HomeScreen() {
             source={require('@/assets/images/97923d23-03e6-4821-a00d-7dd935532e6d.jpeg')}
             style={styles.heroContainer}
             resizeMode="cover"
+            imageStyle={{ marginTop: -50 }}
           >
             <LinearGradient
               colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)']}
@@ -220,7 +215,7 @@ export default function HomeScreen() {
             />
             <View style={styles.heroContent}>
               <Image
-                source={require('@/assets/images/final_quest_240x240.png')}
+                source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
                 style={styles.logo}
               />
               <Text style={styles.dateLocationText}>
@@ -234,9 +229,6 @@ export default function HomeScreen() {
 
           {/* Header Section */}
           <View style={styles.header}>
-            <Text style={[styles.conferenceName, { color: appColors.text }]}>
-              Port of the Future 2026
-            </Text>
             <Text style={[styles.conferenceDetails, { color: appColors.primary, marginTop: spacing.sm }]}>
               {welcomeText}
             </Text>
