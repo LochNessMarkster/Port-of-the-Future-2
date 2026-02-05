@@ -45,7 +45,9 @@ export function registerSpeakersRoutes(app: App) {
 
       app.logger.info('Fetching all speakers from Airtable');
       try {
-        const data = await fetchAirtableRecords<SpeakerFields>(TABLES.SPEAKERS);
+        const data = await fetchAirtableRecords<SpeakerFields>(TABLES.SPEAKERS, {
+          logger: app.logger,
+        });
 
         const speakers = data.records.map((record: AirtableRecord<SpeakerFields>) => ({
           id: record.id,
@@ -106,7 +108,14 @@ export function registerSpeakersRoutes(app: App) {
       app.logger.info({ speakerId: id }, 'Fetching speaker details');
 
       try {
-        const record = await fetchAirtableRecord<SpeakerFields>(TABLES.SPEAKERS, id);
+        const record = await fetchAirtableRecord<SpeakerFields>(TABLES.SPEAKERS, id, app.logger);
+
+        if (!record) {
+          app.logger.warn({ speakerId: id }, 'Speaker not found (permission denied or record not found)');
+          return reply.status(404).send({
+            error: 'Speaker not found. The Airtable API may not have permission to access this table.',
+          });
+        }
 
         const result = {
           id: record.id,

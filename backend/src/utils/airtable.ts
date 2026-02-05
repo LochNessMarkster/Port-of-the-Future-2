@@ -54,11 +54,27 @@ export const TABLES = {
 };
 
 /**
+ * Map table IDs to human-readable names for logging
+ */
+function getTableName(tableId: string): string {
+  const tableMap: Record<string, string> = {
+    [TABLES.SESSIONS]: 'Sessions',
+    [TABLES.SPEAKERS]: 'Speakers',
+    [TABLES.PORTS]: 'Ports',
+    [TABLES.EXHIBITORS]: 'Exhibitors',
+    [TABLES.SPONSORS]: 'Sponsors',
+    [TABLES.ATTENDEES]: 'Attendees',
+    [TABLES.ANNOUNCEMENTS]: 'Announcements',
+  };
+  return tableMap[tableId] || 'Unknown';
+}
+
+/**
  * Fetch all records from an Airtable table
  */
 export async function fetchAirtableRecords<T>(
   tableId: string,
-  options?: { pageSize?: number; offset?: string; fields?: string[] }
+  options?: { pageSize?: number; offset?: string; fields?: string[]; logger?: any }
 ): Promise<AirtableListResponse<T>> {
   const params: any = {};
   if (options?.pageSize) params.pageSize = options.pageSize;
@@ -66,11 +82,40 @@ export async function fetchAirtableRecords<T>(
   if (options?.fields) params.fields = options.fields;
 
   const client = getAirtableClient();
-  const response = await client.get<AirtableListResponse<T>>(
-    `/${tableId}`,
-    { params }
-  );
-  return response.data;
+
+  try {
+    const response = await client.get<AirtableListResponse<T>>(
+      `/${tableId}`,
+      { params }
+    );
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorMessage = error.response?.data?.error?.message || error.message;
+
+    // Handle 403 Forbidden errors gracefully
+    if (status === 403) {
+      const tableName = getTableName(tableId);
+      const logMsg = `Airtable API returned 403 for table ${tableName} (${tableId}). This API key may not have permission to access this table. Please check the Airtable API key permissions.`;
+
+      if (options?.logger) {
+        options.logger.warn({ tableId, tableName, error: errorMessage }, logMsg);
+      }
+
+      // Return empty array instead of throwing error
+      return { records: [] };
+    }
+
+    // For other errors, log and re-throw
+    if (options?.logger) {
+      options.logger.error(
+        { tableId, status, error: errorMessage },
+        'Airtable API error while fetching records'
+      );
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -78,13 +123,43 @@ export async function fetchAirtableRecords<T>(
  */
 export async function fetchAirtableRecord<T>(
   tableId: string,
-  recordId: string
-): Promise<AirtableRecord<T>> {
+  recordId: string,
+  logger?: any
+): Promise<AirtableRecord<T> | null> {
   const client = getAirtableClient();
-  const response = await client.get<AirtableRecord<T>>(
-    `/${tableId}/${recordId}`
-  );
-  return response.data;
+
+  try {
+    const response = await client.get<AirtableRecord<T>>(
+      `/${tableId}/${recordId}`
+    );
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorMessage = error.response?.data?.error?.message || error.message;
+
+    // Handle 403 Forbidden errors gracefully
+    if (status === 403) {
+      const tableName = getTableName(tableId);
+      const logMsg = `Airtable API returned 403 for table ${tableName} (${tableId}). This API key may not have permission to access this table. Please check the Airtable API key permissions.`;
+
+      if (logger) {
+        logger.warn({ tableId, tableName, recordId, error: errorMessage }, logMsg);
+      }
+
+      // Return null instead of throwing error
+      return null;
+    }
+
+    // For other errors, log and re-throw
+    if (logger) {
+      logger.error(
+        { tableId, recordId, status, error: errorMessage },
+        'Airtable API error while fetching record'
+      );
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -92,14 +167,30 @@ export async function fetchAirtableRecord<T>(
  */
 export async function createAirtableRecord<T>(
   tableId: string,
-  fields: T
+  fields: T,
+  logger?: any
 ): Promise<AirtableRecord<T>> {
   const client = getAirtableClient();
-  const response = await client.post<{ records: AirtableRecord<T>[] }>(
-    `/${tableId}`,
-    { records: [{ fields }] }
-  );
-  return response.data.records[0];
+
+  try {
+    const response = await client.post<{ records: AirtableRecord<T>[] }>(
+      `/${tableId}`,
+      { records: [{ fields }] }
+    );
+    return response.data.records[0];
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorMessage = error.response?.data?.error?.message || error.message;
+
+    if (logger) {
+      logger.error(
+        { tableId, status, error: errorMessage },
+        'Airtable API error while creating record'
+      );
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -108,14 +199,30 @@ export async function createAirtableRecord<T>(
 export async function updateAirtableRecord<T>(
   tableId: string,
   recordId: string,
-  fields: Partial<T>
+  fields: Partial<T>,
+  logger?: any
 ): Promise<AirtableRecord<T>> {
   const client = getAirtableClient();
-  const response = await client.patch<{ records: AirtableRecord<T>[] }>(
-    `/${tableId}/${recordId}`,
-    { records: [{ id: recordId, fields }] }
-  );
-  return response.data.records[0];
+
+  try {
+    const response = await client.patch<{ records: AirtableRecord<T>[] }>(
+      `/${tableId}/${recordId}`,
+      { records: [{ id: recordId, fields }] }
+    );
+    return response.data.records[0];
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorMessage = error.response?.data?.error?.message || error.message;
+
+    if (logger) {
+      logger.error(
+        { tableId, recordId, status, error: errorMessage },
+        'Airtable API error while updating record'
+      );
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -123,10 +230,26 @@ export async function updateAirtableRecord<T>(
  */
 export async function deleteAirtableRecord(
   tableId: string,
-  recordId: string
+  recordId: string,
+  logger?: any
 ): Promise<void> {
   const client = getAirtableClient();
-  await client.delete(`/${tableId}/${recordId}`);
+
+  try {
+    await client.delete(`/${tableId}/${recordId}`);
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorMessage = error.response?.data?.error?.message || error.message;
+
+    if (logger) {
+      logger.error(
+        { tableId, recordId, status, error: errorMessage },
+        'Airtable API error while deleting record'
+      );
+    }
+
+    throw error;
+  }
 }
 
 // Type definitions for Airtable records

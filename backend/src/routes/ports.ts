@@ -43,7 +43,9 @@ export function registerPortsRoutes(app: App) {
 
       app.logger.info('Fetching all ports from Airtable');
       try {
-        const data = await fetchAirtableRecords<PortFields>(TABLES.PORTS);
+        const data = await fetchAirtableRecords<PortFields>(TABLES.PORTS, {
+          logger: app.logger,
+        });
 
         const ports = data.records.map((record: AirtableRecord<PortFields>) => ({
           id: record.id,
@@ -100,7 +102,14 @@ export function registerPortsRoutes(app: App) {
       app.logger.info({ portId: id }, 'Fetching port details');
 
       try {
-        const record = await fetchAirtableRecord<PortFields>(TABLES.PORTS, id);
+        const record = await fetchAirtableRecord<PortFields>(TABLES.PORTS, id, app.logger);
+
+        if (!record) {
+          app.logger.warn({ portId: id }, 'Port not found (permission denied or record not found)');
+          return reply.status(404).send({
+            error: 'Port not found. The Airtable API may not have permission to access this table.',
+          });
+        }
 
         const result = {
           id: record.id,

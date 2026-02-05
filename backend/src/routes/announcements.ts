@@ -44,7 +44,9 @@ export function registerAnnouncementsRoutes(app: App) {
 
       app.logger.info('Fetching all announcements from Airtable');
       try {
-        const data = await fetchAirtableRecords<AnnouncementFields>(TABLES.ANNOUNCEMENTS);
+        const data = await fetchAirtableRecords<AnnouncementFields>(TABLES.ANNOUNCEMENTS, {
+          logger: app.logger,
+        });
 
         const announcements = data.records.map((record: AirtableRecord<AnnouncementFields>) => ({
           id: record.id,
@@ -107,11 +109,15 @@ export function registerAnnouncementsRoutes(app: App) {
       app.logger.info({ userId: session.user.id, title }, 'Creating announcement');
 
       try {
-        const record = await createAirtableRecord<AnnouncementFields>(TABLES.ANNOUNCEMENTS, {
-          Title: title,
-          Content: content,
-          CreatedAt: new Date().toISOString(),
-        });
+        const record = await createAirtableRecord<AnnouncementFields>(
+          TABLES.ANNOUNCEMENTS,
+          {
+            Title: title,
+            Content: content,
+            CreatedAt: new Date().toISOString(),
+          },
+          app.logger
+        );
 
         const result = {
           id: record.id,
@@ -187,7 +193,8 @@ export function registerAnnouncementsRoutes(app: App) {
         const record = await updateAirtableRecord<AnnouncementFields>(
           TABLES.ANNOUNCEMENTS,
           id,
-          updateData
+          updateData,
+          app.logger
         );
 
         const result = {
@@ -240,7 +247,7 @@ export function registerAnnouncementsRoutes(app: App) {
       app.logger.info({ announcementId: id, userId: session.user.id }, 'Deleting announcement');
 
       try {
-        await deleteAirtableRecord(TABLES.ANNOUNCEMENTS, id);
+        await deleteAirtableRecord(TABLES.ANNOUNCEMENTS, id, app.logger);
         app.logger.info({ announcementId: id }, 'Announcement deleted');
         return reply.status(204).send();
       } catch (error) {

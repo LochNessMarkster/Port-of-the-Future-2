@@ -53,7 +53,9 @@ export function registerSponsorsRoutes(app: App) {
 
       app.logger.info('Fetching all sponsors from Airtable');
       try {
-        const data = await fetchAirtableRecords<SponsorFields>(TABLES.SPONSORS);
+        const data = await fetchAirtableRecords<SponsorFields>(TABLES.SPONSORS, {
+          logger: app.logger,
+        });
 
         let sponsors = data.records.map((record: AirtableRecord<SponsorFields>) => ({
           id: record.id,
@@ -121,7 +123,14 @@ export function registerSponsorsRoutes(app: App) {
       app.logger.info({ sponsorId: id }, 'Fetching sponsor details');
 
       try {
-        const record = await fetchAirtableRecord<SponsorFields>(TABLES.SPONSORS, id);
+        const record = await fetchAirtableRecord<SponsorFields>(TABLES.SPONSORS, id, app.logger);
+
+        if (!record) {
+          app.logger.warn({ sponsorId: id }, 'Sponsor not found (permission denied or record not found)');
+          return reply.status(404).send({
+            error: 'Sponsor not found. The Airtable API may not have permission to access this table.',
+          });
+        }
 
         const result = {
           id: record.id,

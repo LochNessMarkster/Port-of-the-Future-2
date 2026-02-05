@@ -46,7 +46,9 @@ export function registerExhibitorsRoutes(app: App) {
 
       app.logger.info('Fetching all exhibitors from Airtable');
       try {
-        const data = await fetchAirtableRecords<ExhibitorFields>(TABLES.EXHIBITORS);
+        const data = await fetchAirtableRecords<ExhibitorFields>(TABLES.EXHIBITORS, {
+          logger: app.logger,
+        });
 
         const exhibitors = data.records.map((record: AirtableRecord<ExhibitorFields>) => ({
           id: record.id,
@@ -109,7 +111,14 @@ export function registerExhibitorsRoutes(app: App) {
       app.logger.info({ exhibitorId: id }, 'Fetching exhibitor details');
 
       try {
-        const record = await fetchAirtableRecord<ExhibitorFields>(TABLES.EXHIBITORS, id);
+        const record = await fetchAirtableRecord<ExhibitorFields>(TABLES.EXHIBITORS, id, app.logger);
+
+        if (!record) {
+          app.logger.warn({ exhibitorId: id }, 'Exhibitor not found (permission denied or record not found)');
+          return reply.status(404).send({
+            error: 'Exhibitor not found. The Airtable API may not have permission to access this table.',
+          });
+        }
 
         const result = {
           id: record.id,

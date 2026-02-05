@@ -46,7 +46,9 @@ export function registerSessionsRoutes(app: App) {
 
       app.logger.info('Fetching all sessions from Airtable');
       try {
-        const data = await fetchAirtableRecords<SessionFields>(TABLES.SESSIONS);
+        const data = await fetchAirtableRecords<SessionFields>(TABLES.SESSIONS, {
+          logger: app.logger,
+        });
 
         const sessions = data.records.map((record: AirtableRecord<SessionFields>) => ({
           id: record.id,
@@ -109,7 +111,14 @@ export function registerSessionsRoutes(app: App) {
       app.logger.info({ sessionId: id }, 'Fetching session details');
 
       try {
-        const record = await fetchAirtableRecord<SessionFields>(TABLES.SESSIONS, id);
+        const record = await fetchAirtableRecord<SessionFields>(TABLES.SESSIONS, id, app.logger);
+
+        if (!record) {
+          app.logger.warn({ sessionId: id }, 'Session not found (permission denied or record not found)');
+          return reply.status(404).send({
+            error: 'Session not found. The Airtable API may not have permission to access this table.',
+          });
+        }
 
         const result = {
           id: record.id,
