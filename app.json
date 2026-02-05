@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Future Port 2026",
-    "slug": "Future Port 2026",
+    "name": "Port of the Future Conference",
+    "slug": "Port of the Future Conference",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/914b4040-3525-4b66-9cb8-88293e02f44c.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/6ded066f-a6fc-4764-8faa-1029b74a8283.png",
+      "image": "./assets/images/8064f187-dc54-4a06-b6b2-1c289575b8dd.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
@@ -36,7 +36,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "Future Port 2026",
+    "scheme": "Port of the Future Conference",
     "experiments": {
       "typedRoutes": true
     },
