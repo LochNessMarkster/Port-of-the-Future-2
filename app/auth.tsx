@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
   useColorScheme,
   Image,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
@@ -37,6 +38,8 @@ export default function AuthScreen() {
   const [linkedin, setLinkedin] = useState("");
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   console.log('AuthScreen - Mode:', mode);
 
@@ -48,16 +51,21 @@ export default function AuthScreen() {
     );
   }
 
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setErrorModalVisible(true);
+  };
+
   const handleEmailAuth = async () => {
     console.log('AuthScreen - User tapped auth button, mode:', mode);
     
     if (!email || !password) {
-      Alert.alert("Error", "Please enter email and password");
+      showError("Please enter email and password");
       return;
     }
 
     if (mode === "signup" && !name) {
-      Alert.alert("Error", "Please enter your name");
+      showError("Please enter your name");
       return;
     }
 
@@ -90,23 +98,26 @@ export default function AuthScreen() {
         }
         
         console.log('AuthScreen - Sign up successful');
-        Alert.alert(
-          "Success",
-          "Account created successfully!"
-        );
-        router.replace("/");
+        showError("Account created successfully! You can now sign in.");
+        setMode("signin");
+        setPassword("");
       }
     } catch (error: any) {
       console.error('AuthScreen - Auth error:', error);
-      const errorMessage = error.message || "Authentication failed. Please try again.";
+      const errorMsg = error.message || "Authentication failed. Please try again.";
       
       // Show more specific error messages
-      if (errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("password")) {
-        Alert.alert("Login Failed", "Invalid email or password. Please check your credentials and try again.");
-      } else if (errorMessage.toLowerCase().includes("exist")) {
-        Alert.alert("Account Exists", "An account with this email already exists. Please sign in instead.");
+      if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
+        if (mode === "signin") {
+          showError("Invalid email or password.\n\nIf you don't have an account yet, please tap 'Sign Up' below to create one.");
+        } else {
+          showError("Invalid credentials. Please check your information and try again.");
+        }
+      } else if (errorMsg.toLowerCase().includes("exist")) {
+        showError("An account with this email already exists. Please sign in instead.");
+        setMode("signin");
       } else {
-        Alert.alert("Error", errorMessage);
+        showError(errorMsg);
       }
     } finally {
       setLoading(false);
@@ -297,6 +308,34 @@ export default function AuthScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Error Modal */}
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setErrorModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+            <Text style={[styles.modalTitle, { color: appColors.text }]}>
+              {mode === "signin" ? "Login Failed" : "Sign Up Failed"}
+            </Text>
+            <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
+              {errorMessage}
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: appColors.primary }]}
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -382,5 +421,45 @@ const styles = StyleSheet.create({
   switchModeText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    ...typography.h3,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    ...typography.body,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  modalButton: {
+    height: 50,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
