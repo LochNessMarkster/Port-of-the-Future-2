@@ -4,11 +4,12 @@ const BASE_ID = 'appcNhRl5vEqug2D1';
 
 // Initialize axios client with proper API key handling
 function createAirtableClient() {
-  const apiKey = process.env.AIRTABLE_API_KEY;
+  // Use environment variable if set, otherwise use default API key for the Port of Future 2026 API
+  const apiKey = process.env.AIRTABLE_API_KEY || 'patZyEbyPVImqOPC9.3f079360e07787946058e636a2e8c6692588f57faa491dc915770953d4c57689';
 
   if (!apiKey) {
     throw new Error(
-      'AIRTABLE_API_KEY environment variable is not set. Please set it to: patZyEbyPVImqOPC9.3f079360e07787946058e636a2e8c6692588f57faa491dc915770953d4c57689'
+      'AIRTABLE_API_KEY is required. Please set the environment variable or ensure the default API key is configured.'
     );
   }
 
