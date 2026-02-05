@@ -50,6 +50,18 @@ export function registerSessionsRoutes(app: App) {
           logger: app.logger,
         });
 
+        // Log raw Airtable response structure to identify actual field names
+        if (data.records.length > 0) {
+          app.logger.info(
+            { firstRecordRaw: JSON.stringify(data.records[0], null, 2) },
+            'First session raw record from Airtable'
+          );
+          app.logger.info(
+            { fieldNames: Object.keys(data.records[0]?.fields || {}) },
+            'Available field names in first session record'
+          );
+        }
+
         const sessions = data.records.map((record: AirtableRecord<SessionFields>) => ({
           id: record.id,
           title: record.fields.Title || '',
@@ -119,6 +131,16 @@ export function registerSessionsRoutes(app: App) {
             error: 'Session not found. The Airtable API may not have permission to access this table.',
           });
         }
+
+        // Log raw Airtable response structure to identify actual field names
+        app.logger.info(
+          { sessionRaw: JSON.stringify(record, null, 2) },
+          'Session raw record from Airtable'
+        );
+        app.logger.info(
+          { fieldNames: Object.keys(record?.fields || {}) },
+          'Available field names in session record'
+        );
 
         const result = {
           id: record.id,
