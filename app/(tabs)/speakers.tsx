@@ -46,8 +46,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   brandingLogo: {
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 50,
     resizeMode: 'contain',
   },
   header: {
@@ -76,11 +76,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  speakerPhoto: {
-    width: 200,
-    height: 150,
-    borderRadius: borderRadius.md,
+  speakerPhotoContainer: {
+    width: '100%',
+    aspectRatio: 1,
     marginBottom: spacing.sm,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  speakerPhoto: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   speakerName: {
     ...typography.h3,
@@ -122,11 +128,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalPhoto: {
-    width: 240,
-    height: 180,
+  modalPhotoWrapper: {
+    width: 200,
+    height: 200,
     borderRadius: borderRadius.md,
+    overflow: 'hidden',
     marginBottom: spacing.sm,
+  },
+  modalPhoto: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   modalName: {
     ...typography.h2,
@@ -241,12 +253,13 @@ export default function SpeakersScreen() {
                   onPress={() => setSelectedSpeaker(speaker)}
                   activeOpacity={0.7}
                 >
-                  <Image
-                    source={{ uri: speaker.photo }}
-                    style={styles.speakerPhoto}
-                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                    resizeMode="cover"
-                  />
+                  <View style={styles.speakerPhotoContainer}>
+                    <Image
+                      source={{ uri: speaker.photo }}
+                      style={styles.speakerPhoto}
+                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    />
+                  </View>
                   <Text style={[styles.speakerName, { color: appColors.text }]}>
                     {speaker.name}
                   </Text>
@@ -288,12 +301,13 @@ export default function SpeakersScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalPhotoContainer}>
-                  <Image
-                    source={{ uri: selectedSpeaker?.photo }}
-                    style={styles.modalPhoto}
-                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                    resizeMode="cover"
-                  />
+                  <View style={styles.modalPhotoWrapper}>
+                    <Image
+                      source={{ uri: selectedSpeaker?.photo }}
+                      style={styles.modalPhoto}
+                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    />
+                  </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {selectedSpeaker?.name}
                   </Text>

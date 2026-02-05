@@ -46,8 +46,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   brandingLogo: {
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 50,
     resizeMode: 'contain',
   },
   portGrid: {
@@ -66,11 +66,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  portLogo: {
-    width: 400,
-    height: 200,
-    borderRadius: borderRadius.sm,
+  portLogoContainer: {
+    width: '100%',
+    aspectRatio: 2,
     marginBottom: spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  portLogo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   portName: {
     ...typography.h3,
@@ -101,11 +107,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalLogo: {
-    width: 480,
-    height: 240,
-    borderRadius: borderRadius.md,
+  modalLogoContainer: {
+    width: '100%',
+    aspectRatio: 2,
     marginBottom: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalLogo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   modalName: {
     ...typography.h2,
@@ -226,12 +238,13 @@ export default function PortsScreen() {
                   onPress={() => setSelectedPort(port)}
                   activeOpacity={0.7}
                 >
-                  <Image
-                    source={{ uri: port.logo }}
-                    style={styles.portLogo}
-                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                    resizeMode="contain"
-                  />
+                  <View style={styles.portLogoContainer}>
+                    <Image
+                      source={{ uri: port.logo }}
+                      style={styles.portLogo}
+                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    />
+                  </View>
                   <Text style={[styles.portName, { color: appColors.text }]} numberOfLines={2}>
                     {port.name}
                   </Text>
@@ -270,12 +283,13 @@ export default function PortsScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <Image
-                    source={{ uri: selectedPort?.logo }}
-                    style={styles.modalLogo}
-                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                    resizeMode="contain"
-                  />
+                  <View style={styles.modalLogoContainer}>
+                    <Image
+                      source={{ uri: selectedPort?.logo }}
+                      style={styles.modalLogo}
+                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    />
+                  </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {selectedPort?.name}
                   </Text>

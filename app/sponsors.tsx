@@ -48,8 +48,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   brandingLogo: {
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 50,
     resizeMode: 'contain',
   },
   tierSection: {
@@ -71,11 +71,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  sponsorLogo: {
-    width: 320,
-    height: 160,
-    borderRadius: borderRadius.sm,
+  sponsorLogoContainer: {
+    width: 120,
+    height: 60,
     marginRight: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sponsorLogo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   sponsorInfo: {
     flex: 1,
@@ -112,11 +118,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalLogo: {
-    width: 480,
-    height: 240,
-    borderRadius: borderRadius.md,
+  modalLogoContainer: {
+    width: '100%',
+    aspectRatio: 2,
     marginBottom: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalLogo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   modalName: {
     ...typography.h2,
@@ -263,41 +275,44 @@ export default function SponsorsScreen() {
               No sponsors available yet
             </Text>
           ) : (
-            tierOrder.map(tier => {
-              const tierSponsors = groupedSponsors[tier];
-              if (!tierSponsors || tierSponsors.length === 0) return null;
+            <React.Fragment>
+              {tierOrder.map(tier => {
+                const tierSponsors = groupedSponsors[tier];
+                if (!tierSponsors || tierSponsors.length === 0) return null;
 
-              return (
-                <View key={tier} style={styles.tierSection}>
-                  <Text style={[styles.tierTitle, { color: appColors.text }]}>
-                    {tier}
-                  </Text>
-                  {tierSponsors.map((sponsor) => (
-                    <TouchableOpacity
-                      key={sponsor.id}
-                      style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
-                      onPress={() => setSelectedSponsor(sponsor)}
-                      activeOpacity={0.7}
-                    >
-                      <Image
-                        source={{ uri: sponsor.logo }}
-                        style={styles.sponsorLogo}
-                        defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                        resizeMode="contain"
-                      />
-                      <View style={styles.sponsorInfo}>
-                        <Text style={[styles.sponsorName, { color: appColors.text }]}>
-                          {sponsor.name}
-                        </Text>
-                        <Text style={[styles.sponsorIntro, { color: appColors.textSecondary }]} numberOfLines={2}>
-                          {sponsor.intro || sponsor.bio}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              );
-            })
+                return (
+                  <View key={tier} style={styles.tierSection}>
+                    <Text style={[styles.tierTitle, { color: appColors.text }]}>
+                      {tier}
+                    </Text>
+                    {tierSponsors.map((sponsor) => (
+                      <TouchableOpacity
+                        key={sponsor.id}
+                        style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
+                        onPress={() => setSelectedSponsor(sponsor)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.sponsorLogoContainer}>
+                          <Image
+                            source={{ uri: sponsor.logo }}
+                            style={styles.sponsorLogo}
+                            defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                          />
+                        </View>
+                        <View style={styles.sponsorInfo}>
+                          <Text style={[styles.sponsorName, { color: appColors.text }]}>
+                            {sponsor.name}
+                          </Text>
+                          <Text style={[styles.sponsorIntro, { color: appColors.textSecondary }]} numberOfLines={2}>
+                            {sponsor.intro || sponsor.bio}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                );
+              })}
+            </React.Fragment>
           )}
         </ScrollView>
 
@@ -330,12 +345,13 @@ export default function SponsorsScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <Image
-                    source={{ uri: selectedSponsor?.logo }}
-                    style={styles.modalLogo}
-                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                    resizeMode="contain"
-                  />
+                  <View style={styles.modalLogoContainer}>
+                    <Image
+                      source={{ uri: selectedSponsor?.logo }}
+                      style={styles.modalLogo}
+                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    />
+                  </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {selectedSponsor?.name}
                   </Text>
