@@ -24,7 +24,7 @@ export const app = await createApplication(schema);
 // Export App type for use in route files
 export type App = typeof app;
 
-// Enable authentication
+// Enable authentication with email/password support
 app.withAuth();
 
 // Register routes - add your route modules here
