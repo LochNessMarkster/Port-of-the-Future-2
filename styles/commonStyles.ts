@@ -1,35 +1,35 @@
 
 import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 
-// Port of the Future 2026 Theme - Maritime colors (lighter, ocean-inspired)
+// Port of the Future 2026 Theme - Maritime colors (vibrant ocean-inspired)
 export const colors = {
   light: {
-    background: '#F0F7FC', // Light ocean blue background
+    background: '#E8F4F8', // Soft sky blue background
     card: '#FFFFFF',
     text: '#0A2540', // Deep navy text
     textSecondary: '#4A6B8A', // Muted blue-gray
-    primary: '#0066CC', // Deep ocean blue
-    secondary: '#00A3E0', // Bright maritime blue
-    accent: '#FF8C42', // Warm coral/orange
-    highlight: '#FFB84D', // Golden sand
-    border: '#C5D9E8',
-    success: '#10B981',
-    error: '#EF4444',
-    warning: '#F59E0B',
+    primary: '#0077BE', // Vibrant ocean blue
+    secondary: '#00B4D8', // Bright turquoise
+    accent: '#FF6B35', // Coral orange
+    highlight: '#FFA500', // Bright orange/gold
+    border: '#B8D4E8',
+    success: '#06D6A0',
+    error: '#EF476F',
+    warning: '#FFD166',
   },
   dark: {
-    background: '#0A1929', // Deep ocean night
-    card: '#1A2F42', // Dark maritime blue
-    text: '#E3F2FD', // Light blue-white
-    textSecondary: '#90B4CE', // Soft blue-gray
-    primary: '#4A9EFF', // Bright ocean blue
-    secondary: '#00C4FF', // Cyan blue
-    accent: '#FF8C42', // Warm coral
-    highlight: '#FFB84D', // Golden sand
-    border: '#2D4A5E',
-    success: '#10B981',
-    error: '#EF4444',
-    warning: '#F59E0B',
+    background: '#001F3F', // Deep navy night
+    card: '#0A3D62', // Rich maritime blue
+    text: '#E8F4F8', // Light blue-white
+    textSecondary: '#90CAF9', // Bright blue-gray
+    primary: '#00B4D8', // Bright cyan blue
+    secondary: '#0096C7', // Ocean blue
+    accent: '#FF6B35', // Coral orange
+    highlight: '#FFA500', // Bright orange/gold
+    border: '#1A5276',
+    success: '#06D6A0',
+    error: '#EF476F',
+    warning: '#FFD166',
   },
 };
 

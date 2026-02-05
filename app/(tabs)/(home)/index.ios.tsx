@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 175,
+    height: 200,
   },
   heroImageStyle: {
     marginTop: -50,
@@ -50,8 +50,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   logo: {
-    width: 180,
-    height: 180,
+    width: 200,
+    height: 200,
     resizeMode: 'contain',
     marginBottom: spacing.sm,
   },
