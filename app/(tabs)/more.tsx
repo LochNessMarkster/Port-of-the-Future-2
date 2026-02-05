@@ -37,6 +37,20 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+      web: {
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+      },
+    }),
   },
   menuIcon: {
     marginRight: spacing.md,
@@ -82,18 +96,6 @@ export default function MoreScreen() {
 
   const isAdmin = user?.role === 'admin';
 
-  // Shadow style for native platforms only
-  const nativeShadowStyle = Platform.OS !== 'web' ? (
-    Platform.OS === 'ios' ? {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-    } : {
-      elevation: 1,
-    }
-  ) : {};
-
   return (
     <>
       <Stack.Screen
@@ -121,7 +123,7 @@ export default function MoreScreen() {
             
             <Link href="/ports" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }, nativeShadowStyle]}
+                style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -148,7 +150,7 @@ export default function MoreScreen() {
 
             <Link href="/sponsors" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }, nativeShadowStyle]}
+                style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -175,7 +177,7 @@ export default function MoreScreen() {
 
             <Link href="/exhibitors" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }, nativeShadowStyle]}
+                style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -209,7 +211,7 @@ export default function MoreScreen() {
             
             <Link href="/schedule" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }, nativeShadowStyle]}
+                style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -236,7 +238,7 @@ export default function MoreScreen() {
 
             <Link href="/networking" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }, nativeShadowStyle]}
+                style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -263,7 +265,7 @@ export default function MoreScreen() {
 
             <Link href="/messages" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }, nativeShadowStyle]}
+                style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -290,7 +292,7 @@ export default function MoreScreen() {
 
             <Link href="/profile" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }, nativeShadowStyle]}
+                style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -325,7 +327,7 @@ export default function MoreScreen() {
               
               <Link href="/admin" asChild>
                 <TouchableOpacity 
-                  style={[styles.menuItem, { backgroundColor: appColors.card }, nativeShadowStyle]}
+                  style={[styles.menuItem, { backgroundColor: appColors.card }]}
                   activeOpacity={0.7}
                 >
                   <View style={styles.menuIcon}>
