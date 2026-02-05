@@ -127,7 +127,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            {/* Logo - Using the conference logo instead of hero image */}
+            {/* Logo - Using the conference logo with rectangular aspect ratio (904x377) */}
             <View style={styles.logoContainer}>
               <Image
                 source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: 360,
-    height: 360,
+    height: 150,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
     resizeMode: 'contain',
