@@ -51,11 +51,11 @@ export function registerSpeakersRoutes(app: App) {
 
         const speakers = data.records.map((record: AirtableRecord<SpeakerFields>) => ({
           id: record.id,
-          name: record.fields.Name || '',
-          title: record.fields.Title || '',
+          name: record.fields['Speaker Name'] || '',
+          title: record.fields['Speaker Title'] || '',
           photo: record.fields.Photo?.[0]?.url || '',
-          topic: record.fields.Topic || '',
-          synopsis: record.fields.Synopsis || '',
+          topic: record.fields['Speaking Topic'] || '',
+          synopsis: record.fields['Synopsis of Speaking topic'] || '',
           bio: record.fields.Bio || '',
         }));
 
@@ -119,11 +119,11 @@ export function registerSpeakersRoutes(app: App) {
 
         const result = {
           id: record.id,
-          name: record.fields.Name || '',
-          title: record.fields.Title || '',
+          name: record.fields['Speaker Name'] || '',
+          title: record.fields['Speaker Title'] || '',
           photo: record.fields.Photo?.[0]?.url || '',
-          topic: record.fields.Topic || '',
-          synopsis: record.fields.Synopsis || '',
+          topic: record.fields['Speaking Topic'] || '',
+          synopsis: record.fields['Synopsis of Speaking topic'] || '',
           bio: record.fields.Bio || '',
         };
 

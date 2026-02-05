@@ -1,11 +1,11 @@
 import axios from 'axios';
 
-const BASE_ID = 'appcNhRl5vEqug2D1';
+const BASE_ID = 'appkKjciinTlnsbkd';
 
 // Initialize axios client with proper API key handling
 function createAirtableClient() {
   // Use environment variable if set, otherwise use default API key for the Port of Future 2026 API
-  const apiKey = process.env.AIRTABLE_API_KEY || 'patZyEbyPVImqOPC9.3f079360e07787946058e636a2e8c6692588f57faa491dc915770953d4c57689';
+  const apiKey = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
   if (!apiKey) {
     throw new Error(
@@ -45,10 +45,11 @@ export interface AirtableListResponse<T> {
 // Table IDs
 export const TABLES = {
   SESSIONS: 'tblHaxjP8sWviBQjD',
-  SPEAKERS: 'tblvDeIT1VDf7Cart',
-  PORTS: 'tblxgPx1eRl9iSX2S',
+  SPEAKERS: 'tblNp1JZk4ARZZZlT',
+  PORTS: 'tblrXosiVXKhJHYLu',
   EXHIBITORS: 'tblTWLUNSEfW0Cvxx',
-  SPONSORS: 'tblyI3hc2dZZu0eQA',
+  SPONSORS: 'tblgWrwRvpdcVG8sB',
+  PARTNERS: 'tblxn3Yie523MallN',
   ATTENDEES: 'tblQhLaWbOSI0t7iX',
   ANNOUNCEMENTS: 'tblGJQ3v4RMIXCP4W',
 };
@@ -63,6 +64,7 @@ function getTableName(tableId: string): string {
     [TABLES.PORTS]: 'Ports',
     [TABLES.EXHIBITORS]: 'Exhibitors',
     [TABLES.SPONSORS]: 'Sponsors',
+    [TABLES.PARTNERS]: 'Partners',
     [TABLES.ATTENDEES]: 'Attendees',
     [TABLES.ANNOUNCEMENTS]: 'Announcements',
   };
@@ -264,19 +266,19 @@ export interface SessionFields {
 }
 
 export interface SpeakerFields {
-  Name: string;
-  Title: string;
+  'Speaker Name': string;
+  'Speaker Title': string;
   Photo: Array<{ url: string; id: string; size: number; type: string }>;
-  Topic: string;
-  Synopsis: string;
+  'Speaking Topic': string;
+  'Synopsis of Speaking topic': string;
   Bio: string;
 }
 
 export interface PortFields {
-  Name: string;
-  Logo: Array<{ url: string; id: string; size: number; type: string }>;
-  Bio: string;
-  Website: string;
+  'Port Name': string;
+  'Logo graphic': Array<{ url: string; id: string; size: number; type: string }>;
+  'Port Bio': string;
+  'Port Link': string;
 }
 
 export interface ExhibitorFields {
@@ -290,12 +292,18 @@ export interface ExhibitorFields {
 }
 
 export interface SponsorFields {
-  Name: string;
-  Logo: Array<{ url: string; id: string; size: number; type: string }>;
-  Tier: string;
-  Intro: string;
-  Bio: string;
-  Website: string;
+  'Sponsor Name': string;
+  LogoGraphic: Array<{ url: string; id: string; size: number; type: string }>;
+  'Sponsor Level': string;
+  'Sponsor Bio': string;
+  CompanyLink: string;
+}
+
+export interface PartnerFields {
+  'Partner Name': string;
+  LogoGraphic: Array<{ url: string; id: string; size: number; type: string }>;
+  PartnerBio: string;
+  'Partner Page Link': string;
 }
 
 export interface AnnouncementFields {

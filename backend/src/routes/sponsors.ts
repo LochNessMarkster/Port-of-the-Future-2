@@ -6,6 +6,7 @@ import {
   TABLES,
   type AirtableRecord,
   type SponsorFields,
+  type PartnerFields,
 } from '../utils/airtable.js';
 
 const TIER_ORDER = {
@@ -38,7 +39,6 @@ export function registerSponsorsRoutes(app: App) {
                 name: { type: 'string' },
                 logo: { type: 'string' },
                 tier: { type: 'string' },
-                intro: { type: 'string' },
                 bio: { type: 'string' },
                 website: { type: 'string' },
               },
@@ -51,31 +51,50 @@ export function registerSponsorsRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return;
 
-      app.logger.info('Fetching all sponsors from Airtable');
+      app.logger.info('Fetching all sponsors and partners from Airtable');
       try {
-        const data = await fetchAirtableRecords<SponsorFields>(TABLES.SPONSORS, {
+        // Fetch sponsors
+        const sponsorsData = await fetchAirtableRecords<SponsorFields>(TABLES.SPONSORS, {
           logger: app.logger,
         });
 
-        let sponsors = data.records.map((record: AirtableRecord<SponsorFields>) => ({
+        // Fetch partners
+        const partnersData = await fetchAirtableRecords<PartnerFields>(TABLES.PARTNERS, {
+          logger: app.logger,
+        });
+
+        // Map sponsors
+        let sponsors = sponsorsData.records.map((record: AirtableRecord<SponsorFields>) => ({
           id: record.id,
-          name: record.fields.Name || '',
-          logo: record.fields.Logo?.[0]?.url || '',
-          tier: record.fields.Tier || '',
-          intro: record.fields.Intro || '',
-          bio: record.fields.Bio || '',
-          website: record.fields.Website || '',
+          name: record.fields['Sponsor Name'] || '',
+          logo: record.fields.LogoGraphic?.[0]?.url || '',
+          tier: record.fields['Sponsor Level'] || '',
+          bio: record.fields['Sponsor Bio'] || '',
+          website: record.fields.CompanyLink || '',
         }));
 
+        // Map partners and set tier to "Partner"
+        const partners = partnersData.records.map((record: AirtableRecord<PartnerFields>) => ({
+          id: record.id,
+          name: record.fields['Partner Name'] || '',
+          logo: record.fields.LogoGraphic?.[0]?.url || '',
+          tier: 'Partner',
+          bio: record.fields.PartnerBio || '',
+          website: record.fields['Partner Page Link'] || '',
+        }));
+
+        // Merge sponsors and partners
+        let allSponsors = [...sponsors, ...partners];
+
         // Sort by tier order
-        sponsors = sponsors.sort((a, b) => {
+        allSponsors = allSponsors.sort((a, b) => {
           const orderA = TIER_ORDER[a.tier as keyof typeof TIER_ORDER] || 999;
           const orderB = TIER_ORDER[b.tier as keyof typeof TIER_ORDER] || 999;
           return orderA - orderB;
         });
 
-        app.logger.info({ count: sponsors.length }, 'Sponsors fetched successfully');
-        return sponsors;
+        app.logger.info({ count: allSponsors.length, sponsors: sponsors.length, partners: partners.length }, 'Sponsors and partners fetched successfully');
+        return allSponsors;
       } catch (error) {
         app.logger.error({ err: error }, 'Failed to fetch sponsors');
         throw error;
@@ -107,7 +126,6 @@ export function registerSponsorsRoutes(app: App) {
               name: { type: 'string' },
               logo: { type: 'string' },
               tier: { type: 'string' },
-              intro: { type: 'string' },
               bio: { type: 'string' },
               website: { type: 'string' },
             },
@@ -123,23 +141,41 @@ export function registerSponsorsRoutes(app: App) {
       app.logger.info({ sponsorId: id }, 'Fetching sponsor details');
 
       try {
-        const record = await fetchAirtableRecord<SponsorFields>(TABLES.SPONSORS, id, app.logger);
+        // Try to fetch from sponsors table first
+        let record = await fetchAirtableRecord<SponsorFields>(TABLES.SPONSORS, id, app.logger);
 
+        // If not found, try partners table
         if (!record) {
-          app.logger.warn({ sponsorId: id }, 'Sponsor not found (permission denied or record not found)');
-          return reply.status(404).send({
-            error: 'Sponsor not found. The Airtable API may not have permission to access this table.',
-          });
+          const partnerRecord = await fetchAirtableRecord<PartnerFields>(TABLES.PARTNERS, id, app.logger);
+
+          if (!partnerRecord) {
+            app.logger.warn({ sponsorId: id }, 'Sponsor not found (permission denied or record not found)');
+            return reply.status(404).send({
+              error: 'Sponsor not found. The Airtable API may not have permission to access this table.',
+            });
+          }
+
+          // Format partner as sponsor
+          const result = {
+            id: partnerRecord.id,
+            name: partnerRecord.fields['Partner Name'] || '',
+            logo: partnerRecord.fields.LogoGraphic?.[0]?.url || '',
+            tier: 'Partner',
+            bio: partnerRecord.fields.PartnerBio || '',
+            website: partnerRecord.fields['Partner Page Link'] || '',
+          };
+
+          app.logger.info({ sponsorId: id }, 'Partner details fetched');
+          return result;
         }
 
         const result = {
           id: record.id,
-          name: record.fields.Name || '',
-          logo: record.fields.Logo?.[0]?.url || '',
-          tier: record.fields.Tier || '',
-          intro: record.fields.Intro || '',
-          bio: record.fields.Bio || '',
-          website: record.fields.Website || '',
+          name: record.fields['Sponsor Name'] || '',
+          logo: record.fields.LogoGraphic?.[0]?.url || '',
+          tier: record.fields['Sponsor Level'] || '',
+          bio: record.fields['Sponsor Bio'] || '',
+          website: record.fields.CompanyLink || '',
         };
 
         app.logger.info({ sponsorId: id }, 'Sponsor details fetched');

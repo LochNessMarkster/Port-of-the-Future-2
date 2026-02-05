@@ -49,10 +49,10 @@ export function registerPortsRoutes(app: App) {
 
         const ports = data.records.map((record: AirtableRecord<PortFields>) => ({
           id: record.id,
-          name: record.fields.Name || '',
-          logo: record.fields.Logo?.[0]?.url || '',
-          bio: record.fields.Bio || '',
-          website: record.fields.Website || '',
+          name: record.fields['Port Name'] || '',
+          logo: record.fields['Logo graphic']?.[0]?.url || '',
+          bio: record.fields['Port Bio'] || '',
+          website: record.fields['Port Link'] || '',
         }));
 
         app.logger.info({ count: ports.length }, 'Ports fetched successfully');
@@ -113,10 +113,10 @@ export function registerPortsRoutes(app: App) {
 
         const result = {
           id: record.id,
-          name: record.fields.Name || '',
-          logo: record.fields.Logo?.[0]?.url || '',
-          bio: record.fields.Bio || '',
-          website: record.fields.Website || '',
+          name: record.fields['Port Name'] || '',
+          logo: record.fields['Logo graphic']?.[0]?.url || '',
+          bio: record.fields['Port Bio'] || '',
+          website: record.fields['Port Link'] || '',
         };
 
         app.logger.info({ portId: id }, 'Port details fetched');
