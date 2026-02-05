@@ -39,22 +39,21 @@ const styles = StyleSheet.create({
   headerBranding: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   backButton: {
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   brandingLogo: {
-    width: 120,
-    height: 120,
+    width: 80,
+    height: 80,
     resizeMode: 'contain',
-    marginRight: spacing.sm,
   },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.md,
   },
   title: {
@@ -275,7 +274,7 @@ export default function AgendaScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding - Logo 3x larger */}
+        {/* Header with Back Button and Branding - Reduced padding */}
         <View style={styles.headerBranding}>
           <TouchableOpacity 
             style={styles.backButton}

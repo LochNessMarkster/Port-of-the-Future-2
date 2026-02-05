@@ -39,44 +39,45 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 175,
-    marginBottom: -50,
+    height: 250,
   },
   heroImageStyle: {
-    marginTop: -50,
+    marginTop: 0,
   },
   heroContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   logo: {
-    width: 180,
-    height: 180,
+    width: 140,
+    height: 140,
     resizeMode: 'contain',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   dateLocationText: {
-    ...typography.h2,
+    ...typography.body,
     color: '#FFFFFF',
     textAlign: 'center',
     fontWeight: '600',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
-    lineHeight: 28,
+    lineHeight: 22,
+    marginBottom: spacing.xs,
   },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? spacing.lg : spacing.md,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
     alignItems: 'center',
   },
-  conferenceDetails: {
-    ...typography.body,
+  welcomeText: {
+    ...typography.h2,
     textAlign: 'center',
-    marginBottom: spacing.xs,
+    fontWeight: '600',
   },
   navigationGrid: {
     paddingHorizontal: spacing.lg,
@@ -219,13 +220,13 @@ export default function HomeScreen() {
           headerShown: false,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <View style={[styles.container, { backgroundColor: appColors.background }]}>
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Image with Gradient Overlay - Frame brought up higher */}
+          {/* Hero Image with Gradient Overlay */}
           <ImageBackground
             source={require('@/assets/images/97923d23-03e6-4821-a00d-7dd935532e6d.jpeg')}
             style={styles.heroContainer}
@@ -250,9 +251,9 @@ export default function HomeScreen() {
             </View>
           </ImageBackground>
 
-          {/* Header Section */}
+          {/* Header Section - Welcome message */}
           <View style={styles.header}>
-            <Text style={[styles.conferenceDetails, { color: appColors.primary, marginTop: spacing.sm }]}>
+            <Text style={[styles.welcomeText, { color: appColors.primary }]}>
               {welcomeText}
             </Text>
           </View>
@@ -270,7 +271,6 @@ export default function HomeScreen() {
                   android_material_icon_name="calendar-today"
                   size={24}
                   color={appColors.primary}
-                  style={styles.navIcon}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Agenda</Text>
               </TouchableOpacity>
@@ -285,7 +285,6 @@ export default function HomeScreen() {
                   android_material_icon_name="group"
                   size={24}
                   color={appColors.secondary}
-                  style={styles.navIcon}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Speakers</Text>
               </TouchableOpacity>
@@ -302,7 +301,6 @@ export default function HomeScreen() {
                   android_material_icon_name="store"
                   size={24}
                   color={appColors.accent}
-                  style={styles.navIcon}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Exhibitors</Text>
               </TouchableOpacity>
@@ -317,7 +315,6 @@ export default function HomeScreen() {
                   android_material_icon_name="star"
                   size={24}
                   color={appColors.highlight}
-                  style={styles.navIcon}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Sponsors</Text>
               </TouchableOpacity>
@@ -334,7 +331,6 @@ export default function HomeScreen() {
                   android_material_icon_name="place"
                   size={24}
                   color={appColors.primary}
-                  style={styles.navIcon}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Ports</Text>
               </TouchableOpacity>
@@ -349,7 +345,6 @@ export default function HomeScreen() {
                   android_material_icon_name="people"
                   size={24}
                   color={appColors.secondary}
-                  style={styles.navIcon}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Networking</Text>
               </TouchableOpacity>
@@ -395,7 +390,7 @@ export default function HomeScreen() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </>
   );
 }

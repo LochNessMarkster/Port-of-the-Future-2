@@ -126,23 +126,25 @@ export default function MoreScreen() {
                 style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
-                <IconSymbol
-                  ios_icon_name="map"
-                  android_material_icon_name="place"
-                  size={24}
-                  color={appColors.primary}
-                  style={styles.menuIcon}
-                />
+                <View style={styles.menuIcon}>
+                  <IconSymbol
+                    ios_icon_name="map"
+                    android_material_icon_name="place"
+                    size={24}
+                    color={appColors.primary}
+                  />
+                </View>
                 <Text style={[styles.menuText, { color: appColors.text }]}>
                   Ports
                 </Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color={appColors.textSecondary}
-                  style={styles.chevron}
-                />
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </View>
               </TouchableOpacity>
             </Link>
 
@@ -151,23 +153,25 @@ export default function MoreScreen() {
                 style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
-                <IconSymbol
-                  ios_icon_name="star"
-                  android_material_icon_name="star"
-                  size={24}
-                  color={appColors.highlight}
-                  style={styles.menuIcon}
-                />
+                <View style={styles.menuIcon}>
+                  <IconSymbol
+                    ios_icon_name="star"
+                    android_material_icon_name="star"
+                    size={24}
+                    color={appColors.highlight}
+                  />
+                </View>
                 <Text style={[styles.menuText, { color: appColors.text }]}>
                   Sponsors
                 </Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color={appColors.textSecondary}
-                  style={styles.chevron}
-                />
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </View>
               </TouchableOpacity>
             </Link>
 
@@ -176,23 +180,25 @@ export default function MoreScreen() {
                 style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
-                <IconSymbol
-                  ios_icon_name="building.2"
-                  android_material_icon_name="store"
-                  size={24}
-                  color={appColors.accent}
-                  style={styles.menuIcon}
-                />
+                <View style={styles.menuIcon}>
+                  <IconSymbol
+                    ios_icon_name="building.2"
+                    android_material_icon_name="store"
+                    size={24}
+                    color={appColors.accent}
+                  />
+                </View>
                 <Text style={[styles.menuText, { color: appColors.text }]}>
                   Exhibitors
                 </Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color={appColors.textSecondary}
-                  style={styles.chevron}
-                />
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </View>
               </TouchableOpacity>
             </Link>
           </View>
@@ -208,23 +214,25 @@ export default function MoreScreen() {
                 style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
-                <IconSymbol
-                  ios_icon_name="bookmark"
-                  android_material_icon_name="bookmark"
-                  size={24}
-                  color={appColors.secondary}
-                  style={styles.menuIcon}
-                />
+                <View style={styles.menuIcon}>
+                  <IconSymbol
+                    ios_icon_name="bookmark"
+                    android_material_icon_name="bookmark"
+                    size={24}
+                    color={appColors.secondary}
+                  />
+                </View>
                 <Text style={[styles.menuText, { color: appColors.text }]}>
                   My Schedule
                 </Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color={appColors.textSecondary}
-                  style={styles.chevron}
-                />
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </View>
               </TouchableOpacity>
             </Link>
 
@@ -233,23 +241,25 @@ export default function MoreScreen() {
                 style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
-                <IconSymbol
-                  ios_icon_name="person.3"
-                  android_material_icon_name="people"
-                  size={24}
-                  color={appColors.accent}
-                  style={styles.menuIcon}
-                />
+                <View style={styles.menuIcon}>
+                  <IconSymbol
+                    ios_icon_name="person.3"
+                    android_material_icon_name="people"
+                    size={24}
+                    color={appColors.accent}
+                  />
+                </View>
                 <Text style={[styles.menuText, { color: appColors.text }]}>
                   Networking
                 </Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color={appColors.textSecondary}
-                  style={styles.chevron}
-                />
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </View>
               </TouchableOpacity>
             </Link>
 
@@ -258,23 +268,25 @@ export default function MoreScreen() {
                 style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
-                <IconSymbol
-                  ios_icon_name="message"
-                  android_material_icon_name="message"
-                  size={24}
-                  color={appColors.secondary}
-                  style={styles.menuIcon}
-                />
+                <View style={styles.menuIcon}>
+                  <IconSymbol
+                    ios_icon_name="message"
+                    android_material_icon_name="message"
+                    size={24}
+                    color={appColors.secondary}
+                  />
+                </View>
                 <Text style={[styles.menuText, { color: appColors.text }]}>
                   Messages
                 </Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color={appColors.textSecondary}
-                  style={styles.chevron}
-                />
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </View>
               </TouchableOpacity>
             </Link>
 
@@ -283,23 +295,25 @@ export default function MoreScreen() {
                 style={[styles.menuItem, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
-                <IconSymbol
-                  ios_icon_name="person"
-                  android_material_icon_name="person"
-                  size={24}
-                  color={appColors.primary}
-                  style={styles.menuIcon}
-                />
+                <View style={styles.menuIcon}>
+                  <IconSymbol
+                    ios_icon_name="person"
+                    android_material_icon_name="person"
+                    size={24}
+                    color={appColors.primary}
+                  />
+                </View>
                 <Text style={[styles.menuText, { color: appColors.text }]}>
                   Profile
                 </Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color={appColors.textSecondary}
-                  style={styles.chevron}
-                />
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </View>
               </TouchableOpacity>
             </Link>
           </View>
@@ -316,23 +330,25 @@ export default function MoreScreen() {
                   style={[styles.menuItem, { backgroundColor: appColors.card }]}
                   activeOpacity={0.7}
                 >
-                  <IconSymbol
-                    ios_icon_name="shield"
-                    android_material_icon_name="admin-panel-settings"
-                    size={24}
-                    color={appColors.error}
-                    style={styles.menuIcon}
-                  />
+                  <View style={styles.menuIcon}>
+                    <IconSymbol
+                      ios_icon_name="shield"
+                      android_material_icon_name="admin-panel-settings"
+                      size={24}
+                      color={appColors.error}
+                    />
+                  </View>
                   <Text style={[styles.menuText, { color: appColors.text }]}>
                     Admin Panel
                   </Text>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={appColors.textSecondary}
-                    style={styles.chevron}
-                  />
+                  <View style={styles.chevron}>
+                    <IconSymbol
+                      ios_icon_name="chevron.right"
+                      android_material_icon_name="chevron-right"
+                      size={20}
+                      color={appColors.textSecondary}
+                    />
+                  </View>
                 </TouchableOpacity>
               </Link>
             </View>

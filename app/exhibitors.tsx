@@ -41,18 +41,17 @@ const styles = StyleSheet.create({
   headerBranding: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   backButton: {
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   brandingLogo: {
-    width: 120,
-    height: 120,
+    width: 80,
+    height: 80,
     resizeMode: 'contain',
-    marginRight: spacing.sm,
   },
   exhibitorCard: {
     borderRadius: borderRadius.md,

@@ -1,31 +1,32 @@
+
 import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 
-// Port of the Future 2026 Theme - Maritime/Professional colors
+// Port of the Future 2026 Theme - Maritime colors (lighter, ocean-inspired)
 export const colors = {
   light: {
-    background: '#F8FAFB',
+    background: '#F0F7FC', // Light ocean blue background
     card: '#FFFFFF',
-    text: '#1A2332',
-    textSecondary: '#5F6B7A',
+    text: '#0A2540', // Deep navy text
+    textSecondary: '#4A6B8A', // Muted blue-gray
     primary: '#0066CC', // Deep ocean blue
     secondary: '#00A3E0', // Bright maritime blue
-    accent: '#FF6B35', // Vibrant orange (port/shipping accent)
-    highlight: '#FFD23F', // Golden yellow
-    border: '#E1E8ED',
+    accent: '#FF8C42', // Warm coral/orange
+    highlight: '#FFB84D', // Golden sand
+    border: '#C5D9E8',
     success: '#10B981',
     error: '#EF4444',
     warning: '#F59E0B',
   },
   dark: {
-    background: '#0F1419',
-    card: '#1A2332',
-    text: '#F8FAFB',
-    textSecondary: '#9CA3AF',
-    primary: '#3B82F6',
-    secondary: '#00A3E0',
-    accent: '#FF6B35',
-    highlight: '#FFD23F',
-    border: '#2D3748',
+    background: '#0A1929', // Deep ocean night
+    card: '#1A2F42', // Dark maritime blue
+    text: '#E3F2FD', // Light blue-white
+    textSecondary: '#90B4CE', // Soft blue-gray
+    primary: '#4A9EFF', // Bright ocean blue
+    secondary: '#00C4FF', // Cyan blue
+    accent: '#FF8C42', // Warm coral
+    highlight: '#FFB84D', // Golden sand
+    border: '#2D4A5E',
     success: '#10B981',
     error: '#EF4444',
     warning: '#F59E0B',
@@ -84,14 +85,14 @@ export const typography = {
 
 // Legacy colors for backward compatibility
 export const legacyColors = {
-  primary: '#162456',
-  secondary: '#193cb8',
+  primary: '#0066CC',
+  secondary: '#00A3E0',
   accent: '#64B5F6',
-  background: '#101824',
-  backgroundAlt: '#162133',
-  text: '#e3e3e3',
-  grey: '#90CAF9',
-  card: '#193cb8',
+  background: '#0A1929',
+  backgroundAlt: '#1A2F42',
+  text: '#E3F2FD',
+  grey: '#90B4CE',
+  card: '#1A2F42',
 };
 
 export const buttonStyles = StyleSheet.create({
