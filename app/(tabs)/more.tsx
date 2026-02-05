@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, useColorScheme, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter, Link } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,6 +81,11 @@ export default function MoreScreen() {
     }
   };
 
+  const handleNavigation = (route: string) => {
+    console.log('MoreScreen - Navigating to:', route);
+    router.push(route);
+  };
+
   const isAdmin = user?.role === 'admin';
   
   const borderColor = colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
@@ -104,270 +109,258 @@ export default function MoreScreen() {
             </Text>
           </View>
 
-          {/* Conference Info */}
           <View style={styles.menuSection}>
             <Text style={[styles.sectionTitle, { color: appColors.text }]}>
               Conference
             </Text>
             
-            <Link href="/ports" asChild>
-              <TouchableOpacity 
-                style={[
-                  styles.menuItem, 
-                  { backgroundColor: appColors.card, borderColor }
-                ]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIcon}>
-                  <IconSymbol
-                    ios_icon_name="map"
-                    android_material_icon_name="place"
-                    size={24}
-                    color={appColors.primary}
-                  />
-                </View>
-                <Text style={[styles.menuText, { color: appColors.text }]}>
-                  Ports
-                </Text>
-                <View style={styles.chevron}>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={appColors.textSecondary}
-                  />
-                </View>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity 
+              style={[
+                styles.menuItem, 
+                { backgroundColor: appColors.card, borderColor }
+              ]}
+              activeOpacity={0.7}
+              onPress={() => handleNavigation('/ports')}
+            >
+              <View style={styles.menuIcon}>
+                <IconSymbol
+                  ios_icon_name="map"
+                  android_material_icon_name="place"
+                  size={24}
+                  color={appColors.primary}
+                />
+              </View>
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                Ports
+              </Text>
+              <View style={styles.chevron}>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
 
-            <Link href="/sponsors" asChild>
-              <TouchableOpacity 
-                style={[
-                  styles.menuItem, 
-                  { backgroundColor: appColors.card, borderColor }
-                ]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIcon}>
-                  <IconSymbol
-                    ios_icon_name="star"
-                    android_material_icon_name="star"
-                    size={24}
-                    color={appColors.highlight}
-                  />
-                </View>
-                <Text style={[styles.menuText, { color: appColors.text }]}>
-                  Sponsors
-                </Text>
-                <View style={styles.chevron}>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={appColors.textSecondary}
-                  />
-                </View>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity 
+              style={[
+                styles.menuItem, 
+                { backgroundColor: appColors.card, borderColor }
+              ]}
+              activeOpacity={0.7}
+              onPress={() => handleNavigation('/sponsors')}
+            >
+              <View style={styles.menuIcon}>
+                <IconSymbol
+                  ios_icon_name="star"
+                  android_material_icon_name="star"
+                  size={24}
+                  color={appColors.highlight}
+                />
+              </View>
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                Sponsors
+              </Text>
+              <View style={styles.chevron}>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
 
-            <Link href="/exhibitors" asChild>
-              <TouchableOpacity 
-                style={[
-                  styles.menuItem, 
-                  { backgroundColor: appColors.card, borderColor }
-                ]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIcon}>
-                  <IconSymbol
-                    ios_icon_name="building.2"
-                    android_material_icon_name="store"
-                    size={24}
-                    color={appColors.accent}
-                  />
-                </View>
-                <Text style={[styles.menuText, { color: appColors.text }]}>
-                  Exhibitors
-                </Text>
-                <View style={styles.chevron}>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={appColors.textSecondary}
-                  />
-                </View>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity 
+              style={[
+                styles.menuItem, 
+                { backgroundColor: appColors.card, borderColor }
+              ]}
+              activeOpacity={0.7}
+              onPress={() => handleNavigation('/exhibitors')}
+            >
+              <View style={styles.menuIcon}>
+                <IconSymbol
+                  ios_icon_name="building.2"
+                  android_material_icon_name="store"
+                  size={24}
+                  color={appColors.accent}
+                />
+              </View>
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                Exhibitors
+              </Text>
+              <View style={styles.chevron}>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
           </View>
 
-          {/* Personal */}
           <View style={styles.menuSection}>
             <Text style={[styles.sectionTitle, { color: appColors.text }]}>
               Personal
             </Text>
             
-            <Link href="/schedule" asChild>
-              <TouchableOpacity 
-                style={[
-                  styles.menuItem, 
-                  { backgroundColor: appColors.card, borderColor }
-                ]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIcon}>
-                  <IconSymbol
-                    ios_icon_name="bookmark"
-                    android_material_icon_name="bookmark"
-                    size={24}
-                    color={appColors.secondary}
-                  />
-                </View>
-                <Text style={[styles.menuText, { color: appColors.text }]}>
-                  My Schedule
-                </Text>
-                <View style={styles.chevron}>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={appColors.textSecondary}
-                  />
-                </View>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity 
+              style={[
+                styles.menuItem, 
+                { backgroundColor: appColors.card, borderColor }
+              ]}
+              activeOpacity={0.7}
+              onPress={() => handleNavigation('/schedule')}
+            >
+              <View style={styles.menuIcon}>
+                <IconSymbol
+                  ios_icon_name="bookmark"
+                  android_material_icon_name="bookmark"
+                  size={24}
+                  color={appColors.secondary}
+                />
+              </View>
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                My Schedule
+              </Text>
+              <View style={styles.chevron}>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
 
-            <Link href="/networking" asChild>
-              <TouchableOpacity 
-                style={[
-                  styles.menuItem, 
-                  { backgroundColor: appColors.card, borderColor }
-                ]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIcon}>
-                  <IconSymbol
-                    ios_icon_name="person.3"
-                    android_material_icon_name="people"
-                    size={24}
-                    color={appColors.accent}
-                  />
-                </View>
-                <Text style={[styles.menuText, { color: appColors.text }]}>
-                  Networking
-                </Text>
-                <View style={styles.chevron}>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={appColors.textSecondary}
-                  />
-                </View>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity 
+              style={[
+                styles.menuItem, 
+                { backgroundColor: appColors.card, borderColor }
+              ]}
+              activeOpacity={0.7}
+              onPress={() => handleNavigation('/networking')}
+            >
+              <View style={styles.menuIcon}>
+                <IconSymbol
+                  ios_icon_name="person.3"
+                  android_material_icon_name="people"
+                  size={24}
+                  color={appColors.accent}
+                />
+              </View>
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                Networking
+              </Text>
+              <View style={styles.chevron}>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
 
-            <Link href="/messages" asChild>
-              <TouchableOpacity 
-                style={[
-                  styles.menuItem, 
-                  { backgroundColor: appColors.card, borderColor }
-                ]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIcon}>
-                  <IconSymbol
-                    ios_icon_name="message"
-                    android_material_icon_name="message"
-                    size={24}
-                    color={appColors.secondary}
-                  />
-                </View>
-                <Text style={[styles.menuText, { color: appColors.text }]}>
-                  Messages
-                </Text>
-                <View style={styles.chevron}>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={appColors.textSecondary}
-                  />
-                </View>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity 
+              style={[
+                styles.menuItem, 
+                { backgroundColor: appColors.card, borderColor }
+              ]}
+              activeOpacity={0.7}
+              onPress={() => handleNavigation('/messages')}
+            >
+              <View style={styles.menuIcon}>
+                <IconSymbol
+                  ios_icon_name="message"
+                  android_material_icon_name="message"
+                  size={24}
+                  color={appColors.secondary}
+                />
+              </View>
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                Messages
+              </Text>
+              <View style={styles.chevron}>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
 
-            <Link href="/profile" asChild>
-              <TouchableOpacity 
-                style={[
-                  styles.menuItem, 
-                  { backgroundColor: appColors.card, borderColor }
-                ]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIcon}>
-                  <IconSymbol
-                    ios_icon_name="person"
-                    android_material_icon_name="person"
-                    size={24}
-                    color={appColors.primary}
-                  />
-                </View>
-                <Text style={[styles.menuText, { color: appColors.text }]}>
-                  Profile
-                </Text>
-                <View style={styles.chevron}>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={appColors.textSecondary}
-                  />
-                </View>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity 
+              style={[
+                styles.menuItem, 
+                { backgroundColor: appColors.card, borderColor }
+              ]}
+              activeOpacity={0.7}
+              onPress={() => handleNavigation('/profile')}
+            >
+              <View style={styles.menuIcon}>
+                <IconSymbol
+                  ios_icon_name="person"
+                  android_material_icon_name="person"
+                  size={24}
+                  color={appColors.primary}
+                />
+              </View>
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                Profile
+              </Text>
+              <View style={styles.chevron}>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
           </View>
 
-          {/* Admin Section */}
           {isAdmin && (
             <View style={styles.menuSection}>
               <Text style={[styles.sectionTitle, { color: appColors.text }]}>
                 Admin
               </Text>
               
-              <Link href="/admin" asChild>
-                <TouchableOpacity 
-                  style={[
-                    styles.menuItem, 
-                    { backgroundColor: appColors.card, borderColor }
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.menuIcon}>
-                    <IconSymbol
-                      ios_icon_name="shield"
-                      android_material_icon_name="admin-panel-settings"
-                      size={24}
-                      color={appColors.error}
-                    />
-                  </View>
-                  <Text style={[styles.menuText, { color: appColors.text }]}>
-                    Admin Panel
-                  </Text>
-                  <View style={styles.chevron}>
-                    <IconSymbol
-                      ios_icon_name="chevron.right"
-                      android_material_icon_name="chevron-right"
-                      size={20}
-                      color={appColors.textSecondary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </Link>
+              <TouchableOpacity 
+                style={[
+                  styles.menuItem, 
+                  { backgroundColor: appColors.card, borderColor }
+                ]}
+                activeOpacity={0.7}
+                onPress={() => handleNavigation('/admin')}
+              >
+                <View style={styles.menuIcon}>
+                  <IconSymbol
+                    ios_icon_name="shield"
+                    android_material_icon_name="admin-panel-settings"
+                    size={24}
+                    color={appColors.error}
+                  />
+                </View>
+                <Text style={[styles.menuText, { color: appColors.text }]}>
+                  Admin Panel
+                </Text>
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </View>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* Sign Out */}
           <TouchableOpacity 
             style={[styles.logoutButton, { backgroundColor: appColors.error }]}
             activeOpacity={0.7}
