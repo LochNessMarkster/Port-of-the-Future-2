@@ -98,7 +98,16 @@ export default function AuthScreen() {
       }
     } catch (error: any) {
       console.error('AuthScreen - Auth error:', error);
-      Alert.alert("Error", error.message || "Authentication failed");
+      const errorMessage = error.message || "Authentication failed. Please try again.";
+      
+      // Show more specific error messages
+      if (errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("password")) {
+        Alert.alert("Login Failed", "Invalid email or password. Please check your credentials and try again.");
+      } else if (errorMessage.toLowerCase().includes("exist")) {
+        Alert.alert("Account Exists", "An account with this email already exists. Please sign in instead.");
+      } else {
+        Alert.alert("Error", errorMessage);
+      }
     } finally {
       setLoading(false);
     }
