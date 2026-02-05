@@ -37,19 +37,17 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-      web: {
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-      },
+    ...(Platform.OS === 'ios' && {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+    }),
+    ...(Platform.OS === 'android' && {
+      elevation: 1,
+    }),
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
     }),
   },
   menuIcon: {
