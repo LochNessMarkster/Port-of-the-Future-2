@@ -89,10 +89,18 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
   },
+  emptyContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
   emptyText: {
     ...typography.body,
     textAlign: 'center',
-    padding: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  emptySubtext: {
+    ...typography.bodySmall,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -159,6 +167,17 @@ const styles = StyleSheet.create({
     right: spacing.md,
     zIndex: 1,
   },
+  retryButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  retryButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
 });
 
 export default function ExhibitorsScreen() {
@@ -167,7 +186,10 @@ export default function ExhibitorsScreen() {
   const router = useRouter();
   const [exhibitors, setExhibitors] = useState<Exhibitor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedExhibitor, setSelectedExhibitor] = useState<Exhibitor | null>(null);
+
+  console.log('ExhibitorsScreen - Rendered');
 
   useEffect(() => {
     loadExhibitors();
@@ -176,11 +198,17 @@ export default function ExhibitorsScreen() {
   const loadExhibitors = async () => {
     try {
       setLoading(true);
+      setError(null);
+      console.log('ExhibitorsScreen - Fetching exhibitors from /api/exhibitors');
       const data = await apiGet<Exhibitor[]>('/api/exhibitors');
       setExhibitors(data);
-      console.log('ExhibitorsScreen - Loaded exhibitors:', data.length);
-    } catch (error) {
-      console.error('ExhibitorsScreen - Error loading exhibitors:', error);
+      console.log('ExhibitorsScreen - Loaded exhibitors:', data.length, 'exhibitors');
+      if (data.length > 0) {
+        console.log('ExhibitorsScreen - First exhibitor:', data[0]);
+      }
+    } catch (err) {
+      console.error('ExhibitorsScreen - Error loading exhibitors:', err);
+      setError('Unable to load exhibitors. Please try again later.');
       setExhibitors([]);
     } finally {
       setLoading(false);
@@ -189,13 +217,16 @@ export default function ExhibitorsScreen() {
 
   const openWebsite = (url: string) => {
     if (url) {
-      Linking.openURL(url).catch(err => console.error('Error opening URL:', err));
+      console.log('ExhibitorsScreen - Opening website:', url);
+      Linking.openURL(url).catch(err => console.error('ExhibitorsScreen - Error opening URL:', err));
     }
   };
 
   const sendEmail = (email: string) => {
     if (email) {
-      Linking.openURL(`mailto:${email}`).catch(err => console.error('Error opening email:', err));
+      const mailtoUrl = `mailto:${email}`;
+      console.log('ExhibitorsScreen - Opening email:', mailtoUrl);
+      Linking.openURL(mailtoUrl).catch(err => console.error('ExhibitorsScreen - Error opening email:', err));
     }
   };
 
@@ -207,11 +238,14 @@ export default function ExhibitorsScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding - Logo 3x larger */}
+        {/* Header with Back Button and Branding */}
         <View style={styles.headerBranding}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => {
+              console.log('ExhibitorsScreen - Back button pressed');
+              router.back();
+            }}
             activeOpacity={0.7}
           >
             <IconSymbol
@@ -235,17 +269,57 @@ export default function ExhibitorsScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
+              <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+                Loading exhibitors...
+              </Text>
+            </View>
+          ) : error ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle"
+                android_material_icon_name="warning"
+                size={48}
+                color={appColors.error}
+              />
+              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                {error}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  console.log('ExhibitorsScreen - Retry button pressed');
+                  loadExhibitors();
+                }}
+                style={[styles.retryButton, { backgroundColor: appColors.primary }]}
+              >
+                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>
+                  Retry
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : exhibitors.length === 0 ? (
-            <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
-              No exhibitors available yet
-            </Text>
+            <View style={styles.emptyContainer}>
+              <IconSymbol
+                ios_icon_name="building.2"
+                android_material_icon_name="store"
+                size={48}
+                color={appColors.textSecondary}
+              />
+              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                No exhibitors available
+              </Text>
+              <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
+                Check back later for updates
+              </Text>
+            </View>
           ) : (
             exhibitors.map((exhibitor) => (
               <TouchableOpacity
                 key={exhibitor.id}
                 style={[styles.exhibitorCard, { backgroundColor: appColors.card }]}
-                onPress={() => setSelectedExhibitor(exhibitor)}
+                onPress={() => {
+                  console.log('ExhibitorsScreen - Exhibitor card pressed:', exhibitor.name);
+                  setSelectedExhibitor(exhibitor);
+                }}
                 activeOpacity={0.7}
               >
                 <Image

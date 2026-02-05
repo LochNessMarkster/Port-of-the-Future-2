@@ -122,10 +122,18 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
   },
+  emptyContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
   emptyText: {
     ...typography.body,
     textAlign: 'center',
-    padding: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  emptySubtext: {
+    ...typography.bodySmall,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -188,6 +196,7 @@ export default function AgendaScreen() {
   const [selectedDay, setSelectedDay] = useState<'24' | '25'>('24');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [bookmarkedSessions, setBookmarkedSessions] = useState<Set<string>>(new Set());
   const [bookmarkLoading, setBookmarkLoading] = useState<string | null>(null);
@@ -202,11 +211,17 @@ export default function AgendaScreen() {
   const loadSessions = async () => {
     try {
       setLoading(true);
+      setError(null);
+      console.log('AgendaScreen - Fetching sessions from /api/sessions');
       const data = await apiGet<Session[]>('/api/sessions');
       setSessions(data);
-      console.log('AgendaScreen - Loaded sessions:', data.length);
-    } catch (error) {
-      console.error('AgendaScreen - Error loading sessions:', error);
+      console.log('AgendaScreen - Loaded sessions:', data.length, 'sessions');
+      if (data.length > 0) {
+        console.log('AgendaScreen - First session:', data[0]);
+      }
+    } catch (err) {
+      console.error('AgendaScreen - Error loading sessions:', err);
+      setError('Unable to load sessions. Please try again later.');
       setSessions([]);
     } finally {
       setLoading(false);
@@ -215,11 +230,12 @@ export default function AgendaScreen() {
 
   const loadBookmarkedSessions = async () => {
     try {
+      console.log('AgendaScreen - Fetching bookmarked sessions from /api/schedule');
       const data = await apiGet<Array<{ sessionId: string }>>('/api/schedule');
       setBookmarkedSessions(new Set(data.map(item => item.sessionId)));
       console.log('AgendaScreen - Loaded bookmarked sessions:', data.length);
-    } catch (error) {
-      console.error('AgendaScreen - Error loading bookmarked sessions:', error);
+    } catch (err) {
+      console.error('AgendaScreen - Error loading bookmarked sessions:', err);
     }
   };
 
@@ -229,20 +245,22 @@ export default function AgendaScreen() {
     
     try {
       if (isBookmarked) {
+        console.log('AgendaScreen - Removing bookmark for session:', sessionId);
         await authenticatedDelete(`/api/schedule/${sessionId}`);
         setBookmarkedSessions(prev => {
           const next = new Set(prev);
           next.delete(sessionId);
           return next;
         });
-        console.log('AgendaScreen - Removed bookmark:', sessionId);
+        console.log('AgendaScreen - Bookmark removed successfully');
       } else {
+        console.log('AgendaScreen - Adding bookmark for session:', sessionId);
         await authenticatedPost('/api/schedule', { sessionId });
         setBookmarkedSessions(prev => new Set(prev).add(sessionId));
-        console.log('AgendaScreen - Added bookmark:', sessionId);
+        console.log('AgendaScreen - Bookmark added successfully');
       }
-    } catch (error) {
-      console.error('AgendaScreen - Error toggling bookmark:', error);
+    } catch (err) {
+      console.error('AgendaScreen - Error toggling bookmark:', err);
     } finally {
       setBookmarkLoading(null);
     }
@@ -274,11 +292,14 @@ export default function AgendaScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding - Reduced padding */}
+        {/* Header with Back Button and Branding */}
         <View style={styles.headerBranding}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => {
+              console.log('AgendaScreen - Back button pressed');
+              router.back();
+            }}
             activeOpacity={0.7}
           >
             <IconSymbol
@@ -307,7 +328,10 @@ export default function AgendaScreen() {
               styles.tab,
               { backgroundColor: selectedDay === '24' ? appColors.primary : appColors.card }
             ]}
-            onPress={() => setSelectedDay('24')}
+            onPress={() => {
+              console.log('AgendaScreen - Switched to March 24');
+              setSelectedDay('24');
+            }}
             activeOpacity={0.7}
           >
             <Text style={[
@@ -323,7 +347,10 @@ export default function AgendaScreen() {
               styles.tab,
               { backgroundColor: selectedDay === '25' ? appColors.primary : appColors.card }
             ]}
-            onPress={() => setSelectedDay('25')}
+            onPress={() => {
+              console.log('AgendaScreen - Switched to March 25');
+              setSelectedDay('25');
+            }}
             activeOpacity={0.7}
           >
             <Text style={[
@@ -345,11 +372,48 @@ export default function AgendaScreen() {
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={appColors.primary} />
+                <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+                  Loading sessions...
+                </Text>
+              </View>
+            ) : error ? (
+              <View style={styles.emptyContainer}>
+                <IconSymbol
+                  ios_icon_name="exclamationmark.triangle"
+                  android_material_icon_name="warning"
+                  size={48}
+                  color={appColors.error}
+                />
+                <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                  {error}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    console.log('AgendaScreen - Retry button pressed');
+                    loadSessions();
+                  }}
+                  style={[styles.tab, { backgroundColor: appColors.primary, marginTop: spacing.md }]}
+                >
+                  <Text style={[styles.tabText, { color: '#FFFFFF' }]}>
+                    Retry
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : filteredSessions.length === 0 ? (
-              <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
-                No sessions scheduled for this day
-              </Text>
+              <View style={styles.emptyContainer}>
+                <IconSymbol
+                  ios_icon_name="calendar"
+                  android_material_icon_name="event"
+                  size={48}
+                  color={appColors.textSecondary}
+                />
+                <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                  No sessions scheduled
+                </Text>
+                <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
+                  Check back later for updates
+                </Text>
+              </View>
             ) : (
               filteredSessions.map((session) => {
                 const isBookmarked = bookmarkedSessions.has(session.id);
@@ -359,7 +423,10 @@ export default function AgendaScreen() {
                   <TouchableOpacity
                     key={session.id}
                     style={[styles.sessionCard, { backgroundColor: appColors.card }]}
-                    onPress={() => setSelectedSession(session)}
+                    onPress={() => {
+                      console.log('AgendaScreen - Session card pressed:', session.title);
+                      setSelectedSession(session);
+                    }}
                     activeOpacity={0.7}
                   >
                     <View style={styles.sessionHeader}>
