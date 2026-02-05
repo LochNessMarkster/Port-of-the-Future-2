@@ -50,20 +50,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: 180,
+    height: 180,
     resizeMode: 'contain',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  dateLocationText: {
-    ...typography.h2,
+  dateLocationContainer: {
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  dateText: {
+    ...typography.body,
     color: '#FFFFFF',
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 16,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
-    lineHeight: 28,
+    lineHeight: 20,
+  },
+  locationText: {
+    ...typography.body,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontWeight: '700',
+    fontSize: 16,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    lineHeight: 20,
   },
   header: {
     paddingHorizontal: spacing.lg,
@@ -191,6 +207,8 @@ export default function HomeScreen() {
 
   const userName = user?.name || 'Guest';
   const welcomeText = `Welcome, ${userName}!`;
+  const dateText = 'March 24-25, 2026';
+  const locationText = 'Houston, Texas';
 
   return (
     <>
@@ -221,12 +239,10 @@ export default function HomeScreen() {
                 source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
                 style={styles.logo}
               />
-              <Text style={styles.dateLocationText}>
-                March 24-25, 2026
-              </Text>
-              <Text style={styles.dateLocationText}>
-                Houston, Texas
-              </Text>
+              <View style={styles.dateLocationContainer}>
+                <Text style={styles.dateText}>{dateText}</Text>
+                <Text style={styles.locationText}>{locationText}</Text>
+              </View>
             </View>
           </ImageBackground>
 
