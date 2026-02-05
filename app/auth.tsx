@@ -118,10 +118,10 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            {/* Logo */}
+            {/* Logo - Using the conference logo instead of hero image */}
             <View style={styles.logoContainer}>
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=200' }}
+                source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
                 style={styles.logo}
               />
               <Text style={[styles.appTitle, { color: appColors.text }]}>
@@ -317,10 +317,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 120,
+    height: 120,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
+    resizeMode: 'contain',
   },
   appTitle: {
     ...typography.h2,
