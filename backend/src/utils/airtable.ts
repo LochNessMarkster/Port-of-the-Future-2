@@ -7,7 +7,16 @@ const PRIMARY_API_KEY = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a
 const SECONDARY_API_KEY = 'patZyEbyPVImqOPC9.3f079360e07787946058e636a2e8c6692588f57faa491dc915770953d4c57689';
 
 // Table IDs that use secondary API key
-const SECONDARY_API_KEY_TABLES = new Set(['tblHaxjP8sWviBQjD', 'tblTWLUNSEfW0Cvxx']); // Sessions, Exhibitors
+const SECONDARY_API_KEY_TABLES = new Set([
+  'tblHaxjP8sWviBQjD', // Sessions
+  'tblTWLUNSEfW0Cvxx', // Exhibitors
+  'tblNp1JZk4ARZZZlT', // Speakers
+  'tblrXosiVXKhJHYLu', // Ports
+  'tblgWrwRvpdcVG8sB', // Sponsors
+  'tblxn3Yie523MallN', // Partners
+  'tblQhLaWbOSI0t7iX', // Attendees
+  'tblGJQ3v4RMIXCP4W'  // Announcements
+]);
 
 /**
  * Determine which API key to use based on table ID
