@@ -24,7 +24,7 @@ interface Sponsor {
   name: string;
   logo: string;
   tier: string;
-  intro: string;
+  intro?: string;
   bio: string;
   website: string;
 }
@@ -72,8 +72,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sponsorLogo: {
-    width: 80,
-    height: 80,
+    width: 320,
+    height: 160,
     borderRadius: borderRadius.sm,
     marginRight: spacing.md,
   },
@@ -113,8 +113,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   modalLogo: {
-    width: 120,
-    height: 120,
+    width: 480,
+    height: 240,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
   },
@@ -229,7 +229,7 @@ export default function SponsorsScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding - Reduced padding */}
+        {/* Header with Back Button and Branding */}
         <View style={styles.headerBranding}>
           <TouchableOpacity 
             style={styles.backButton}
@@ -283,13 +283,14 @@ export default function SponsorsScreen() {
                         source={{ uri: sponsor.logo }}
                         style={styles.sponsorLogo}
                         defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                        resizeMode="contain"
                       />
                       <View style={styles.sponsorInfo}>
                         <Text style={[styles.sponsorName, { color: appColors.text }]}>
                           {sponsor.name}
                         </Text>
                         <Text style={[styles.sponsorIntro, { color: appColors.textSecondary }]} numberOfLines={2}>
-                          {sponsor.intro}
+                          {sponsor.intro || sponsor.bio}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -333,6 +334,7 @@ export default function SponsorsScreen() {
                     source={{ uri: selectedSponsor?.logo }}
                     style={styles.modalLogo}
                     defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    resizeMode="contain"
                   />
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {selectedSponsor?.name}

@@ -77,9 +77,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   speakerPhoto: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 200,
+    height: 150,
+    borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
   },
   speakerName: {
@@ -123,9 +123,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   modalPhoto: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 240,
+    height: 180,
+    borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
   },
   modalName: {
@@ -193,7 +193,7 @@ export default function SpeakersScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding - Logo 3x larger */}
+        {/* Header with Back Button and Branding */}
         <View style={styles.headerBranding}>
           <TouchableOpacity 
             style={styles.backButton}
@@ -245,6 +245,7 @@ export default function SpeakersScreen() {
                     source={{ uri: speaker.photo }}
                     style={styles.speakerPhoto}
                     defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    resizeMode="cover"
                   />
                   <Text style={[styles.speakerName, { color: appColors.text }]}>
                     {speaker.name}
@@ -291,6 +292,7 @@ export default function SpeakersScreen() {
                     source={{ uri: selectedSpeaker?.photo }}
                     style={styles.modalPhoto}
                     defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    resizeMode="cover"
                   />
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {selectedSpeaker?.name}

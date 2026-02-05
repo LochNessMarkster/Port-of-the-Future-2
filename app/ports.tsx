@@ -67,8 +67,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   portLogo: {
-    width: 100,
-    height: 100,
+    width: 400,
+    height: 200,
     borderRadius: borderRadius.sm,
     marginBottom: spacing.sm,
   },
@@ -102,8 +102,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   modalLogo: {
-    width: 120,
-    height: 120,
+    width: 480,
+    height: 240,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
   },
@@ -184,7 +184,7 @@ export default function PortsScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding - Logo 3x larger */}
+        {/* Header with Back Button and Branding */}
         <View style={styles.headerBranding}>
           <TouchableOpacity 
             style={styles.backButton}
@@ -230,6 +230,7 @@ export default function PortsScreen() {
                     source={{ uri: port.logo }}
                     style={styles.portLogo}
                     defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    resizeMode="contain"
                   />
                   <Text style={[styles.portName, { color: appColors.text }]} numberOfLines={2}>
                     {port.name}
@@ -273,6 +274,7 @@ export default function PortsScreen() {
                     source={{ uri: selectedPort?.logo }}
                     style={styles.modalLogo}
                     defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    resizeMode="contain"
                   />
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {selectedPort?.name}
