@@ -64,12 +64,12 @@ export function registerScheduleRoutes(app: App) {
               return {
                 id: schedule.id,
                 sessionId: schedule.sessionId,
-                title: record.fields.Title || '',
-                speaker: record.fields.Speaker?.[0] || '',
-                room: record.fields.Room || '',
-                type: record.fields.Type || '',
+                title: record.fields['Session Title'] || '',
+                speaker: record.fields['Speaker Names'] || '',
+                room: record.fields.Location || '',
+                type: record.fields['Type/Track'] || '',
                 date: record.fields.Date || '',
-                time: record.fields.Time || '',
+                time: record.fields['Start Time'] || '',
                 createdAt: schedule.createdAt.toISOString(),
               };
             } catch {

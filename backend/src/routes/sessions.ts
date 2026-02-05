@@ -64,13 +64,13 @@ export function registerSessionsRoutes(app: App) {
 
         const sessions = data.records.map((record: AirtableRecord<SessionFields>) => ({
           id: record.id,
-          title: record.fields.Title || '',
-          speaker: record.fields.Speaker?.[0] || '',
-          room: record.fields.Room || '',
-          type: record.fields.Type || '',
+          title: record.fields['Session Title'] || '',
+          speaker: record.fields['Speaker Names'] || '',
+          room: record.fields.Location || '',
+          type: record.fields['Type/Track'] || '',
           date: record.fields.Date || '',
-          time: record.fields.Time || '',
-          description: record.fields.Description || '',
+          time: record.fields['Start Time'] || '',
+          description: record.fields['Session Description'] || '',
         }));
 
         app.logger.info({ count: sessions.length }, 'Sessions fetched successfully');
@@ -144,13 +144,13 @@ export function registerSessionsRoutes(app: App) {
 
         const result = {
           id: record.id,
-          title: record.fields.Title || '',
-          speaker: record.fields.Speaker?.[0] || '',
-          room: record.fields.Room || '',
-          type: record.fields.Type || '',
+          title: record.fields['Session Title'] || '',
+          speaker: record.fields['Speaker Names'] || '',
+          room: record.fields.Location || '',
+          type: record.fields['Type/Track'] || '',
           date: record.fields.Date || '',
-          time: record.fields.Time || '',
-          description: record.fields.Description || '',
+          time: record.fields['Start Time'] || '',
+          description: record.fields['Session Description'] || '',
         };
 
         app.logger.info({ sessionId: id }, 'Session details fetched');
