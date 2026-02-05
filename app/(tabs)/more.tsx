@@ -37,17 +37,19 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
-    } : Platform.OS === 'ios' ? {
+  },
+  menuItemShadow: Platform.select({
+    ios: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05,
       shadowRadius: 2,
-    } : {
+    },
+    android: {
       elevation: 1,
-    }),
-  },
+    },
+    default: {},
+  }),
   menuIcon: {
     marginRight: spacing.md,
   },
@@ -119,7 +121,7 @@ export default function MoreScreen() {
             
             <Link href="/ports" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }]}
+                style={[styles.menuItem, styles.menuItemShadow, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -146,7 +148,7 @@ export default function MoreScreen() {
 
             <Link href="/sponsors" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }]}
+                style={[styles.menuItem, styles.menuItemShadow, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -173,7 +175,7 @@ export default function MoreScreen() {
 
             <Link href="/exhibitors" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }]}
+                style={[styles.menuItem, styles.menuItemShadow, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -207,7 +209,7 @@ export default function MoreScreen() {
             
             <Link href="/schedule" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }]}
+                style={[styles.menuItem, styles.menuItemShadow, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -234,7 +236,7 @@ export default function MoreScreen() {
 
             <Link href="/networking" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }]}
+                style={[styles.menuItem, styles.menuItemShadow, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -261,7 +263,7 @@ export default function MoreScreen() {
 
             <Link href="/messages" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }]}
+                style={[styles.menuItem, styles.menuItemShadow, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -288,7 +290,7 @@ export default function MoreScreen() {
 
             <Link href="/profile" asChild>
               <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: appColors.card }]}
+                style={[styles.menuItem, styles.menuItemShadow, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIcon}>
@@ -323,7 +325,7 @@ export default function MoreScreen() {
               
               <Link href="/admin" asChild>
                 <TouchableOpacity 
-                  style={[styles.menuItem, { backgroundColor: appColors.card }]}
+                  style={[styles.menuItem, styles.menuItemShadow, { backgroundColor: appColors.card }]}
                   activeOpacity={0.7}
                 >
                   <View style={styles.menuIcon}>
