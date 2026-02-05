@@ -2,15 +2,26 @@ import axios from 'axios';
 
 const BASE_ID = 'appcNhRl5vEqug2D1';
 
-// Initialize axios client with proper API key handling
-function createAirtableClient() {
-  // Use environment variable if set, otherwise use default API key for the Port of Future 2026 API
-  const apiKey = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
+// API Keys
+const PRIMARY_API_KEY = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
+const SECONDARY_API_KEY = 'patZyEbyPVImqOPC9.3f079360e07787946058e636a2e8c6692588f57faa491dc915770953d4c57689';
 
+// Table IDs that use secondary API key
+const SECONDARY_API_KEY_TABLES = new Set(['tblHaxjP8sWviBQjD', 'tblTWLUNSEfW0Cvxx']); // Sessions, Exhibitors
+
+/**
+ * Determine which API key to use based on table ID
+ */
+function getApiKeyForTable(tableId: string): string {
+  return SECONDARY_API_KEY_TABLES.has(tableId) ? SECONDARY_API_KEY : PRIMARY_API_KEY;
+}
+
+/**
+ * Initialize axios client with proper API key handling
+ */
+function createAirtableClient(apiKey: string) {
   if (!apiKey) {
-    throw new Error(
-      'AIRTABLE_API_KEY is required. Please set the environment variable or ensure the default API key is configured.'
-    );
+    throw new Error('AIRTABLE_API_KEY is required.');
   }
 
   return axios.create({
@@ -22,13 +33,12 @@ function createAirtableClient() {
   });
 }
 
-let airtableClient: ReturnType<typeof createAirtableClient> | null = null;
-
-function getAirtableClient() {
-  if (!airtableClient) {
-    airtableClient = createAirtableClient();
-  }
-  return airtableClient;
+/**
+ * Get the appropriate Airtable client for a given table
+ */
+function getAirtableClient(tableId: string) {
+  const apiKey = getApiKeyForTable(tableId);
+  return createAirtableClient(apiKey);
 }
 
 export interface AirtableRecord<T> {
@@ -83,7 +93,7 @@ export async function fetchAirtableRecords<T>(
   if (options?.offset) params.offset = options.offset;
   if (options?.fields) params.fields = options.fields;
 
-  const client = getAirtableClient();
+  const client = getAirtableClient(tableId);
 
   try {
     const response = await client.get<AirtableListResponse<T>>(
@@ -128,7 +138,7 @@ export async function fetchAirtableRecord<T>(
   recordId: string,
   logger?: any
 ): Promise<AirtableRecord<T> | null> {
-  const client = getAirtableClient();
+  const client = getAirtableClient(tableId);
 
   try {
     const response = await client.get<AirtableRecord<T>>(
@@ -172,7 +182,7 @@ export async function createAirtableRecord<T>(
   fields: T,
   logger?: any
 ): Promise<AirtableRecord<T>> {
-  const client = getAirtableClient();
+  const client = getAirtableClient(tableId);
 
   try {
     const response = await client.post<{ records: AirtableRecord<T>[] }>(
@@ -204,7 +214,7 @@ export async function updateAirtableRecord<T>(
   fields: Partial<T>,
   logger?: any
 ): Promise<AirtableRecord<T>> {
-  const client = getAirtableClient();
+  const client = getAirtableClient(tableId);
 
   try {
     const response = await client.patch<{ records: AirtableRecord<T>[] }>(
@@ -235,7 +245,7 @@ export async function deleteAirtableRecord(
   recordId: string,
   logger?: any
 ): Promise<void> {
-  const client = getAirtableClient();
+  const client = getAirtableClient(tableId);
 
   try {
     await client.delete(`/${tableId}/${recordId}`);
