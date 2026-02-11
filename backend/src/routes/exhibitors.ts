@@ -50,16 +50,38 @@ export function registerExhibitorsRoutes(app: App) {
           logger: app.logger,
         });
 
-        const exhibitors = data.records.map((record: AirtableRecord<ExhibitorFields>) => ({
-          id: record.id,
-          name: record.fields.Name || '',
-          description: record.fields.Description || record.fields.Bio || '',
-          logoUrl: record.fields.Logo?.[0]?.url || '',
-          phone: record.fields.Phone || '',
-          companyUrl: record.fields['Company URL'] || record.fields.Website || '',
-          linkedIn: record.fields.LinkedIn || '',
-          boothNumber: record.fields['Booth Number'] || record.fields.BoothNumber || '',
-        }));
+        // Log first record's field names for debugging
+        if (data.records.length > 0) {
+          app.logger.info(
+            { fieldNames: Object.keys(data.records[0]?.fields || {}) },
+            'Available field names in first exhibitor record'
+          );
+          app.logger.debug(
+            { firstRecordRaw: JSON.stringify(data.records[0], null, 2) },
+            'First exhibitor raw record from Airtable'
+          );
+        }
+
+        const exhibitors = data.records.map((record: AirtableRecord<ExhibitorFields>) => {
+          // Try multiple company URL field name variations
+          const companyUrl =
+            (record.fields as any)['Company URL'] ||
+            (record.fields as any).CompanyURL ||
+            (record.fields as any)['Company Website'] ||
+            record.fields.Website ||
+            '';
+
+          return {
+            id: record.id,
+            name: record.fields.Name || '',
+            description: record.fields.Description || record.fields.Bio || '',
+            logoUrl: record.fields.Logo?.[0]?.url || '',
+            phone: record.fields.Phone || '',
+            companyUrl,
+            linkedIn: record.fields.LinkedIn || '',
+            boothNumber: record.fields['Booth Number'] || record.fields.BoothNumber || '',
+          };
+        });
 
         app.logger.info({ count: exhibitors.length }, 'Exhibitors fetched successfully');
         return exhibitors;
@@ -120,13 +142,31 @@ export function registerExhibitorsRoutes(app: App) {
           });
         }
 
+        // Log field names for debugging
+        app.logger.info(
+          { fieldNames: Object.keys(record?.fields || {}) },
+          'Available field names in exhibitor record'
+        );
+        app.logger.debug(
+          { exhibitorRaw: JSON.stringify(record, null, 2) },
+          'Exhibitor raw record from Airtable'
+        );
+
+        // Try multiple company URL field name variations
+        const companyUrl =
+          (record.fields as any)['Company URL'] ||
+          (record.fields as any).CompanyURL ||
+          (record.fields as any)['Company Website'] ||
+          record.fields.Website ||
+          '';
+
         const result = {
           id: record.id,
           name: record.fields.Name || '',
           description: record.fields.Description || record.fields.Bio || '',
           logoUrl: record.fields.Logo?.[0]?.url || '',
           phone: record.fields.Phone || '',
-          companyUrl: record.fields['Company URL'] || record.fields.Website || '',
+          companyUrl,
           linkedIn: record.fields.LinkedIn || '',
           boothNumber: record.fields['Booth Number'] || record.fields.BoothNumber || '',
         };
