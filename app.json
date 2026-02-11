@@ -4,11 +4,11 @@
     "slug": "Port of the Future Conference",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/914b4040-3525-4b66-9cb8-88293e02f44c.png",
+    "icon": "./assets/images/POF-ICON.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/8064f187-dc54-4a06-b6b2-1c289575b8dd.png",
+      "image": "./assets/images/POF-ICON.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,7 +21,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/914b4040-3525-4b66-9cb8-88293e02f44c.png",
+        "foregroundImage": "./assets/images/POF-ICON.png",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
