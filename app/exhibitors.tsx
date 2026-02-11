@@ -22,12 +22,12 @@ import { apiGet } from '@/utils/api';
 interface Exhibitor {
   id: string;
   name: string;
-  logo: string;
+  description: string;
+  logoUrl: string;
+  phone: string;
+  companyUrl: string;
+  linkedIn: string;
   boothNumber: string;
-  bio: string;
-  contactName: string;
-  contactEmail: string;
-  website: string;
 }
 
 const styles = StyleSheet.create({
@@ -222,11 +222,18 @@ export default function ExhibitorsScreen() {
     }
   };
 
-  const sendEmail = (email: string) => {
-    if (email) {
-      const mailtoUrl = `mailto:${email}`;
-      console.log('ExhibitorsScreen - Opening email:', mailtoUrl);
-      Linking.openURL(mailtoUrl).catch(err => console.error('ExhibitorsScreen - Error opening email:', err));
+  const openPhone = (phone: string) => {
+    if (phone) {
+      const telUrl = `tel:${phone}`;
+      console.log('ExhibitorsScreen - Opening phone:', telUrl);
+      Linking.openURL(telUrl).catch(err => console.error('ExhibitorsScreen - Error opening phone:', err));
+    }
+  };
+
+  const openLinkedIn = (linkedIn: string) => {
+    if (linkedIn) {
+      console.log('ExhibitorsScreen - Opening LinkedIn:', linkedIn);
+      Linking.openURL(linkedIn).catch(err => console.error('ExhibitorsScreen - Error opening LinkedIn:', err));
     }
   };
 
@@ -238,7 +245,6 @@ export default function ExhibitorsScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding */}
         <View style={styles.headerBranding}>
           <TouchableOpacity 
             style={styles.backButton}
@@ -322,31 +328,40 @@ export default function ExhibitorsScreen() {
                 }}
                 activeOpacity={0.7}
               >
-                <Image
-                  source={{ uri: exhibitor.logo }}
-                  style={styles.exhibitorLogo}
-                  defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                />
+                {exhibitor.logoUrl ? (
+                  <Image
+                    source={{ uri: exhibitor.logoUrl }}
+                    style={styles.exhibitorLogo}
+                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                  />
+                ) : (
+                  <View style={[styles.exhibitorLogo, { backgroundColor: appColors.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
+                    <Text style={[typography.h2, { color: appColors.primary }]}>
+                      {exhibitor.name.charAt(0)}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.exhibitorInfo}>
                   <Text style={[styles.exhibitorName, { color: appColors.text }]}>
                     {exhibitor.name}
                   </Text>
-                  <Text style={[
-                    styles.exhibitorBooth,
-                    { 
-                      backgroundColor: appColors.primary + '20',
-                      color: appColors.primary
-                    }
-                  ]}>
-                    Booth {exhibitor.boothNumber}
-                  </Text>
+                  {exhibitor.boothNumber ? (
+                    <Text style={[
+                      styles.exhibitorBooth,
+                      { 
+                        backgroundColor: appColors.primary + '20',
+                        color: appColors.primary
+                      }
+                    ]}>
+                      Booth {exhibitor.boothNumber}
+                    </Text>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             ))
           )}
         </ScrollView>
 
-        {/* Exhibitor Detail Modal */}
         <Modal
           visible={selectedExhibitor !== null}
           transparent
@@ -375,67 +390,68 @@ export default function ExhibitorsScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <Image
-                    source={{ uri: selectedExhibitor?.logo }}
-                    style={styles.modalLogo}
-                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                  />
+                  {selectedExhibitor?.logoUrl ? (
+                    <Image
+                      source={{ uri: selectedExhibitor.logoUrl }}
+                      style={styles.modalLogo}
+                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                    />
+                  ) : (
+                    <View style={[styles.modalLogo, { backgroundColor: appColors.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Text style={[typography.h1, { color: appColors.primary }]}>
+                        {selectedExhibitor?.name.charAt(0)}
+                      </Text>
+                    </View>
+                  )}
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {selectedExhibitor?.name}
                   </Text>
-                  <Text style={[
-                    styles.modalBooth,
-                    { 
-                      backgroundColor: appColors.primary + '20',
-                      color: appColors.primary
-                    }
-                  ]}>
-                    Booth {selectedExhibitor?.boothNumber}
-                  </Text>
+                  {selectedExhibitor?.boothNumber ? (
+                    <Text style={[
+                      styles.modalBooth,
+                      { 
+                        backgroundColor: appColors.primary + '20',
+                        color: appColors.primary
+                      }
+                    ]}>
+                      Booth {selectedExhibitor.boothNumber}
+                    </Text>
+                  ) : null}
                 </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    About
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedExhibitor?.bio}
-                  </Text>
-                </View>
-
-                {selectedExhibitor?.contactName && (
+                {selectedExhibitor?.description ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Contact Person
+                      Description
                     </Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedExhibitor.contactName}
+                      {selectedExhibitor.description}
                     </Text>
                   </View>
-                )}
+                ) : null}
 
-                {selectedExhibitor?.contactEmail && (
+                {selectedExhibitor?.phone ? (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: appColors.secondary }]}
-                    onPress={() => sendEmail(selectedExhibitor.contactEmail)}
+                    onPress={() => openPhone(selectedExhibitor.phone)}
                     activeOpacity={0.7}
                   >
                     <IconSymbol
-                      ios_icon_name="envelope"
-                      android_material_icon_name="email"
+                      ios_icon_name="phone.fill"
+                      android_material_icon_name="phone"
                       size={20}
                       color="#FFFFFF"
                     />
                     <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
-                      Send Email
+                      {selectedExhibitor.phone}
                     </Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
 
-                {selectedExhibitor?.website && (
+                {selectedExhibitor?.companyUrl ? (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: appColors.primary }]}
-                    onPress={() => openWebsite(selectedExhibitor.website)}
+                    onPress={() => openWebsite(selectedExhibitor.companyUrl)}
                     activeOpacity={0.7}
                   >
                     <IconSymbol
@@ -448,7 +464,25 @@ export default function ExhibitorsScreen() {
                       Visit Website
                     </Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
+
+                {selectedExhibitor?.linkedIn ? (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: '#0077B5' }]}
+                    onPress={() => openLinkedIn(selectedExhibitor.linkedIn)}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol
+                      ios_icon_name="link"
+                      android_material_icon_name="link"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
+                      View LinkedIn
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </ScrollView>
             </Pressable>
           </Pressable>
