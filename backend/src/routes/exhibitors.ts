@@ -63,19 +63,51 @@ export function registerExhibitorsRoutes(app: App) {
         }
 
         const exhibitors = data.records.map((record: AirtableRecord<ExhibitorFields>) => {
-          // Try multiple company URL field name variations
-          const companyUrl =
-            (record.fields as any)['Company URL'] ||
-            (record.fields as any).CompanyURL ||
-            (record.fields as any)['Company Website'] ||
-            record.fields.Website ||
-            '';
+          const fields = record.fields as any;
+
+          // Extract logo URL - try multiple field names and handle both attachment arrays and URL strings
+          let logoUrl = '';
+          let logoFieldFound = '';
+          const logoFieldNames = ['Logo', 'Logo Url', 'Logo URL', 'LogoUrl'];
+
+          for (const fieldName of logoFieldNames) {
+            const logoField = fields[fieldName];
+            if (logoField) {
+              logoFieldFound = fieldName;
+              // Check if it's an array (attachment field)
+              if (Array.isArray(logoField) && logoField.length > 0) {
+                logoUrl = logoField[0]?.url || '';
+                app.logger.debug(
+                  { exhibitorId: record.id, logoField: fieldName, type: 'array', logoUrl },
+                  'Logo extracted from attachment array'
+                );
+              } else if (typeof logoField === 'string') {
+                // It's a direct URL string
+                logoUrl = logoField;
+                app.logger.debug(
+                  { exhibitorId: record.id, logoField: fieldName, type: 'string', logoUrl },
+                  'Logo extracted from URL string'
+                );
+              }
+              break;
+            }
+          }
+
+          if (!logoUrl && logoFieldNames.length > 0) {
+            app.logger.debug(
+              { exhibitorId: record.id, attemptedFields: logoFieldNames },
+              'No logo field found in exhibitor record'
+            );
+          }
+
+          // Company URL is stored in "URL" field
+          const companyUrl = fields['URL'] || fields['Company URL'] || fields.Website || '';
 
           return {
             id: record.id,
             name: record.fields.Name || '',
             description: record.fields.Description || record.fields.Bio || '',
-            logoUrl: record.fields.Logo?.[0]?.url || '',
+            logoUrl,
             phone: record.fields.Phone || '',
             companyUrl,
             linkedIn: record.fields.LinkedIn || '',
@@ -152,19 +184,50 @@ export function registerExhibitorsRoutes(app: App) {
           'Exhibitor raw record from Airtable'
         );
 
-        // Try multiple company URL field name variations
-        const companyUrl =
-          (record.fields as any)['Company URL'] ||
-          (record.fields as any).CompanyURL ||
-          (record.fields as any)['Company Website'] ||
-          record.fields.Website ||
-          '';
+        // Extract logo URL - try multiple field names and handle both attachment arrays and URL strings
+        let logoUrl = '';
+        let logoFieldFound = '';
+        const logoFieldNames = ['Logo', 'Logo Url', 'Logo URL', 'LogoUrl'];
+        const fields = record.fields as any;
+
+        for (const fieldName of logoFieldNames) {
+          const logoField = fields[fieldName];
+          if (logoField) {
+            logoFieldFound = fieldName;
+            // Check if it's an array (attachment field)
+            if (Array.isArray(logoField) && logoField.length > 0) {
+              logoUrl = logoField[0]?.url || '';
+              app.logger.debug(
+                { exhibitorId: id, logoField: fieldName, type: 'array', logoUrl },
+                'Logo extracted from attachment array'
+              );
+            } else if (typeof logoField === 'string') {
+              // It's a direct URL string
+              logoUrl = logoField;
+              app.logger.debug(
+                { exhibitorId: id, logoField: fieldName, type: 'string', logoUrl },
+                'Logo extracted from URL string'
+              );
+            }
+            break;
+          }
+        }
+
+        if (!logoUrl && logoFieldNames.length > 0) {
+          app.logger.debug(
+            { exhibitorId: id, attemptedFields: logoFieldNames },
+            'No logo field found in exhibitor record'
+          );
+        }
+
+        // Company URL is stored in "URL" field
+        const companyUrl = fields['URL'] || fields['Company URL'] || fields.Website || '';
 
         const result = {
           id: record.id,
           name: record.fields.Name || '',
           description: record.fields.Description || record.fields.Bio || '',
-          logoUrl: record.fields.Logo?.[0]?.url || '',
+          logoUrl,
           phone: record.fields.Phone || '',
           companyUrl,
           linkedIn: record.fields.LinkedIn || '',
