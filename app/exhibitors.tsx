@@ -30,7 +30,7 @@ interface Exhibitor {
   boothNumber: string;
 }
 
-// Backend response type (old format)
+// Backend response type
 interface ExhibitorBackendResponse {
   id: string;
   name: string;
@@ -47,9 +47,16 @@ interface ExhibitorBackendResponse {
   contactEmail?: string;
 }
 
+// Helper to resolve image sources (handles both local require() and remote URLs)
+function resolveImageSource(source: string | number | undefined) {
+  if (!source) return null;
+  if (typeof source === 'string') return { uri: source };
+  return source;
+}
+
 // Map backend response to frontend format
 function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
-  return {
+  const mapped = {
     id: data.id,
     name: data.name || '',
     description: data.description || data.bio || '',
@@ -59,6 +66,16 @@ function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
     linkedIn: data.linkedIn || '',
     boothNumber: data.boothNumber || '',
   };
+  
+  console.log('ExhibitorsScreen - Mapped exhibitor:', {
+    name: mapped.name,
+    hasLogo: !!mapped.logoUrl,
+    logoUrl: mapped.logoUrl,
+    hasCompanyUrl: !!mapped.companyUrl,
+    companyUrl: mapped.companyUrl,
+  });
+  
+  return mapped;
 }
 
 const styles = StyleSheet.create({
@@ -209,6 +226,14 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
   },
+  logoPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoPlaceholderText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
 });
 
 export default function ExhibitorsScreen() {
@@ -232,13 +257,10 @@ export default function ExhibitorsScreen() {
       setError(null);
       console.log('ExhibitorsScreen - Fetching exhibitors from /api/exhibitors');
       const data = await apiGet<ExhibitorBackendResponse[]>('/api/exhibitors');
+      console.log('ExhibitorsScreen - Raw API response:', JSON.stringify(data, null, 2));
       const mappedData = data.map(mapExhibitorResponse);
       setExhibitors(mappedData);
       console.log('ExhibitorsScreen - Loaded exhibitors:', mappedData.length, 'exhibitors');
-      if (mappedData.length > 0) {
-        console.log('ExhibitorsScreen - First exhibitor (raw):', data[0]);
-        console.log('ExhibitorsScreen - First exhibitor (mapped):', mappedData[0]);
-      }
     } catch (err) {
       console.error('ExhibitorsScreen - Error loading exhibitors:', err);
       setError('Unable to load exhibitors. Please try again later.');
@@ -250,8 +272,9 @@ export default function ExhibitorsScreen() {
 
   const openWebsite = (url: string) => {
     if (url) {
-      console.log('ExhibitorsScreen - Opening website:', url);
-      Linking.openURL(url).catch(err => console.error('ExhibitorsScreen - Error opening URL:', err));
+      const formattedUrl = url.startsWith('http') ? url : `https://${url}`;
+      console.log('ExhibitorsScreen - Opening website:', formattedUrl);
+      Linking.openURL(formattedUrl).catch(err => console.error('ExhibitorsScreen - Error opening URL:', err));
     }
   };
 
@@ -265,13 +288,17 @@ export default function ExhibitorsScreen() {
 
   const openLinkedIn = (linkedIn: string) => {
     if (linkedIn) {
-      console.log('ExhibitorsScreen - Opening LinkedIn:', linkedIn);
-      Linking.openURL(linkedIn).catch(err => console.error('ExhibitorsScreen - Error opening LinkedIn:', err));
+      const formattedUrl = linkedIn.startsWith('http') ? linkedIn : `https://${linkedIn}`;
+      console.log('ExhibitorsScreen - Opening LinkedIn:', formattedUrl);
+      Linking.openURL(formattedUrl).catch(err => console.error('ExhibitorsScreen - Error opening LinkedIn:', err));
     }
   };
 
+  const logoSource = selectedExhibitor?.logoUrl ? resolveImageSource(selectedExhibitor.logoUrl) : null;
+  const hasLogo = !!logoSource;
+
   return (
-    <>
+    <React.Fragment>
       <Stack.Screen
         options={{
           headerShown: false,
@@ -351,47 +378,52 @@ export default function ExhibitorsScreen() {
               </Text>
             </View>
           ) : (
-            exhibitors.map((exhibitor) => (
-              <TouchableOpacity
-                key={exhibitor.id}
-                style={[styles.exhibitorCard, { backgroundColor: appColors.card }]}
-                onPress={() => {
-                  console.log('ExhibitorsScreen - Exhibitor card pressed:', exhibitor.name);
-                  setSelectedExhibitor(exhibitor);
-                }}
-                activeOpacity={0.7}
-              >
-                {exhibitor.logoUrl ? (
-                  <Image
-                    source={{ uri: exhibitor.logoUrl }}
-                    style={styles.exhibitorLogo}
-                    defaultSource={require('@/assets/images/app-icon-mmd.png')}
-                  />
-                ) : (
-                  <View style={[styles.exhibitorLogo, { backgroundColor: appColors.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
-                    <Text style={[typography.h2, { color: appColors.primary }]}>
-                      {exhibitor.name.charAt(0)}
+            exhibitors.map((exhibitor, index) => {
+              const cardLogoSource = exhibitor.logoUrl ? resolveImageSource(exhibitor.logoUrl) : null;
+              const firstLetter = exhibitor.name.charAt(0).toUpperCase();
+              
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.exhibitorCard, { backgroundColor: appColors.card }]}
+                  onPress={() => {
+                    console.log('ExhibitorsScreen - Exhibitor card pressed:', exhibitor.name);
+                    setSelectedExhibitor(exhibitor);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  {cardLogoSource ? (
+                    <Image
+                      source={cardLogoSource}
+                      style={styles.exhibitorLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={[styles.exhibitorLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
+                      <Text style={[styles.logoPlaceholderText, { color: appColors.primary }]}>
+                        {firstLetter}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.exhibitorInfo}>
+                    <Text style={[styles.exhibitorName, { color: appColors.text }]}>
+                      {exhibitor.name}
                     </Text>
+                    {exhibitor.boothNumber ? (
+                      <Text style={[
+                        styles.exhibitorBooth,
+                        { 
+                          backgroundColor: appColors.primary + '20',
+                          color: appColors.primary
+                        }
+                      ]}>
+                        Booth {exhibitor.boothNumber}
+                      </Text>
+                    ) : null}
                   </View>
-                )}
-                <View style={styles.exhibitorInfo}>
-                  <Text style={[styles.exhibitorName, { color: appColors.text }]}>
-                    {exhibitor.name}
-                  </Text>
-                  {exhibitor.boothNumber ? (
-                    <Text style={[
-                      styles.exhibitorBooth,
-                      { 
-                        backgroundColor: appColors.primary + '20',
-                        color: appColors.primary
-                      }
-                    ]}>
-                      Booth {exhibitor.boothNumber}
-                    </Text>
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              );
+            })
           )}
         </ScrollView>
 
@@ -423,16 +455,16 @@ export default function ExhibitorsScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  {selectedExhibitor?.logoUrl ? (
+                  {hasLogo && logoSource ? (
                     <Image
-                      source={{ uri: selectedExhibitor.logoUrl }}
+                      source={logoSource}
                       style={styles.modalLogo}
-                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                      resizeMode="contain"
                     />
                   ) : (
-                    <View style={[styles.modalLogo, { backgroundColor: appColors.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
+                    <View style={[styles.modalLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
                       <Text style={[typography.h1, { color: appColors.primary }]}>
-                        {selectedExhibitor?.name.charAt(0)}
+                        {selectedExhibitor?.name.charAt(0).toUpperCase()}
                       </Text>
                     </View>
                   )}
@@ -463,24 +495,6 @@ export default function ExhibitorsScreen() {
                   </View>
                 ) : null}
 
-                {selectedExhibitor?.phone ? (
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: appColors.secondary }]}
-                    onPress={() => openPhone(selectedExhibitor.phone)}
-                    activeOpacity={0.7}
-                  >
-                    <IconSymbol
-                      ios_icon_name="phone.fill"
-                      android_material_icon_name="phone"
-                      size={20}
-                      color="#FFFFFF"
-                    />
-                    <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
-                      {selectedExhibitor.phone}
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-
                 {selectedExhibitor?.companyUrl ? (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: appColors.primary }]}
@@ -495,6 +509,24 @@ export default function ExhibitorsScreen() {
                     />
                     <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
                       Visit Website
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {selectedExhibitor?.phone ? (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: appColors.secondary }]}
+                    onPress={() => openPhone(selectedExhibitor.phone)}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol
+                      ios_icon_name="phone.fill"
+                      android_material_icon_name="phone"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
+                      {selectedExhibitor.phone}
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -521,6 +553,6 @@ export default function ExhibitorsScreen() {
           </Pressable>
         </Modal>
       </SafeAreaView>
-    </>
+    </React.Fragment>
   );
 }
