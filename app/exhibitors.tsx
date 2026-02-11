@@ -70,7 +70,7 @@ function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
   console.log('ExhibitorsScreen - Mapped exhibitor:', {
     name: mapped.name,
     hasLogo: !!mapped.logoUrl,
-    logoUrl: mapped.logoUrl,
+    logoUrl: mapped.logoUrl?.substring(0, 50) + '...',
     hasCompanyUrl: !!mapped.companyUrl,
     companyUrl: mapped.companyUrl,
   });
@@ -257,7 +257,7 @@ export default function ExhibitorsScreen() {
       setError(null);
       console.log('ExhibitorsScreen - Fetching exhibitors from /api/exhibitors');
       const data = await apiGet<ExhibitorBackendResponse[]>('/api/exhibitors');
-      console.log('ExhibitorsScreen - Raw API response:', JSON.stringify(data, null, 2));
+      console.log('ExhibitorsScreen - Raw API response count:', data.length);
       const mappedData = data.map(mapExhibitorResponse);
       setExhibitors(mappedData);
       console.log('ExhibitorsScreen - Loaded exhibitors:', mappedData.length, 'exhibitors');
@@ -296,6 +296,7 @@ export default function ExhibitorsScreen() {
 
   const logoSource = selectedExhibitor?.logoUrl ? resolveImageSource(selectedExhibitor.logoUrl) : null;
   const hasLogo = !!logoSource;
+  const firstLetter = selectedExhibitor?.name ? selectedExhibitor.name.charAt(0).toUpperCase() : '';
 
   return (
     <React.Fragment>
@@ -380,7 +381,7 @@ export default function ExhibitorsScreen() {
           ) : (
             exhibitors.map((exhibitor, index) => {
               const cardLogoSource = exhibitor.logoUrl ? resolveImageSource(exhibitor.logoUrl) : null;
-              const firstLetter = exhibitor.name.charAt(0).toUpperCase();
+              const cardFirstLetter = exhibitor.name.charAt(0).toUpperCase();
               
               return (
                 <TouchableOpacity
@@ -401,7 +402,7 @@ export default function ExhibitorsScreen() {
                   ) : (
                     <View style={[styles.exhibitorLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
                       <Text style={[styles.logoPlaceholderText, { color: appColors.primary }]}>
-                        {firstLetter}
+                        {cardFirstLetter}
                       </Text>
                     </View>
                   )}
@@ -443,7 +444,10 @@ export default function ExhibitorsScreen() {
             >
               <TouchableOpacity 
                 style={styles.closeButton}
-                onPress={() => setSelectedExhibitor(null)}
+                onPress={() => {
+                  console.log('ExhibitorsScreen - Close modal button pressed');
+                  setSelectedExhibitor(null);
+                }}
               >
                 <IconSymbol
                   ios_icon_name="xmark.circle.fill"
@@ -464,7 +468,7 @@ export default function ExhibitorsScreen() {
                   ) : (
                     <View style={[styles.modalLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
                       <Text style={[typography.h1, { color: appColors.primary }]}>
-                        {selectedExhibitor?.name.charAt(0).toUpperCase()}
+                        {firstLetter}
                       </Text>
                     </View>
                   )}
@@ -498,7 +502,10 @@ export default function ExhibitorsScreen() {
                 {selectedExhibitor?.companyUrl ? (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: appColors.primary }]}
-                    onPress={() => openWebsite(selectedExhibitor.companyUrl)}
+                    onPress={() => {
+                      console.log('ExhibitorsScreen - Visit Website button pressed');
+                      openWebsite(selectedExhibitor.companyUrl);
+                    }}
                     activeOpacity={0.7}
                   >
                     <IconSymbol
@@ -516,7 +523,10 @@ export default function ExhibitorsScreen() {
                 {selectedExhibitor?.phone ? (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: appColors.secondary }]}
-                    onPress={() => openPhone(selectedExhibitor.phone)}
+                    onPress={() => {
+                      console.log('ExhibitorsScreen - Call button pressed');
+                      openPhone(selectedExhibitor.phone);
+                    }}
                     activeOpacity={0.7}
                   >
                     <IconSymbol
@@ -534,7 +544,10 @@ export default function ExhibitorsScreen() {
                 {selectedExhibitor?.linkedIn ? (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: '#0077B5' }]}
-                    onPress={() => openLinkedIn(selectedExhibitor.linkedIn)}
+                    onPress={() => {
+                      console.log('ExhibitorsScreen - LinkedIn button pressed');
+                      openLinkedIn(selectedExhibitor.linkedIn);
+                    }}
                     activeOpacity={0.7}
                   >
                     <IconSymbol
