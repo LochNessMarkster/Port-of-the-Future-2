@@ -367,12 +367,15 @@ export interface PortFields {
 
 export interface ExhibitorFields {
   Name: string;
-  Logo: Array<{ url: string; id: string; size: number; type: string }>;
-  BoothNumber: string;
-  Bio: string;
-  ContactName: string;
-  ContactEmail: string;
-  Website: string;
+  Logo?: Array<{ url: string; id: string; size: number; type: string }>;
+  Description?: string;
+  Bio?: string;
+  Phone?: string;
+  'Company URL'?: string;
+  Website?: string;
+  LinkedIn?: string;
+  'Booth Number'?: string;
+  BoothNumber?: string;
 }
 
 export interface SponsorFields {

@@ -28,12 +28,12 @@ export function registerExhibitorsRoutes(app: App) {
               properties: {
                 id: { type: 'string' },
                 name: { type: 'string' },
-                logo: { type: 'string' },
+                description: { type: 'string' },
+                logoUrl: { type: 'string' },
+                phone: { type: 'string' },
+                companyUrl: { type: 'string' },
+                linkedIn: { type: 'string' },
                 boothNumber: { type: 'string' },
-                bio: { type: 'string' },
-                contactName: { type: 'string' },
-                contactEmail: { type: 'string' },
-                website: { type: 'string' },
               },
             },
           },
@@ -53,12 +53,12 @@ export function registerExhibitorsRoutes(app: App) {
         const exhibitors = data.records.map((record: AirtableRecord<ExhibitorFields>) => ({
           id: record.id,
           name: record.fields.Name || '',
-          logo: record.fields.Logo?.[0]?.url || '',
-          boothNumber: record.fields.BoothNumber || '',
-          bio: record.fields.Bio || '',
-          contactName: record.fields.ContactName || '',
-          contactEmail: record.fields.ContactEmail || '',
-          website: record.fields.Website || '',
+          description: record.fields.Description || record.fields.Bio || '',
+          logoUrl: record.fields.Logo?.[0]?.url || '',
+          phone: record.fields.Phone || '',
+          companyUrl: record.fields['Company URL'] || record.fields.Website || '',
+          linkedIn: record.fields.LinkedIn || '',
+          boothNumber: record.fields['Booth Number'] || record.fields.BoothNumber || '',
         }));
 
         app.logger.info({ count: exhibitors.length }, 'Exhibitors fetched successfully');
@@ -92,12 +92,12 @@ export function registerExhibitorsRoutes(app: App) {
             properties: {
               id: { type: 'string' },
               name: { type: 'string' },
-              logo: { type: 'string' },
+              description: { type: 'string' },
+              logoUrl: { type: 'string' },
+              phone: { type: 'string' },
+              companyUrl: { type: 'string' },
+              linkedIn: { type: 'string' },
               boothNumber: { type: 'string' },
-              bio: { type: 'string' },
-              contactName: { type: 'string' },
-              contactEmail: { type: 'string' },
-              website: { type: 'string' },
             },
           },
         },
@@ -123,12 +123,12 @@ export function registerExhibitorsRoutes(app: App) {
         const result = {
           id: record.id,
           name: record.fields.Name || '',
-          logo: record.fields.Logo?.[0]?.url || '',
-          boothNumber: record.fields.BoothNumber || '',
-          bio: record.fields.Bio || '',
-          contactName: record.fields.ContactName || '',
-          contactEmail: record.fields.ContactEmail || '',
-          website: record.fields.Website || '',
+          description: record.fields.Description || record.fields.Bio || '',
+          logoUrl: record.fields.Logo?.[0]?.url || '',
+          phone: record.fields.Phone || '',
+          companyUrl: record.fields['Company URL'] || record.fields.Website || '',
+          linkedIn: record.fields.LinkedIn || '',
+          boothNumber: record.fields['Booth Number'] || record.fields.BoothNumber || '',
         };
 
         app.logger.info({ exhibitorId: id }, 'Exhibitor details fetched');
