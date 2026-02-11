@@ -85,24 +85,56 @@ export async function fetchAirtableRecords<T>(
   if (options?.fields) params.fields = options.fields;
 
   const client = getAirtableClient();
+  const tableName = getTableName(tableId);
+
+  if (options?.logger) {
+    options.logger.debug(
+      {
+        baseId: BASE_ID,
+        tableId,
+        tableName,
+        endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+      },
+      'Fetching records from Airtable'
+    );
+  }
 
   try {
     const response = await client.get<AirtableListResponse<T>>(
       `/${tableId}`,
       { params }
     );
+
+    if (options?.logger) {
+      options.logger.info(
+        { tableId, tableName, recordCount: response.data.records.length },
+        'Successfully fetched records from Airtable'
+      );
+    }
+
     return response.data;
   } catch (error: any) {
     const status = error.response?.status;
     const errorMessage = error.response?.data?.error?.message || error.message;
+    const errorType = error.response?.data?.error?.type || 'UNKNOWN';
 
     // Handle 403 Forbidden errors gracefully
     if (status === 403) {
-      const tableName = getTableName(tableId);
-      const logMsg = `Airtable API returned 403 for table ${tableName} (${tableId}). This API key may not have permission to access this table. Please check the Airtable API key permissions.`;
+      const logMsg = `Airtable API returned 403 FORBIDDEN for table ${tableName} (${tableId}). The API key may not have permission to access this table.`;
 
       if (options?.logger) {
-        options.logger.warn({ tableId, tableName, error: errorMessage }, logMsg);
+        options.logger.warn(
+          {
+            baseId: BASE_ID,
+            tableId,
+            tableName,
+            status,
+            errorType,
+            errorMessage,
+            endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+          },
+          logMsg
+        );
       }
 
       // Return empty array instead of throwing error
@@ -112,7 +144,15 @@ export async function fetchAirtableRecords<T>(
     // For other errors, log and re-throw
     if (options?.logger) {
       options.logger.error(
-        { tableId, status, error: errorMessage },
+        {
+          baseId: BASE_ID,
+          tableId,
+          tableName,
+          status,
+          errorType,
+          errorMessage,
+          endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+        },
         'Airtable API error while fetching records'
       );
     }
@@ -130,23 +170,57 @@ export async function fetchAirtableRecord<T>(
   logger?: any
 ): Promise<AirtableRecord<T> | null> {
   const client = getAirtableClient();
+  const tableName = getTableName(tableId);
+
+  if (logger) {
+    logger.debug(
+      {
+        baseId: BASE_ID,
+        tableId,
+        tableName,
+        recordId,
+        endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}`,
+      },
+      'Fetching single record from Airtable'
+    );
+  }
 
   try {
     const response = await client.get<AirtableRecord<T>>(
       `/${tableId}/${recordId}`
     );
+
+    if (logger) {
+      logger.info(
+        { tableId, tableName, recordId },
+        'Successfully fetched record from Airtable'
+      );
+    }
+
     return response.data;
   } catch (error: any) {
     const status = error.response?.status;
     const errorMessage = error.response?.data?.error?.message || error.message;
+    const errorType = error.response?.data?.error?.type || 'UNKNOWN';
 
     // Handle 403 Forbidden errors gracefully
     if (status === 403) {
-      const tableName = getTableName(tableId);
-      const logMsg = `Airtable API returned 403 for table ${tableName} (${tableId}). This API key may not have permission to access this table. Please check the Airtable API key permissions.`;
+      const logMsg = `Airtable API returned 403 FORBIDDEN for table ${tableName} (${tableId}). The API key may not have permission to access this table.`;
 
       if (logger) {
-        logger.warn({ tableId, tableName, recordId, error: errorMessage }, logMsg);
+        logger.warn(
+          {
+            baseId: BASE_ID,
+            tableId,
+            tableName,
+            recordId,
+            status,
+            errorType,
+            errorMessage,
+            endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}`,
+          },
+          logMsg
+        );
       }
 
       // Return null instead of throwing error
@@ -156,7 +230,16 @@ export async function fetchAirtableRecord<T>(
     // For other errors, log and re-throw
     if (logger) {
       logger.error(
-        { tableId, recordId, status, error: errorMessage },
+        {
+          baseId: BASE_ID,
+          tableId,
+          tableName,
+          recordId,
+          status,
+          errorType,
+          errorMessage,
+          endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}`,
+        },
         'Airtable API error while fetching record'
       );
     }
