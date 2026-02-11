@@ -30,6 +30,37 @@ interface Exhibitor {
   boothNumber: string;
 }
 
+// Backend response type (old format)
+interface ExhibitorBackendResponse {
+  id: string;
+  name: string;
+  logo?: string;
+  logoUrl?: string;
+  bio?: string;
+  description?: string;
+  website?: string;
+  companyUrl?: string;
+  phone?: string;
+  linkedIn?: string;
+  boothNumber?: string;
+  contactName?: string;
+  contactEmail?: string;
+}
+
+// Map backend response to frontend format
+function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
+  return {
+    id: data.id,
+    name: data.name || '',
+    description: data.description || data.bio || '',
+    logoUrl: data.logoUrl || data.logo || '',
+    phone: data.phone || '',
+    companyUrl: data.companyUrl || data.website || '',
+    linkedIn: data.linkedIn || '',
+    boothNumber: data.boothNumber || '',
+  };
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -200,11 +231,13 @@ export default function ExhibitorsScreen() {
       setLoading(true);
       setError(null);
       console.log('ExhibitorsScreen - Fetching exhibitors from /api/exhibitors');
-      const data = await apiGet<Exhibitor[]>('/api/exhibitors');
-      setExhibitors(data);
-      console.log('ExhibitorsScreen - Loaded exhibitors:', data.length, 'exhibitors');
-      if (data.length > 0) {
-        console.log('ExhibitorsScreen - First exhibitor:', data[0]);
+      const data = await apiGet<ExhibitorBackendResponse[]>('/api/exhibitors');
+      const mappedData = data.map(mapExhibitorResponse);
+      setExhibitors(mappedData);
+      console.log('ExhibitorsScreen - Loaded exhibitors:', mappedData.length, 'exhibitors');
+      if (mappedData.length > 0) {
+        console.log('ExhibitorsScreen - First exhibitor (raw):', data[0]);
+        console.log('ExhibitorsScreen - First exhibitor (mapped):', mappedData[0]);
       }
     } catch (err) {
       console.error('ExhibitorsScreen - Error loading exhibitors:', err);
