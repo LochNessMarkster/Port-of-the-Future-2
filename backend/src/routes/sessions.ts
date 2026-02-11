@@ -52,26 +52,63 @@ export function registerSessionsRoutes(app: App) {
 
         // Log raw Airtable response structure to identify actual field names
         if (data.records.length > 0) {
+          const fieldNames = Object.keys(data.records[0]?.fields || {});
           app.logger.info(
-            { firstRecordRaw: JSON.stringify(data.records[0], null, 2) },
-            'First session raw record from Airtable'
-          );
-          app.logger.info(
-            { fieldNames: Object.keys(data.records[0]?.fields || {}) },
+            { fieldNames },
             'Available field names in first session record'
           );
+
+          // Check for speaker-related fields
+          const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
+          const foundSpeakerFields = speakerFieldNames.filter(name => fieldNames.includes(name));
+          if (foundSpeakerFields.length > 0) {
+            app.logger.info(
+              { foundSpeakerFields },
+              'Found speaker-related fields in session record'
+            );
+          } else {
+            app.logger.warn(
+              { attemptedSpeakerFields: speakerFieldNames },
+              'No speaker-related fields found in session records'
+            );
+          }
         }
 
-        const sessions = data.records.map((record: AirtableRecord<SessionFields>) => ({
-          id: record.id,
-          title: record.fields.Title || '',
-          speaker: record.fields['Speaker(s)'] || '',
-          room: record.fields.Room || '',
-          type: record.fields['Type/Track'] || '',
-          date: record.fields.Date || '',
-          time: record.fields['Start Time'] || '',
-          description: record.fields['Session Description'] || '',
-        }));
+        const sessions = data.records.map((record: AirtableRecord<SessionFields>) => {
+          const fields = record.fields as any;
+
+          // Try multiple speaker field name variations
+          let speaker = '';
+          const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
+          for (const fieldName of speakerFieldNames) {
+            if (fields[fieldName]) {
+              speaker = fields[fieldName];
+              app.logger.debug(
+                { sessionId: record.id, speakerField: fieldName, speaker },
+                'Speaker extracted from field'
+              );
+              break;
+            }
+          }
+
+          if (!speaker) {
+            app.logger.debug(
+              { sessionId: record.id, attemptedFields: speakerFieldNames },
+              'No speaker field found, using empty string'
+            );
+          }
+
+          return {
+            id: record.id,
+            title: record.fields.Title || '',
+            speaker,
+            room: record.fields.Room || '',
+            type: record.fields['Type/Track'] || '',
+            date: record.fields.Date || '',
+            time: record.fields['Start Time'] || '',
+            description: record.fields['Session Description'] || '',
+          };
+        });
 
         app.logger.info({ count: sessions.length }, 'Sessions fetched successfully');
         return sessions;
@@ -132,20 +169,53 @@ export function registerSessionsRoutes(app: App) {
           });
         }
 
-        // Log raw Airtable response structure to identify actual field names
+        // Log available field names
+        const fieldNames = Object.keys(record?.fields || {});
         app.logger.info(
-          { sessionRaw: JSON.stringify(record, null, 2) },
-          'Session raw record from Airtable'
-        );
-        app.logger.info(
-          { fieldNames: Object.keys(record?.fields || {}) },
+          { fieldNames },
           'Available field names in session record'
         );
+
+        // Check for speaker-related fields
+        const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
+        const foundSpeakerFields = speakerFieldNames.filter(name => fieldNames.includes(name));
+        if (foundSpeakerFields.length > 0) {
+          app.logger.info(
+            { foundSpeakerFields },
+            'Found speaker-related fields in session record'
+          );
+        } else {
+          app.logger.warn(
+            { attemptedSpeakerFields: speakerFieldNames },
+            'No speaker-related fields found in session record'
+          );
+        }
+
+        // Try multiple speaker field name variations
+        const fields = record.fields as any;
+        let speaker = '';
+        for (const fieldName of speakerFieldNames) {
+          if (fields[fieldName]) {
+            speaker = fields[fieldName];
+            app.logger.info(
+              { sessionId: id, speakerField: fieldName, speaker },
+              'Speaker extracted from field'
+            );
+            break;
+          }
+        }
+
+        if (!speaker) {
+          app.logger.debug(
+            { sessionId: id, attemptedFields: speakerFieldNames },
+            'No speaker field found, using empty string'
+          );
+        }
 
         const result = {
           id: record.id,
           title: record.fields.Title || '',
-          speaker: record.fields['Speaker(s)'] || '',
+          speaker,
           room: record.fields.Room || '',
           type: record.fields['Type/Track'] || '',
           date: record.fields.Date || '',
