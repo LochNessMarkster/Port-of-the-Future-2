@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -197,6 +197,24 @@ export default function SpeakersScreen() {
     }
   };
 
+  // Helper function to extract last name from full name
+  const getLastName = (fullName: string): string => {
+    const nameParts = fullName.trim().split(' ');
+    return nameParts[nameParts.length - 1] || '';
+  };
+
+  // Sort speakers alphabetically by last name
+  const sortedSpeakers = useMemo(() => {
+    const sorted = [...speakers].sort((a, b) => {
+      const lastNameA = getLastName(a.name).toLowerCase();
+      const lastNameB = getLastName(b.name).toLowerCase();
+      return lastNameA.localeCompare(lastNameB);
+    });
+    
+    console.log('SpeakersScreen - Sorted speakers alphabetically by last name:', sorted.length);
+    return sorted;
+  }, [speakers]);
+
   return (
     <>
       <Stack.Screen
@@ -240,13 +258,13 @@ export default function SpeakersScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
             </View>
-          ) : speakers.length === 0 ? (
+          ) : sortedSpeakers.length === 0 ? (
             <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
               No speakers available yet
             </Text>
           ) : (
             <View style={styles.speakerGrid}>
-              {speakers.map((speaker) => (
+              {sortedSpeakers.map((speaker) => (
                 <TouchableOpacity
                   key={speaker.id}
                   style={[styles.speakerCard, { backgroundColor: appColors.card }]}

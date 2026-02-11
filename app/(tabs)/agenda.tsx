@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -266,10 +266,51 @@ export default function AgendaScreen() {
     }
   };
 
-  const filteredSessions = sessions.filter(session => {
-    const sessionDate = session.date.includes('24') ? '24' : '25';
-    return sessionDate === selectedDay;
-  });
+  // Helper function to parse time string to comparable number
+  const parseTime = (timeStr: string): number => {
+    try {
+      // Handle various time formats: "9:00 AM", "09:00", "9:00AM", etc.
+      const cleanTime = timeStr.trim().toUpperCase();
+      
+      // Extract hours and minutes
+      const match = cleanTime.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/);
+      if (!match) return 0;
+      
+      let hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2] || '0', 10);
+      const period = match[3];
+      
+      // Convert to 24-hour format
+      if (period === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      return hours * 60 + minutes;
+    } catch (err) {
+      console.error('AgendaScreen - Error parsing time:', timeStr, err);
+      return 0;
+    }
+  };
+
+  // Sort and filter sessions by selected day and time
+  const sortedFilteredSessions = useMemo(() => {
+    const filtered = sessions.filter(session => {
+      const sessionDate = session.date.includes('24') ? '24' : '25';
+      return sessionDate === selectedDay;
+    });
+    
+    // Sort by time (earliest to latest)
+    const sorted = [...filtered].sort((a, b) => {
+      const timeA = parseTime(a.time);
+      const timeB = parseTime(b.time);
+      return timeA - timeB;
+    });
+    
+    console.log('AgendaScreen - Sorted sessions for day', selectedDay, ':', sorted.length);
+    return sorted;
+  }, [sessions, selectedDay]);
 
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -399,7 +440,7 @@ export default function AgendaScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            ) : filteredSessions.length === 0 ? (
+            ) : sortedFilteredSessions.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <IconSymbol
                   ios_icon_name="calendar"
@@ -415,7 +456,7 @@ export default function AgendaScreen() {
                 </Text>
               </View>
             ) : (
-              filteredSessions.map((session) => {
+              sortedFilteredSessions.map((session) => {
                 const isBookmarked = bookmarkedSessions.has(session.id);
                 const isBookmarkLoading = bookmarkLoading === session.id;
                 
