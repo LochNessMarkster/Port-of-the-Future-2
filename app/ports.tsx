@@ -66,7 +66,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  portLogoContainer: {
+  logoWhiteBackground: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
     width: '100%',
     aspectRatio: 2,
     marginBottom: spacing.sm,
@@ -107,7 +110,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalLogoContainer: {
+  modalLogoWhiteBackground: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     width: '100%',
     aspectRatio: 2,
     marginBottom: spacing.md,
@@ -238,7 +244,7 @@ export default function PortsScreen() {
                   onPress={() => setSelectedPort(port)}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.portLogoContainer}>
+                  <View style={styles.logoWhiteBackground}>
                     <Image
                       source={{ uri: port.logo }}
                       style={styles.portLogo}
@@ -283,7 +289,7 @@ export default function PortsScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <View style={styles.modalLogoContainer}>
+                  <View style={styles.modalLogoWhiteBackground}>
                     <Image
                       source={{ uri: selectedPort?.logo }}
                       style={styles.modalLogo}

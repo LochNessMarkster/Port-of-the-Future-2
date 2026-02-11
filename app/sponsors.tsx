@@ -71,7 +71,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  sponsorLogoContainer: {
+  logoWhiteBackground: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
     width: 120,
     height: 60,
     marginRight: spacing.md,
@@ -118,7 +121,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalLogoContainer: {
+  modalLogoWhiteBackground: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     width: '100%',
     aspectRatio: 2,
     marginBottom: spacing.md,
@@ -292,7 +298,7 @@ export default function SponsorsScreen() {
                         onPress={() => setSelectedSponsor(sponsor)}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.sponsorLogoContainer}>
+                        <View style={styles.logoWhiteBackground}>
                           <Image
                             source={{ uri: sponsor.logo }}
                             style={styles.sponsorLogo}
@@ -345,7 +351,7 @@ export default function SponsorsScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <View style={styles.modalLogoContainer}>
+                  <View style={styles.modalLogoWhiteBackground}>
                     <Image
                       source={{ uri: selectedSponsor?.logo }}
                       style={styles.modalLogo}

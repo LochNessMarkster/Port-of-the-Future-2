@@ -134,14 +134,21 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  logoWhiteBackground: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.sm,
+    padding: spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   exhibitorLogo: {
     width: 80,
     height: 80,
     borderRadius: borderRadius.sm,
-    marginRight: spacing.md,
   },
   exhibitorInfo: {
     flex: 1,
+    marginLeft: spacing.md,
   },
   exhibitorName: {
     ...typography.h3,
@@ -187,11 +194,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
+  modalLogoWhiteBackground: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   modalLogo: {
     width: 120,
     height: 120,
     borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
   },
   modalName: {
     ...typography.h2,
@@ -432,19 +446,21 @@ export default function ExhibitorsScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  {cardLogoSource ? (
-                    <Image
-                      source={cardLogoSource}
-                      style={styles.exhibitorLogo}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <View style={[styles.exhibitorLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
-                      <Text style={[styles.logoPlaceholderText, { color: appColors.primary }]}>
-                        {cardFirstLetter}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={styles.logoWhiteBackground}>
+                    {cardLogoSource ? (
+                      <Image
+                        source={cardLogoSource}
+                        style={styles.exhibitorLogo}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <View style={[styles.exhibitorLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
+                        <Text style={[styles.logoPlaceholderText, { color: appColors.primary }]}>
+                          {cardFirstLetter}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <View style={styles.exhibitorInfo}>
                     <Text style={[styles.exhibitorName, { color: appColors.text }]}>
                       {exhibitor.name}
@@ -498,19 +514,21 @@ export default function ExhibitorsScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  {hasLogo && logoSource ? (
-                    <Image
-                      source={logoSource}
-                      style={styles.modalLogo}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <View style={[styles.modalLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
-                      <Text style={[typography.h1, { color: appColors.primary }]}>
-                        {firstLetter}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={styles.modalLogoWhiteBackground}>
+                    {hasLogo && logoSource ? (
+                      <Image
+                        source={logoSource}
+                        style={styles.modalLogo}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <View style={[styles.modalLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
+                        <Text style={[typography.h1, { color: appColors.primary }]}>
+                          {firstLetter}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {selectedExhibitor?.name}
                   </Text>
