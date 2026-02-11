@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_ID = 'appcNhRl5vEqug2D1';
+const BASE_ID = 'appkKjciinTlnsbkd';
 const API_KEY = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
 /**
@@ -45,7 +45,7 @@ export interface AirtableListResponse<T> {
 
 // Table IDs
 export const TABLES = {
-  SESSIONS: 'tblHaxjP8sWviBQjD',
+  SESSIONS: 'tblhUTXC3XHVGssO4',
   SPEAKERS: 'tblvDeIT1VDf7Cart',
   PORTS: 'tblxgPx1eRl9iSX2S',
   EXHIBITORS: 'tblTWLUNSEfW0Cvxx',
