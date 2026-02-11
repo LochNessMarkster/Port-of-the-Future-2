@@ -64,9 +64,9 @@ export function registerScheduleRoutes(app: App) {
               return {
                 id: schedule.id,
                 sessionId: schedule.sessionId,
-                title: record.fields['Session Title'] || '',
-                speaker: record.fields['Speaker Names'] || '',
-                room: record.fields.Location || '',
+                title: record.fields.Title || '',
+                speaker: record.fields['Speaker(s)'] || '',
+                room: record.fields.Room || '',
                 type: record.fields['Type/Track'] || '',
                 date: record.fields.Date || '',
                 time: record.fields['Start Time'] || '',

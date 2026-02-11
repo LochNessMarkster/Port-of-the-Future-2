@@ -257,9 +257,9 @@ export async function deleteAirtableRecord(
 
 // Type definitions for Airtable records
 export interface SessionFields {
-  'Session Title': string;
-  'Speaker Names': string;
-  Location: string;
+  Title: string;
+  'Speaker(s)': string;
+  Room: string;
   'Type/Track': string;
   Date: string;
   'Start Time': string;

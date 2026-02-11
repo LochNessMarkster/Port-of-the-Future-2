@@ -64,9 +64,9 @@ export function registerSessionsRoutes(app: App) {
 
         const sessions = data.records.map((record: AirtableRecord<SessionFields>) => ({
           id: record.id,
-          title: record.fields['Session Title'] || '',
-          speaker: record.fields['Speaker Names'] || '',
-          room: record.fields.Location || '',
+          title: record.fields.Title || '',
+          speaker: record.fields['Speaker(s)'] || '',
+          room: record.fields.Room || '',
           type: record.fields['Type/Track'] || '',
           date: record.fields.Date || '',
           time: record.fields['Start Time'] || '',
@@ -144,9 +144,9 @@ export function registerSessionsRoutes(app: App) {
 
         const result = {
           id: record.id,
-          title: record.fields['Session Title'] || '',
-          speaker: record.fields['Speaker Names'] || '',
-          room: record.fields.Location || '',
+          title: record.fields.Title || '',
+          speaker: record.fields['Speaker(s)'] || '',
+          room: record.fields.Room || '',
           type: record.fields['Type/Track'] || '',
           date: record.fields.Date || '',
           time: record.fields['Start Time'] || '',
