@@ -50,19 +50,39 @@ interface ExhibitorBackendResponse {
 // Helper to resolve image sources (handles both local require() and remote URLs)
 function resolveImageSource(source: string | number | undefined) {
   if (!source) return null;
-  if (typeof source === 'string') return { uri: source };
+  if (typeof source === 'string') {
+    if (source.trim() === '') return null;
+    return { uri: source };
+  }
   return source;
 }
 
 // Map backend response to frontend format
 function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
+  // Handle logo - try multiple field names and handle both string and array formats
+  let logoUrl = '';
+  const logoField = data.logoUrl || data.logo || (data as any).Logo || (data as any)['Logo Url'];
+  
+  if (Array.isArray(logoField) && logoField.length > 0) {
+    // Handle attachment array format from Airtable
+    logoUrl = (logoField[0] as any)?.url || '';
+    console.log('ExhibitorsScreen - Logo extracted from array:', logoUrl ? logoUrl.substring(0, 80) : '(empty)');
+  } else if (typeof logoField === 'string') {
+    // Handle plain string URL
+    logoUrl = logoField;
+    console.log('ExhibitorsScreen - Logo extracted from string:', logoUrl ? logoUrl.substring(0, 80) : '(empty)');
+  }
+  
+  // Handle company URL - try multiple field names
+  const companyUrl = data.companyUrl || data.website || (data as any).URL || (data as any)['Company URL'] || '';
+  
   const mapped = {
     id: data.id,
     name: data.name || '',
     description: data.description || data.bio || '',
-    logoUrl: data.logoUrl || data.logo || '',
+    logoUrl: logoUrl.trim(),
     phone: data.phone || '',
-    companyUrl: data.companyUrl || data.website || '',
+    companyUrl: companyUrl.trim(),
     linkedIn: data.linkedIn || '',
     boothNumber: data.boothNumber || '',
   };
@@ -70,9 +90,10 @@ function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
   console.log('ExhibitorsScreen - Mapped exhibitor:', {
     name: mapped.name,
     hasLogo: !!mapped.logoUrl,
-    logoUrl: mapped.logoUrl?.substring(0, 50) + '...',
+    logoUrl: mapped.logoUrl ? mapped.logoUrl.substring(0, 80) : '(empty)',
     hasCompanyUrl: !!mapped.companyUrl,
-    companyUrl: mapped.companyUrl,
+    companyUrl: mapped.companyUrl || '(empty)',
+    rawData: JSON.stringify(data).substring(0, 200),
   });
   
   return mapped;
@@ -258,9 +279,26 @@ export default function ExhibitorsScreen() {
       console.log('ExhibitorsScreen - Fetching exhibitors from /api/exhibitors');
       const data = await apiGet<ExhibitorBackendResponse[]>('/api/exhibitors');
       console.log('ExhibitorsScreen - Raw API response count:', data.length);
+      
+      // Log first exhibitor raw data for debugging
+      if (data.length > 0) {
+        console.log('ExhibitorsScreen - First exhibitor raw data:', JSON.stringify(data[0], null, 2));
+      }
+      
       const mappedData = data.map(mapExhibitorResponse);
       setExhibitors(mappedData);
       console.log('ExhibitorsScreen - Loaded exhibitors:', mappedData.length, 'exhibitors');
+      
+      // Log summary of data quality
+      const withLogos = mappedData.filter(e => e.logoUrl).length;
+      const withUrls = mappedData.filter(e => e.companyUrl).length;
+      console.log('ExhibitorsScreen - Data quality:', {
+        total: mappedData.length,
+        withLogos,
+        withUrls,
+        withoutLogos: mappedData.length - withLogos,
+        withoutUrls: mappedData.length - withUrls,
+      });
     } catch (err) {
       console.error('ExhibitorsScreen - Error loading exhibitors:', err);
       setError('Unable to load exhibitors. Please try again later.');
@@ -297,6 +335,7 @@ export default function ExhibitorsScreen() {
   const logoSource = selectedExhibitor?.logoUrl ? resolveImageSource(selectedExhibitor.logoUrl) : null;
   const hasLogo = !!logoSource;
   const firstLetter = selectedExhibitor?.name ? selectedExhibitor.name.charAt(0).toUpperCase() : '';
+  const hasCompanyUrl = !!(selectedExhibitor?.companyUrl && selectedExhibitor.companyUrl.trim() !== '');
 
   return (
     <React.Fragment>
@@ -499,12 +538,14 @@ export default function ExhibitorsScreen() {
                   </View>
                 ) : null}
 
-                {selectedExhibitor?.companyUrl ? (
+                {hasCompanyUrl ? (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: appColors.primary }]}
                     onPress={() => {
-                      console.log('ExhibitorsScreen - Visit Website button pressed');
-                      openWebsite(selectedExhibitor.companyUrl);
+                      console.log('ExhibitorsScreen - Visit Website button pressed for:', selectedExhibitor?.companyUrl);
+                      if (selectedExhibitor?.companyUrl) {
+                        openWebsite(selectedExhibitor.companyUrl);
+                      }
                     }}
                     activeOpacity={0.7}
                   >
