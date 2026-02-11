@@ -211,29 +211,33 @@ export default function ScheduleScreen() {
                 </Text>
               </View>
 
-              <View style={styles.sessionMeta}>
-                <IconSymbol
-                  ios_icon_name="location"
-                  android_material_icon_name="place"
-                  size={16}
-                  color={appColors.textSecondary}
-                />
-                <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                  {session.room}
-                </Text>
-              </View>
+              {session.room && (
+                <View style={styles.sessionMeta}>
+                  <IconSymbol
+                    ios_icon_name="location"
+                    android_material_icon_name="place"
+                    size={16}
+                    color={appColors.textSecondary}
+                  />
+                  <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                    {session.room}
+                  </Text>
+                </View>
+              )}
 
-              <View style={styles.sessionMeta}>
-                <IconSymbol
-                  ios_icon_name="person"
-                  android_material_icon_name="person"
-                  size={16}
-                  color={appColors.textSecondary}
-                />
-                <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                  {session.speaker}
-                </Text>
-              </View>
+              {session.speaker && (
+                <View style={styles.sessionMeta}>
+                  <IconSymbol
+                    ios_icon_name="person"
+                    android_material_icon_name="person"
+                    size={16}
+                    color={appColors.textSecondary}
+                  />
+                  <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                    {session.speaker}
+                  </Text>
+                </View>
+              )}
 
               <Text style={[
                 styles.sessionType,

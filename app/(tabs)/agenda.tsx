@@ -29,6 +29,54 @@ interface Session {
   description: string;
 }
 
+// Backend response interface to handle field name variations
+interface SessionBackendResponse {
+  id: string;
+  title?: string;
+  speaker?: string;
+  room?: string;
+  type?: string;
+  date?: string;
+  time?: string;
+  description?: string;
+  // Potential alternative field names from Airtable
+  Title?: string;
+  'Speaker(s)'?: string;
+  Speaker?: string;
+  Speakers?: string;
+  Room?: string;
+  'Type/Track'?: string;
+  Type?: string;
+  Date?: string;
+  'Start Time'?: string;
+  Time?: string;
+  'Session Description'?: string;
+  Description?: string;
+}
+
+// Map backend response to frontend Session interface
+function mapSessionResponse(data: SessionBackendResponse): Session {
+  // Robust field extraction with fallbacks
+  const title = data.title || data.Title || '';
+  const speaker = data.speaker || data['Speaker(s)'] || data.Speaker || data.Speakers || '';
+  const room = data.room || data.Room || '';
+  const type = data.type || data['Type/Track'] || data.Type || '';
+  const date = data.date || data.Date || '';
+  const time = data.time || data['Start Time'] || data.Time || '';
+  const description = data.description || data['Session Description'] || data.Description || '';
+
+  return {
+    id: data.id,
+    title,
+    speaker,
+    room,
+    type,
+    date,
+    time,
+    description,
+  };
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -213,11 +261,27 @@ export default function AgendaScreen() {
       setLoading(true);
       setError(null);
       console.log('AgendaScreen - Fetching sessions from /api/sessions');
-      const data = await apiGet<Session[]>('/api/sessions');
-      setSessions(data);
-      console.log('AgendaScreen - Loaded sessions:', data.length, 'sessions');
-      if (data.length > 0) {
-        console.log('AgendaScreen - First session:', data[0]);
+      const data = await apiGet<SessionBackendResponse[]>('/api/sessions');
+      
+      // Map backend response to frontend interface
+      const mappedSessions = data.map(mapSessionResponse);
+      setSessions(mappedSessions);
+      
+      console.log('AgendaScreen - Loaded sessions:', mappedSessions.length, 'sessions');
+      if (mappedSessions.length > 0) {
+        console.log('AgendaScreen - First session (raw):', data[0]);
+        console.log('AgendaScreen - First session (mapped):', mappedSessions[0]);
+        
+        // Log data quality for debugging
+        const withSpeaker = mappedSessions.filter(s => s.speaker).length;
+        const withRoom = mappedSessions.filter(s => s.room).length;
+        const withDescription = mappedSessions.filter(s => s.description).length;
+        console.log('AgendaScreen - Data quality:', {
+          total: mappedSessions.length,
+          withSpeaker,
+          withRoom,
+          withDescription,
+        });
       }
     } catch (err) {
       console.error('AgendaScreen - Error loading sessions:', err);
@@ -504,29 +568,33 @@ export default function AgendaScreen() {
                       </Text>
                     </View>
 
-                    <View style={styles.sessionMeta}>
-                      <IconSymbol
-                        ios_icon_name="location"
-                        android_material_icon_name="place"
-                        size={16}
-                        color={appColors.textSecondary}
-                      />
-                      <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                        {session.room}
-                      </Text>
-                    </View>
+                    {session.room && (
+                      <View style={styles.sessionMeta}>
+                        <IconSymbol
+                          ios_icon_name="location"
+                          android_material_icon_name="place"
+                          size={16}
+                          color={appColors.textSecondary}
+                        />
+                        <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                          {session.room}
+                        </Text>
+                      </View>
+                    )}
 
-                    <View style={styles.sessionMeta}>
-                      <IconSymbol
-                        ios_icon_name="person"
-                        android_material_icon_name="person"
-                        size={16}
-                        color={appColors.textSecondary}
-                      />
-                      <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                        {session.speaker}
-                      </Text>
-                    </View>
+                    {session.speaker && (
+                      <View style={styles.sessionMeta}>
+                        <IconSymbol
+                          ios_icon_name="person"
+                          android_material_icon_name="person"
+                          size={16}
+                          color={appColors.textSecondary}
+                        />
+                        <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                          {session.speaker}
+                        </Text>
+                      </View>
+                    )}
 
                     <Text style={[
                       styles.sessionType,
@@ -574,56 +642,64 @@ export default function AgendaScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Speaker
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedSession?.speaker}
-                  </Text>
-                </View>
+                {selectedSession?.speaker && (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Speaker
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSession.speaker}
+                    </Text>
+                  </View>
+                )}
 
                 <View style={styles.modalSection}>
                   <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                     Time
                   </Text>
                   <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedSession?.time}
+                    {selectedSession?.time || 'TBA'}
                   </Text>
                 </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Location
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedSession?.room}
-                  </Text>
-                </View>
+                {selectedSession?.room && (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Location
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSession.room}
+                    </Text>
+                  </View>
+                )}
 
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Type
-                  </Text>
-                  <Text style={[
-                    styles.sessionType,
-                    { 
-                      backgroundColor: getTypeColor(selectedSession?.type || '') + '20',
-                      color: getTypeColor(selectedSession?.type || '')
-                    }
-                  ]}>
-                    {selectedSession?.type}
-                  </Text>
-                </View>
+                {selectedSession?.type && (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Type
+                    </Text>
+                    <Text style={[
+                      styles.sessionType,
+                      { 
+                        backgroundColor: getTypeColor(selectedSession.type) + '20',
+                        color: getTypeColor(selectedSession.type)
+                      }
+                    ]}>
+                      {selectedSession.type}
+                    </Text>
+                  </View>
+                )}
 
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Description
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedSession?.description}
-                  </Text>
-                </View>
+                {selectedSession?.description && (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Description
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSession.description}
+                    </Text>
+                  </View>
+                )}
 
                 <View style={styles.modalActions}>
                   {selectedSession && (
