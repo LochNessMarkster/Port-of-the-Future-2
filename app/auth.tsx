@@ -14,6 +14,7 @@ import {
   Image,
   Modal,
   Pressable,
+  Switch,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
@@ -37,6 +38,7 @@ export default function AuthScreen() {
   const [phone, setPhone] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [bio, setBio] = useState("");
+  const [optInNetworking, setOptInNetworking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -77,24 +79,24 @@ export default function AuthScreen() {
         console.log('AuthScreen - Sign in successful');
         router.replace("/");
       } else {
-        console.log('AuthScreen - Signing up with email:', email);
+        console.log('AuthScreen - Signing up with email:', email, 'optInNetworking:', optInNetworking);
         await signUpWithEmail(email, password, name);
         
         // Update profile with additional fields after signup
-        if (company || title || phone || linkedin || bio) {
-          try {
-            const { authenticatedPut } = await import('@/utils/api');
-            await authenticatedPut('/api/profile', {
-              name,
-              company: company || null,
-              title: title || null,
-              phone: phone || null,
-              linkedin: linkedin || null,
-              bio: bio || null,
-            });
-          } catch (profileError) {
-            console.error('AuthScreen - Error updating profile:', profileError);
-          }
+        try {
+          const { authenticatedPut } = await import('@/utils/api');
+          await authenticatedPut('/api/profile', {
+            name,
+            company: company || null,
+            title: title || null,
+            phone: phone || null,
+            linkedin: linkedin || null,
+            bio: bio || null,
+            optInNetworking: optInNetworking,
+          });
+          console.log('AuthScreen - Profile updated with optInNetworking:', optInNetworking);
+        } catch (profileError) {
+          console.error('AuthScreen - Error updating profile:', profileError);
         }
         
         console.log('AuthScreen - Sign up successful');
@@ -241,6 +243,27 @@ export default function AuthScreen() {
                   numberOfLines={4}
                   textAlignVertical="top"
                 />
+
+                {/* Opt-in Networking Toggle */}
+                <View style={styles.switchContainer}>
+                  <View style={styles.switchTextContainer}>
+                    <Text style={[styles.switchLabel, { color: appColors.text }]}>
+                      Opt-in to Networking
+                    </Text>
+                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
+                      Allow other attendees to see your profile and send you messages
+                    </Text>
+                  </View>
+                  <Switch
+                    value={optInNetworking}
+                    onValueChange={(value) => {
+                      console.log('AuthScreen - User toggled optInNetworking to:', value);
+                      setOptInNetworking(value);
+                    }}
+                    trackColor={{ false: appColors.border, true: appColors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
               </React.Fragment>
             )}
 
@@ -397,6 +420,27 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     paddingTop: spacing.md,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  switchTextContainer: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  switchLabel: {
+    ...typography.body,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  switchDescription: {
+    ...typography.bodySmall,
+    lineHeight: 18,
   },
   primaryButton: {
     height: 50,
