@@ -6,7 +6,71 @@ import {
   TABLES,
   type AirtableRecord,
   type SessionFields,
+  type SpeakerFields,
 } from '../utils/airtable.js';
+
+/**
+ * Resolve linked speaker record IDs to speaker names
+ * If speaker field is an array of record IDs or a single record ID,
+ * fetch the speaker records and extract names
+ */
+async function resolveSpeakerNames(
+  speakerValue: any,
+  app: App
+): Promise<string> {
+  if (!speakerValue) return '';
+
+  // If it's a string (single record ID)
+  if (typeof speakerValue === 'string') {
+    try {
+      const speakerRecord = await fetchAirtableRecord<SpeakerFields>(
+        TABLES.SPEAKERS,
+        speakerValue
+      );
+      if (speakerRecord) {
+        return speakerRecord.fields['Speaker Name'] || speakerValue;
+      }
+    } catch (error) {
+      app.logger.debug(
+        { speakerId: speakerValue, error },
+        'Failed to fetch speaker record, using ID as fallback'
+      );
+    }
+    return speakerValue;
+  }
+
+  // If it's an array of record IDs
+  if (Array.isArray(speakerValue)) {
+    try {
+      const speakerNames = await Promise.all(
+        speakerValue.map(async (speakerId: string) => {
+          try {
+            const speakerRecord = await fetchAirtableRecord<SpeakerFields>(
+              TABLES.SPEAKERS,
+              speakerId
+            );
+            return speakerRecord?.fields['Speaker Name'] || speakerId;
+          } catch (error) {
+            app.logger.debug(
+              { speakerId, error },
+              'Failed to fetch speaker record, using ID as fallback'
+            );
+            return speakerId;
+          }
+        })
+      );
+      return speakerNames.join(', ');
+    } catch (error) {
+      app.logger.debug(
+        { speakerValue, error },
+        'Failed to resolve linked speaker records'
+      );
+    }
+  }
+
+  // Fallback: if it's already a string value (not a record ID), return it as-is
+  return String(speakerValue);
+}
 
 export function registerSessionsRoutes(app: App) {
   const requireAuth = app.requireAuth();
@@ -74,41 +138,47 @@ export function registerSessionsRoutes(app: App) {
           }
         }
 
-        const sessions = data.records.map((record: AirtableRecord<SessionFields>) => {
-          const fields = record.fields as any;
+        // Process all sessions and resolve linked speaker records
+        const sessions = await Promise.all(
+          data.records.map(async (record: AirtableRecord<SessionFields>) => {
+            const fields = record.fields as any;
 
-          // Try multiple speaker field name variations
-          let speaker = '';
-          const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
-          for (const fieldName of speakerFieldNames) {
-            if (fields[fieldName]) {
-              speaker = fields[fieldName];
-              app.logger.debug(
-                { sessionId: record.id, speakerField: fieldName, speaker },
-                'Speaker extracted from field'
-              );
-              break;
+            // Try multiple speaker field name variations
+            let speakerValue = '';
+            const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
+            for (const fieldName of speakerFieldNames) {
+              if (fields[fieldName]) {
+                speakerValue = fields[fieldName];
+                app.logger.debug(
+                  { sessionId: record.id, speakerField: fieldName, speakerValue },
+                  'Speaker value extracted from field'
+                );
+                break;
+              }
             }
-          }
 
-          if (!speaker) {
-            app.logger.debug(
-              { sessionId: record.id, attemptedFields: speakerFieldNames },
-              'No speaker field found, using empty string'
-            );
-          }
+            if (!speakerValue) {
+              app.logger.debug(
+                { sessionId: record.id, attemptedFields: speakerFieldNames },
+                'No speaker field found'
+              );
+            }
 
-          return {
-            id: record.id,
-            title: record.fields.Title || '',
-            speaker,
-            room: record.fields.Room || '',
-            type: record.fields['Type/Track'] || '',
-            date: record.fields.Date || '',
-            time: record.fields['Start Time'] || '',
-            description: record.fields['Session Description'] || '',
-          };
-        });
+            // Resolve linked speaker records to speaker names
+            const speaker = await resolveSpeakerNames(speakerValue, app);
+
+            return {
+              id: record.id,
+              title: record.fields.Title || '',
+              speaker,
+              room: record.fields.Room || '',
+              type: record.fields['Type/Track'] || '',
+              date: record.fields.Date || '',
+              time: record.fields['Start Time'] || '',
+              description: record.fields['Session Description'] || '',
+            };
+          })
+        );
 
         app.logger.info({ count: sessions.length }, 'Sessions fetched successfully');
         return sessions;
@@ -193,24 +263,27 @@ export function registerSessionsRoutes(app: App) {
 
         // Try multiple speaker field name variations
         const fields = record.fields as any;
-        let speaker = '';
+        let speakerValue = '';
         for (const fieldName of speakerFieldNames) {
           if (fields[fieldName]) {
-            speaker = fields[fieldName];
+            speakerValue = fields[fieldName];
             app.logger.info(
-              { sessionId: id, speakerField: fieldName, speaker },
-              'Speaker extracted from field'
+              { sessionId: id, speakerField: fieldName, speakerValue },
+              'Speaker value extracted from field'
             );
             break;
           }
         }
 
-        if (!speaker) {
+        if (!speakerValue) {
           app.logger.debug(
             { sessionId: id, attemptedFields: speakerFieldNames },
-            'No speaker field found, using empty string'
+            'No speaker field found'
           );
         }
+
+        // Resolve linked speaker records to speaker names
+        const speaker = await resolveSpeakerNames(speakerValue, app);
 
         const result = {
           id: record.id,
