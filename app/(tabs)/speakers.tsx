@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
+import { useRouter } from 'expo-router';
 
 interface Speaker {
   id: string;
@@ -38,10 +39,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   title: {
     ...typography.h1,
-    marginBottom: spacing.xs,
+    flex: 1,
   },
   speakerGrid: {
     paddingHorizontal: spacing.lg,
@@ -156,6 +178,7 @@ const styles = StyleSheet.create({
 export default function SpeakersScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
+  const router = useRouter();
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
@@ -198,10 +221,35 @@ export default function SpeakersScreen() {
     return sorted;
   }, [speakers]);
 
+  const handleBackPress = () => {
+    console.log('SpeakersScreen - Back button pressed');
+    router.back();
+  };
+
   return (
     <React.Fragment>
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
         <View style={styles.header}>
+          <TouchableOpacity 
+            style={[styles.backButton, { backgroundColor: appColors.card }]}
+            onPress={handleBackPress}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="chevron.left"
+              android_material_icon_name="arrow-back"
+              size={24}
+              color={appColors.text}
+            />
+          </TouchableOpacity>
+
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/images/POF-ICON.png')}
+              style={styles.logo}
+            />
+          </View>
+
           <Text style={[styles.title, { color: appColors.text }]}>
             Speakers
           </Text>
