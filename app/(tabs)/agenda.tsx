@@ -86,19 +86,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  title: {
-    ...typography.h1,
-    marginBottom: spacing.md,
-  },
   searchContainer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.md,
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -441,350 +431,348 @@ export default function AgendaScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
-        <View style={[styles.container, { backgroundColor: appColors.background }]}>
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
-              <IconSymbol
-                ios_icon_name="magnifyingglass"
-                android_material_icon_name="search"
-                size={20}
-                color={appColors.textSecondary}
-                style={styles.searchIcon}
-              />
-              <TextInput
-                style={[styles.searchInput, { color: appColors.text }]}
-                placeholder="Search sessions, speakers, rooms..."
-                placeholderTextColor={appColors.textSecondary}
-                value={searchQuery}
-                onChangeText={(text) => {
-                  console.log('AgendaScreen - Search query changed:', text);
-                  setSearchQuery(text);
-                }}
-              />
-              {searchQuery.length > 0 ? (
-                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                  <IconSymbol
-                    ios_icon_name="xmark.circle.fill"
-                    android_material_icon_name="cancel"
-                    size={20}
-                    color={appColors.textSecondary}
-                  />
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
-
-          {/* Day Tabs */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                { backgroundColor: selectedDay === '24' ? appColors.primary : appColors.card }
-              ]}
-              onPress={() => {
-                console.log('AgendaScreen - Switched to March 24');
-                setSelectedDay('24');
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="magnifyingglass"
+              android_material_icon_name="search"
+              size={20}
+              color={appColors.textSecondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: appColors.text }]}
+              placeholder="Search sessions, speakers, rooms..."
+              placeholderTextColor={appColors.textSecondary}
+              value={searchQuery}
+              onChangeText={(text) => {
+                console.log('AgendaScreen - Search query changed:', text);
+                setSearchQuery(text);
               }}
-              activeOpacity={0.7}
-            >
-              <Text style={[
-                styles.tabText,
-                { color: selectedDay === '24' ? '#FFFFFF' : appColors.text }
-              ]}>
-                March 24
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                { backgroundColor: selectedDay === '25' ? appColors.primary : appColors.card }
-              ]}
-              onPress={() => {
-                console.log('AgendaScreen - Switched to March 25');
-                setSelectedDay('25');
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[
-                styles.tabText,
-                { color: selectedDay === '25' ? '#FFFFFF' : appColors.text }
-              ]}>
-                March 25
-              </Text>
-            </TouchableOpacity>
+            />
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : null}
           </View>
+        </View>
 
-          {/* Sessions List */}
-          <ScrollView 
-            style={styles.container}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
+        {/* Day Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              { backgroundColor: selectedDay === '24' ? appColors.primary : appColors.card }
+            ]}
+            onPress={() => {
+              console.log('AgendaScreen - Switched to March 24');
+              setSelectedDay('24');
+            }}
+            activeOpacity={0.7}
           >
-            <View style={styles.sessionList}>
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={appColors.primary} />
-                  <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>
-                    Loading sessions...
-                  </Text>
-                </View>
-              ) : error ? (
-                <View style={styles.emptyContainer}>
-                  <IconSymbol
-                    ios_icon_name="exclamationmark.triangle"
-                    android_material_icon_name="warning"
-                    size={48}
-                    color={appColors.error}
-                  />
-                  <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                    {error}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      console.log('AgendaScreen - Retry button pressed');
-                      loadSessions();
-                    }}
-                    style={[styles.tab, { backgroundColor: appColors.primary, marginTop: spacing.md }]}
-                  >
-                    <Text style={[styles.tabText, { color: '#FFFFFF' }]}>
-                      Retry
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : sortedFilteredSessions.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <IconSymbol
-                    ios_icon_name="calendar"
-                    android_material_icon_name="event"
-                    size={48}
-                    color={appColors.textSecondary}
-                  />
-                  <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                    {searchQuery ? 'No sessions found' : 'No sessions scheduled'}
-                  </Text>
-                  <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                    {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
-                  </Text>
-                </View>
-              ) : (
-                sortedFilteredSessions.map((session, index) => {
-                  const isBookmarked = bookmarkedSessions.has(session.id);
-                  const isBookmarkLoading = bookmarkLoading === session.id;
-                  
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      style={[styles.sessionCard, { backgroundColor: appColors.card }]}
-                      onPress={() => {
-                        console.log('AgendaScreen - Session card pressed:', session.title);
-                        setSelectedSession(session);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.sessionHeader}>
-                        <Text style={[styles.sessionTitle, { color: appColors.text }]}>
-                          {session.title}
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.bookmarkButton}
-                          onPress={() => toggleBookmark(session.id)}
-                          disabled={isBookmarkLoading}
-                        >
-                          {isBookmarkLoading ? (
-                            <ActivityIndicator size="small" color={appColors.primary} />
-                          ) : (
-                            <IconSymbol
-                              ios_icon_name={isBookmarked ? "bookmark.fill" : "bookmark"}
-                              android_material_icon_name={isBookmarked ? "bookmark" : "bookmark-border"}
-                              size={24}
-                              color={isBookmarked ? appColors.primary : appColors.textSecondary}
-                            />
-                          )}
-                        </TouchableOpacity>
-                      </View>
+            <Text style={[
+              styles.tabText,
+              { color: selectedDay === '24' ? '#FFFFFF' : appColors.text }
+            ]}>
+              March 24
+            </Text>
+          </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              { backgroundColor: selectedDay === '25' ? appColors.primary : appColors.card }
+            ]}
+            onPress={() => {
+              console.log('AgendaScreen - Switched to March 25');
+              setSelectedDay('25');
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: selectedDay === '25' ? '#FFFFFF' : appColors.text }
+            ]}>
+              March 25
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Sessions List */}
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.sessionList}>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={appColors.primary} />
+                <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+                  Loading sessions...
+                </Text>
+              </View>
+            ) : error ? (
+              <View style={styles.emptyContainer}>
+                <IconSymbol
+                  ios_icon_name="exclamationmark.triangle"
+                  android_material_icon_name="warning"
+                  size={48}
+                  color={appColors.error}
+                />
+                <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                  {error}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    console.log('AgendaScreen - Retry button pressed');
+                    loadSessions();
+                  }}
+                  style={[styles.tab, { backgroundColor: appColors.primary, marginTop: spacing.md }]}
+                >
+                  <Text style={[styles.tabText, { color: '#FFFFFF' }]}>
+                    Retry
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : sortedFilteredSessions.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <IconSymbol
+                  ios_icon_name="calendar"
+                  android_material_icon_name="event"
+                  size={48}
+                  color={appColors.textSecondary}
+                />
+                <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                  {searchQuery ? 'No sessions found' : 'No sessions scheduled'}
+                </Text>
+                <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
+                  {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
+                </Text>
+              </View>
+            ) : (
+              sortedFilteredSessions.map((session, index) => {
+                const isBookmarked = bookmarkedSessions.has(session.id);
+                const isBookmarkLoading = bookmarkLoading === session.id;
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.sessionCard, { backgroundColor: appColors.card }]}
+                    onPress={() => {
+                      console.log('AgendaScreen - Session card pressed:', session.title);
+                      setSelectedSession(session);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.sessionHeader}>
+                      <Text style={[styles.sessionTitle, { color: appColors.text }]}>
+                        {session.title}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.bookmarkButton}
+                        onPress={() => toggleBookmark(session.id)}
+                        disabled={isBookmarkLoading}
+                      >
+                        {isBookmarkLoading ? (
+                          <ActivityIndicator size="small" color={appColors.primary} />
+                        ) : (
+                          <IconSymbol
+                            ios_icon_name={isBookmarked ? "bookmark.fill" : "bookmark"}
+                            android_material_icon_name={isBookmarked ? "bookmark" : "bookmark-border"}
+                            size={24}
+                            color={isBookmarked ? appColors.primary : appColors.textSecondary}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.sessionMeta}>
+                      <IconSymbol
+                        ios_icon_name="clock"
+                        android_material_icon_name="access-time"
+                        size={16}
+                        color={appColors.textSecondary}
+                      />
+                      <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                        {session.time}
+                      </Text>
+                    </View>
+
+                    {session.room ? (
                       <View style={styles.sessionMeta}>
                         <IconSymbol
-                          ios_icon_name="clock"
-                          android_material_icon_name="access-time"
+                          ios_icon_name="location"
+                          android_material_icon_name="place"
                           size={16}
                           color={appColors.textSecondary}
                         />
                         <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                          {session.time}
+                          {session.room}
                         </Text>
                       </View>
+                    ) : null}
 
-                      {session.room ? (
-                        <View style={styles.sessionMeta}>
-                          <IconSymbol
-                            ios_icon_name="location"
-                            android_material_icon_name="place"
-                            size={16}
-                            color={appColors.textSecondary}
-                          />
-                          <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                            {session.room}
-                          </Text>
-                        </View>
-                      ) : null}
+                    {session.speaker ? (
+                      <View style={styles.sessionMeta}>
+                        <IconSymbol
+                          ios_icon_name="person"
+                          android_material_icon_name="person"
+                          size={16}
+                          color={appColors.textSecondary}
+                        />
+                        <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                          {session.speaker}
+                        </Text>
+                      </View>
+                    ) : null}
 
-                      {session.speaker ? (
-                        <View style={styles.sessionMeta}>
-                          <IconSymbol
-                            ios_icon_name="person"
-                            android_material_icon_name="person"
-                            size={16}
-                            color={appColors.textSecondary}
-                          />
-                          <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                            {session.speaker}
-                          </Text>
-                        </View>
-                      ) : null}
+                    <Text style={[
+                      styles.sessionType,
+                      { 
+                        backgroundColor: getTypeColor(session.type) + '20',
+                        color: getTypeColor(session.type)
+                      }
+                    ]}>
+                      {session.type}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
 
-                      <Text style={[
-                        styles.sessionType,
-                        { 
-                          backgroundColor: getTypeColor(session.type) + '20',
-                          color: getTypeColor(session.type)
-                        }
-                      ]}>
-                        {session.type}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          </ScrollView>
-
-          {/* Session Detail Modal */}
-          <Modal
-            visible={selectedSession !== null}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setSelectedSession(null)}
+        {/* Session Detail Modal */}
+        <Modal
+          visible={selectedSession !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedSession(null)}
+        >
+          <Pressable 
+            style={styles.modalOverlay}
+            onPress={() => setSelectedSession(null)}
           >
             <Pressable 
-              style={styles.modalOverlay}
-              onPress={() => setSelectedSession(null)}
+              style={[styles.modalContent, { backgroundColor: appColors.card }]}
+              onPress={(e) => e.stopPropagation()}
             >
-              <Pressable 
-                style={[styles.modalContent, { backgroundColor: appColors.card }]}
-                onPress={(e) => e.stopPropagation()}
-              >
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  <View style={styles.modalHeader}>
-                    <Text style={[styles.modalTitle, { color: appColors.text }]}>
-                      {selectedSession?.title}
-                    </Text>
-                    <TouchableOpacity onPress={() => setSelectedSession(null)}>
-                      <IconSymbol
-                        ios_icon_name="xmark"
-                        android_material_icon_name="close"
-                        size={24}
-                        color={appColors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: appColors.text }]}>
+                    {selectedSession?.title}
+                  </Text>
+                  <TouchableOpacity onPress={() => setSelectedSession(null)}>
+                    <IconSymbol
+                      ios_icon_name="xmark"
+                      android_material_icon_name="close"
+                      size={24}
+                      color={appColors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
 
-                  {selectedSession?.speaker ? (
-                    <View style={styles.modalSection}>
-                      <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                        Speaker
-                      </Text>
-                      <Text style={[styles.modalText, { color: appColors.text }]}>
-                        {selectedSession.speaker}
-                      </Text>
-                    </View>
-                  ) : null}
-
+                {selectedSession?.speaker ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Time
+                      Speaker
                     </Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSession?.time || 'TBA'}
+                      {selectedSession.speaker}
                     </Text>
                   </View>
+                ) : null}
 
-                  {selectedSession?.room ? (
-                    <View style={styles.modalSection}>
-                      <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                        Location
-                      </Text>
-                      <Text style={[styles.modalText, { color: appColors.text }]}>
-                        {selectedSession.room}
-                      </Text>
-                    </View>
-                  ) : null}
+                <View style={styles.modalSection}>
+                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                    Time
+                  </Text>
+                  <Text style={[styles.modalText, { color: appColors.text }]}>
+                    {selectedSession?.time || 'TBA'}
+                  </Text>
+                </View>
 
-                  {selectedSession?.type ? (
-                    <View style={styles.modalSection}>
-                      <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                        Type
-                      </Text>
-                      <Text style={[
-                        styles.sessionType,
-                        { 
-                          backgroundColor: getTypeColor(selectedSession.type) + '20',
-                          color: getTypeColor(selectedSession.type)
-                        }
-                      ]}>
-                        {selectedSession.type}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {selectedSession?.description ? (
-                    <View style={styles.modalSection}>
-                      <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                        Description
-                      </Text>
-                      <Text style={[styles.modalText, { color: appColors.text }]}>
-                        {selectedSession.description}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  <View style={styles.modalActions}>
-                    {selectedSession ? (
-                      <TouchableOpacity
-                        style={[
-                          styles.modalButton,
-                          { 
-                            backgroundColor: bookmarkedSessions.has(selectedSession.id) 
-                              ? appColors.error 
-                              : appColors.primary 
-                          }
-                        ]}
-                        onPress={() => {
-                          if (selectedSession) {
-                            toggleBookmark(selectedSession.id);
-                          }
-                        }}
-                        disabled={bookmarkLoading === selectedSession.id}
-                      >
-                        {bookmarkLoading === selectedSession.id ? (
-                          <ActivityIndicator color="#FFFFFF" />
-                        ) : (
-                          <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
-                            {bookmarkedSessions.has(selectedSession.id) 
-                              ? 'Remove from Schedule' 
-                              : 'Add to My Schedule'}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    ) : null}
+                {selectedSession?.room ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Location
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSession.room}
+                    </Text>
                   </View>
-                </ScrollView>
-              </Pressable>
+                ) : null}
+
+                {selectedSession?.type ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Type
+                    </Text>
+                    <Text style={[
+                      styles.sessionType,
+                      { 
+                        backgroundColor: getTypeColor(selectedSession.type) + '20',
+                        color: getTypeColor(selectedSession.type)
+                      }
+                    ]}>
+                      {selectedSession.type}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {selectedSession?.description ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Description
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSession.description}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.modalActions}>
+                  {selectedSession ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        { 
+                          backgroundColor: bookmarkedSessions.has(selectedSession.id) 
+                            ? appColors.error 
+                            : appColors.primary 
+                        }
+                      ]}
+                      onPress={() => {
+                        if (selectedSession) {
+                          toggleBookmark(selectedSession.id);
+                        }
+                      }}
+                      disabled={bookmarkLoading === selectedSession.id}
+                    >
+                      {bookmarkLoading === selectedSession.id ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
+                          {bookmarkedSessions.has(selectedSession.id) 
+                            ? 'Remove from Schedule' 
+                            : 'Add to My Schedule'}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </ScrollView>
             </Pressable>
-          </Modal>
-        </View>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     </React.Fragment>
   );
