@@ -1,11 +1,12 @@
+
 import "react-native-reanimated";
 import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert } from "react-native";
+import { useColorScheme, Alert, Platform } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -15,8 +16,9 @@ import {
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/styles/commonStyles";
+import FloatingTabBar, { TabBarItem } from "@/components/FloatingTabBar";
 // Note: Error logging is auto-initialized via index.ts import
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -26,18 +28,12 @@ export const unstable_settings = {
   initialRouteName: "(tabs)", // Ensure any route can link back to `/`
 };
 
-export default function RootLayout() {
+// Inner component that has access to auth context
+function RootLayoutInner() {
   const colorScheme = useColorScheme();
   const networkState = useNetworkState();
-  const [loaded] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
-  });
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+  const pathname = usePathname();
+  const { user } = useAuth();
 
   React.useEffect(() => {
     if (
@@ -50,10 +46,6 @@ export default function RootLayout() {
       );
     }
   }, [networkState.isConnected, networkState.isInternetReachable]);
-
-  if (!loaded) {
-    return null;
-  }
 
   const lightColors = colors.light;
   const darkColors = colors.dark;
@@ -82,39 +74,99 @@ export default function RootLayout() {
       notification: darkColors.error,
     },
   };
+
+  // Define the tabs configuration
+  const tabs: TabBarItem[] = [
+    {
+      name: '(home)',
+      route: '/(tabs)/(home)/',
+      icon: 'home',
+      label: 'Home',
+    },
+    {
+      name: 'agenda',
+      route: '/(tabs)/agenda',
+      icon: 'calendar-today',
+      label: 'Agenda',
+    },
+    {
+      name: 'speakers',
+      route: '/(tabs)/speakers',
+      icon: 'group',
+      label: 'Speakers',
+    },
+    {
+      name: 'more',
+      route: '/(tabs)/more',
+      icon: 'more-horiz',
+      label: 'More',
+    },
+  ];
+
+  // Determine if we should show the tab bar
+  // Show on all screens except auth screens
+  const shouldShowTabBar = user && !pathname.includes('/auth') && pathname !== '/auth-popup' && pathname !== '/auth-callback';
+
+  // On iOS, don't show the FloatingTabBar (native tabs are used)
+  const showFloatingTabBar = shouldShowTabBar && Platform.OS !== 'ios';
+
+  return (
+    <>
+      <ThemeProvider
+        value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
+      >
+        <WidgetProvider>
+          <GestureHandlerRootView>
+            <Stack>
+              {/* Auth screens */}
+              <Stack.Screen name="auth" options={{ headerShown: false }} />
+              <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
+              <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+              {/* Main app with tabs */}
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              {/* Additional screens */}
+              <Stack.Screen name="ports" options={{ headerShown: true, title: 'Ports' }} />
+              <Stack.Screen name="sponsors" options={{ headerShown: true, title: 'Sponsors' }} />
+              <Stack.Screen name="exhibitors" options={{ headerShown: true, title: 'Exhibitors' }} />
+              <Stack.Screen name="schedule" options={{ headerShown: true, title: 'My Schedule' }} />
+              <Stack.Screen name="networking" options={{ headerShown: true, title: 'Networking' }} />
+              <Stack.Screen name="messages" options={{ headerShown: true, title: 'Messages' }} />
+              <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile' }} />
+              <Stack.Screen name="admin" options={{ headerShown: true, title: 'Admin Panel' }} />
+              {/* 404 handler */}
+              <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+            </Stack>
+            <SystemBars style={"auto"} />
+            {/* Show FloatingTabBar on all authenticated screens (except iOS which uses native tabs) */}
+            {showFloatingTabBar && <FloatingTabBar tabs={tabs} />}
+          </GestureHandlerRootView>
+        </WidgetProvider>
+      </ThemeProvider>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  const [loaded] = useFonts({
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+  });
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
+  if (!loaded) {
+    return null;
+  }
+
   return (
     <>
       <StatusBar style="auto" animated />
-        <ThemeProvider
-          value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
-        >
-          <AuthProvider>
-            <WidgetProvider>
-              <GestureHandlerRootView>
-              <Stack>
-                {/* Auth screens */}
-                <Stack.Screen name="auth" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-                {/* Main app with tabs */}
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                {/* Additional screens */}
-                <Stack.Screen name="ports" options={{ headerShown: true, title: 'Ports' }} />
-                <Stack.Screen name="sponsors" options={{ headerShown: true, title: 'Sponsors' }} />
-                <Stack.Screen name="exhibitors" options={{ headerShown: true, title: 'Exhibitors' }} />
-                <Stack.Screen name="schedule" options={{ headerShown: true, title: 'My Schedule' }} />
-                <Stack.Screen name="networking" options={{ headerShown: true, title: 'Networking' }} />
-                <Stack.Screen name="messages" options={{ headerShown: true, title: 'Messages' }} />
-                <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile' }} />
-                <Stack.Screen name="admin" options={{ headerShown: true, title: 'Admin Panel' }} />
-                {/* 404 handler */}
-                <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
-              </Stack>
-              <SystemBars style={"auto"} />
-              </GestureHandlerRootView>
-            </WidgetProvider>
-          </AuthProvider>
-        </ThemeProvider>
+      <AuthProvider>
+        <RootLayoutInner />
+      </AuthProvider>
     </>
   );
 }
