@@ -49,6 +49,7 @@ export default function FloatingTabBar({
   const animatedValue = useSharedValue(0);
 
   console.log('FloatingTabBar - Current pathname:', pathname);
+  console.log('FloatingTabBar - Tabs:', tabs.map(t => ({ name: t.name, icon: t.icon, label: t.label })));
 
   // Improved active tab detection with better path matching
   const activeTabIndex = React.useMemo(() => {
@@ -191,6 +192,8 @@ export default function FloatingTabBar({
                 const isActive = activeTabIndex === index;
                 const iconColor = isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#666666');
 
+                console.log('FloatingTabBar - Rendering tab:', tab.label, 'icon:', tab.icon, 'isActive:', isActive);
+
                 return (
                   <React.Fragment key={index}>
                   <TouchableOpacity
@@ -201,7 +204,7 @@ export default function FloatingTabBar({
                     <View style={styles.tabContent}>
                       <MaterialIcons
                         name={tab.icon as any}
-                        size={24}
+                        size={26}
                         color={iconColor}
                       />
                       <Text
@@ -291,7 +294,7 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    height: 60,
+    height: 64,
     alignItems: 'center',
     paddingHorizontal: 4,
   },
@@ -304,10 +307,10 @@ const styles = StyleSheet.create({
   tabContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 3,
   },
   tabLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '500',
     marginTop: 2,
   },
