@@ -27,6 +27,8 @@ interface Speaker {
   topic: string;
   synopsis: string;
   bio: string;
+  // Note: The backend filters speakers by the "Published" checkbox in Airtable
+  // Only speakers with Published=true are returned by the API
 }
 
 const styles = StyleSheet.create({
@@ -194,10 +196,10 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
-      console.log('SpeakersScreen - Fetching speakers from /api/speakers');
+      console.log('SpeakersScreen - Fetching speakers from /api/speakers (only Published=true speakers)');
       const data = await apiGet<Speaker[]>('/api/speakers');
       setSpeakers(data);
-      console.log('SpeakersScreen - Loaded speakers:', data.length);
+      console.log('SpeakersScreen - Loaded published speakers:', data.length);
     } catch (error) {
       console.error('SpeakersScreen - Error loading speakers:', error);
       setSpeakers([]);
