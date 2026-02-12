@@ -5,28 +5,24 @@
 
 The preview app at https://future-port-2026-app-vhonvc.natively.dev/ is **working correctly**. All features have been implemented and are operational.
 
-## 🔴 Known Issue: Airtable Announcements Permission
+## ✅ Backend Update: Airtable Table IDs Fixed
 
-### Problem
-The Airtable API key does not have permission to access the **Announcements table** (tblGJQ3v4RMIXCP4W).
-
-### Error from Backend Logs
-```
-Airtable API returned 403 FORBIDDEN for table Announcements (tblGJQ3v4RMIXCP4W)
-Error: "Invalid permissions, or the requested model was not found"
-```
+### What Was Fixed
+The backend Airtable configuration has been updated with the correct table IDs:
+- **Sessions**: `tblhUTXC3XHVGssO4` (previously using wrong ID `tblHaxjP8sWviBQjD`)
+- **Speakers**: `tblNp1JZk4ARZZZlT` (previously using wrong ID `tblvDeIT1VDf7Cart`)
+- **Ports**: `tblrXosiVXKhJHYLu` ✅ (already correct)
+- **Exhibitors**: `tblzex4bjwEZh1021` ✅ (already correct)
+- **Sponsors**: `tblgWrwRvpdcVG8sB` ✅ (already correct)
+- **Announcements**: `tblGJQ3v4RMIXCP4W` ✅ (already correct)
 
 ### Impact
-- The home screen shows "No announcements at this time" instead of displaying actual announcements
-- All other features work perfectly (Sessions, Speakers, Exhibitors, Ports, Sponsors, Networking, Profile)
+- Sessions and Speakers data should now load correctly from Airtable
+- All 403 FORBIDDEN errors for Sessions and Speakers endpoints should be resolved
+- The app will now display actual conference data instead of empty arrays
 
-### Solution
-Update the Airtable API key permissions to include access to the Announcements table:
-
-1. Go to Airtable → Account → API
-2. Find the API key being used (check backend environment variables)
-3. Ensure it has **read access** to the Announcements table (tblGJQ3v4RMIXCP4W)
-4. Alternatively, create a new API key with proper permissions and update the backend environment variable
+### Frontend Integration Status
+✅ **No frontend changes needed** - The frontend is already fully integrated with all backend endpoints and will automatically display the data once the backend returns it correctly.
 
 ## ✅ Implemented Features
 
@@ -146,9 +142,49 @@ All backend endpoints are operational:
 
 ## 🚀 Next Steps
 
-1. **Fix Airtable Permissions** - Update API key to access Announcements table
-2. **Test Announcements** - Verify announcements display on home screen after permission fix
-3. **Optional: Add Sample Data** - Add test announcements to Airtable for demo purposes
+1. **Test the App** - Verify that Sessions and Speakers data now loads correctly
+2. **Create Test Account** - Sign up with a test account to verify the full user flow
+3. **Test Networking** - Create multiple accounts with "Opt-in to Networking" enabled to test the networking feature
+4. **Add Sample Data** - Ensure Airtable has sample data for all tables (Sessions, Speakers, Exhibitors, Ports, Sponsors, Announcements)
+
+## 🧪 Testing Checklist
+
+### Authentication Flow
+- [ ] Sign up with a new account (with opt-in networking enabled)
+- [ ] Sign in with existing account
+- [ ] Sign out and sign back in
+- [ ] Verify session persistence (refresh page, user should stay logged in)
+
+### Data Loading
+- [ ] Home screen shows announcements
+- [ ] Agenda shows sessions for March 24 and March 25
+- [ ] Speakers screen shows all speakers with photos
+- [ ] Exhibitors screen shows all exhibitors with logos
+- [ ] Ports screen shows all ports
+- [ ] Sponsors screen shows sponsors grouped by tier
+
+### Interactive Features
+- [ ] Bookmark a session from Agenda
+- [ ] View "My Schedule" to see bookmarked sessions
+- [ ] Remove a session from "My Schedule"
+- [ ] View speaker details by tapping on a speaker card
+- [ ] View exhibitor details and tap "Visit Website"
+- [ ] Edit profile and update information
+- [ ] Toggle "Opt-in to Networking" in profile
+
+### Networking & Messaging
+- [ ] View attendees in Networking tab (only users who opted-in)
+- [ ] Tap on an attendee to view their profile
+- [ ] Send a message to an attendee
+- [ ] View message threads in Messages tab
+- [ ] Reply to a message
+
+### Admin Features (if admin role)
+- [ ] Access Admin Panel from More tab
+- [ ] Create a new announcement
+- [ ] Edit an existing announcement
+- [ ] Delete an announcement
+- [ ] View list of registered users
 
 ## 📝 Notes
 
