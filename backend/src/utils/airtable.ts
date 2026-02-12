@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_ID = 'appcNhRl5vEqug2D1';
+const BASE_ID = 'appkKjciinTlnsbkd';
 
 // Use environment variable if set, otherwise use default API key
 const API_KEY = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
