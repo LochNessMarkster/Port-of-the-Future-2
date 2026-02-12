@@ -31,6 +31,9 @@ interface Announcement {
 const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
@@ -39,7 +42,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 180,
+    height: 280,
   },
   heroImageStyle: {
     width: '100%',
@@ -50,39 +53,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xl,
   },
   logo: {
-    width: 120,
-    height: 50,
+    width: 140,
+    height: 60,
     resizeMode: 'contain',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   dateLocationContainer: {
     alignItems: 'center',
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   dateText: {
     ...typography.body,
     color: '#FFFFFF',
     textAlign: 'center',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 16,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   locationText: {
     ...typography.body,
     color: '#FFFFFF',
     textAlign: 'center',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 16,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   header: {
     paddingHorizontal: spacing.lg,
@@ -232,13 +235,13 @@ export default function HomeScreen() {
   const locationText = 'Houston, Texas';
 
   return (
-    <>
+    <React.Fragment>
       <Stack.Screen
         options={{
           headerShown: false,
         }}
       />
-      <View style={[styles.container, { backgroundColor: appColors.background }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -406,7 +409,7 @@ export default function HomeScreen() {
             )}
           </View>
         </ScrollView>
-      </View>
-    </>
+      </SafeAreaView>
+    </React.Fragment>
   );
 }

@@ -204,7 +204,7 @@ export default function FloatingTabBar({
                     <View style={styles.tabContent}>
                       <MaterialIcons
                         name={tab.icon as any}
-                        size={26}
+                        size={28}
                         color={iconColor}
                       />
                       <Text
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    height: 64,
+    height: 68,
     alignItems: 'center',
     paddingHorizontal: 4,
   },
@@ -307,10 +307,10 @@ const styles = StyleSheet.create({
   tabContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 4,
   },
   tabLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '500',
     marginTop: 2,
   },
