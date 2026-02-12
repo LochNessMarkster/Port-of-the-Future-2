@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_ID = 'appkKjciinTlnsbkd';
+const BASE_ID = 'appcNhRl5vEqug2D1';
 const API_KEY = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
 /**
@@ -45,11 +45,11 @@ export interface AirtableListResponse<T> {
 
 // Table IDs
 export const TABLES = {
-  SESSIONS: 'tblhUTXC3XHVGssO4',
-  SPEAKERS: 'tblNp1JZk4ARZZZlT',
-  PORTS: 'tblrXosiVXKhJHYLu',
-  EXHIBITORS: 'tblzex4bjwEZh1021',
-  SPONSORS: 'tblgWrwRvpdcVG8sB',
+  SESSIONS: 'tblHaxjP8sWviBQjD',
+  SPEAKERS: 'tblvDeIT1VDf7Cart',
+  PORTS: 'tblxgPx1eRl9iSX2S',
+  EXHIBITORS: 'tblTWLUNSEfW0Cvxx',
+  SPONSORS: 'tblyI3hc2dZZu0eQA',
   PARTNERS: 'tblxn3Yie523MallN',
   ATTENDEES: 'tblQhLaWbOSI0t7iX',
   ANNOUNCEMENTS: 'tblGJQ3v4RMIXCP4W',
