@@ -41,8 +41,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.md,
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -261,7 +260,7 @@ export default function SpeakersScreen() {
           headerBackTitle: 'Back',
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
         <View style={[styles.container, { backgroundColor: appColors.background }]}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>

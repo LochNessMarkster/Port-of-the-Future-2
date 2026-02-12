@@ -1,6 +1,8 @@
 
 import React from 'react';
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { Platform } from 'react-native';
+import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useAuth } from '@/contexts/AuthContext';
 import { Redirect } from 'expo-router';
 
@@ -21,19 +23,31 @@ export default function TabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger key="home" name="(home)">
-        <Icon sf={{ default: 'house', selected: 'house.fill' }} drawable="home" />
+        {Platform.select({
+          ios: <Icon sf={{ default: 'house', selected: 'house.fill' }} />,
+          default: <Icon src={<VectorIcon family={MaterialIcons} name="home" />} />,
+        })}
         <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger key="agenda" name="agenda">
-        <Icon sf={{ default: 'calendar', selected: 'calendar.badge.clock' }} drawable="event" />
+        {Platform.select({
+          ios: <Icon sf={{ default: 'calendar', selected: 'calendar.badge.clock' }} />,
+          default: <Icon src={<VectorIcon family={MaterialIcons} name="event" />} />,
+        })}
         <Label>Agenda</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger key="speakers" name="speakers">
-        <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} drawable="group" />
+        {Platform.select({
+          ios: <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />,
+          default: <Icon src={<VectorIcon family={MaterialIcons} name="group" />} />,
+        })}
         <Label>Speakers</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger key="more" name="more">
-        <Icon sf={{ default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' }} drawable="more-horiz" />
+        {Platform.select({
+          ios: <Icon sf={{ default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' }} />,
+          default: <Icon src={<VectorIcon family={MaterialIcons} name="more-horiz" />} />,
+        })}
         <Label>More</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
