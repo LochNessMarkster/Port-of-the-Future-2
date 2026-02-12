@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-  Pressable
+  Pressable,
+  TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -34,6 +35,29 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 100,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    paddingVertical: spacing.xs,
+  },
+  clearButton: {
+    padding: spacing.xs,
   },
   speakerGrid: {
     paddingHorizontal: spacing.lg,
@@ -77,10 +101,18 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
   },
+  emptyContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
   emptyText: {
     ...typography.body,
     textAlign: 'center',
-    padding: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  emptySubtext: {
+    ...typography.bodySmall,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -151,6 +183,7 @@ export default function SpeakersScreen() {
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   console.log('SpeakersScreen - Rendered');
 
@@ -179,9 +212,25 @@ export default function SpeakersScreen() {
     return nameParts[nameParts.length - 1] || '';
   };
 
-  // Sort speakers alphabetically by last name
-  const sortedSpeakers = useMemo(() => {
-    const sorted = [...speakers].sort((a, b) => {
+  // Sort speakers alphabetically by last name and filter by search query
+  const sortedFilteredSpeakers = useMemo(() => {
+    let filtered = speakers;
+    
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      filtered = speakers.filter(speaker => {
+        const matchesName = speaker.name.toLowerCase().includes(query);
+        const matchesTitle = speaker.title.toLowerCase().includes(query);
+        const matchesTopic = speaker.topic.toLowerCase().includes(query);
+        const matchesBio = speaker.bio.toLowerCase().includes(query);
+        
+        return matchesName || matchesTitle || matchesTopic || matchesBio;
+      });
+    }
+    
+    // Sort alphabetically by last name
+    const sorted = [...filtered].sort((a, b) => {
       const lastNameA = getLastName(a.name).toLowerCase();
       const lastNameB = getLastName(b.name).toLowerCase();
       return lastNameA.localeCompare(lastNameB);
@@ -193,7 +242,12 @@ export default function SpeakersScreen() {
       console.log('SpeakersScreen - Last speaker:', sorted[sorted.length - 1].name, '(last name:', getLastName(sorted[sorted.length - 1].name) + ')');
     }
     return sorted;
-  }, [speakers]);
+  }, [speakers, searchQuery]);
+
+  const clearSearch = () => {
+    console.log('SpeakersScreen - Clearing search');
+    setSearchQuery('');
+  };
 
   return (
     <React.Fragment>
@@ -204,6 +258,39 @@ export default function SpeakersScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="magnifyingglass"
+              android_material_icon_name="search"
+              size={20}
+              color={appColors.textSecondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: appColors.text }]}
+              placeholder="Search speakers, topics..."
+              placeholderTextColor={appColors.textSecondary}
+              value={searchQuery}
+              onChangeText={(text) => {
+                console.log('SpeakersScreen - Search query changed:', text);
+                setSearchQuery(text);
+              }}
+            />
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -213,13 +300,24 @@ export default function SpeakersScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
             </View>
-          ) : sortedSpeakers.length === 0 ? (
-            <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
-              No speakers available yet
-            </Text>
+          ) : sortedFilteredSpeakers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol
+                ios_icon_name="person"
+                android_material_icon_name="person"
+                size={48}
+                color={appColors.textSecondary}
+              />
+              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                {searchQuery ? 'No speakers found' : 'No speakers available yet'}
+              </Text>
+              <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
+                {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
+              </Text>
+            </View>
           ) : (
             <View style={styles.speakerGrid}>
-              {sortedSpeakers.map((speaker, index) => (
+              {sortedFilteredSpeakers.map((speaker, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[styles.speakerCard, { backgroundColor: appColors.card }]}

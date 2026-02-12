@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -12,7 +12,8 @@ import {
   Modal,
   Pressable,
   Linking,
-  Platform
+  Platform,
+  TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -36,6 +37,29 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    paddingVertical: spacing.xs,
+  },
+  clearButton: {
+    padding: spacing.xs,
   },
   tierSection: {
     marginBottom: spacing.xl,
@@ -96,10 +120,18 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
   },
+  emptyContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
   emptyText: {
     ...typography.body,
     textAlign: 'center',
-    padding: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  emptySubtext: {
+    ...typography.bodySmall,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -195,6 +227,7 @@ export default function SponsorsScreen() {
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSponsor, setSelectedSponsor] = useState<Sponsor | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadSponsors();
@@ -235,7 +268,22 @@ export default function SponsorsScreen() {
     }
   };
 
-  const groupedSponsors = sponsors.reduce((acc, sponsor) => {
+  // Filter sponsors by search query
+  const filteredSponsors = useMemo(() => {
+    if (searchQuery.trim() === '') return sponsors;
+    
+    const query = searchQuery.toLowerCase();
+    return sponsors.filter(sponsor => {
+      const matchesName = sponsor.name.toLowerCase().includes(query);
+      const matchesTier = sponsor.tier.toLowerCase().includes(query);
+      const matchesIntro = sponsor.intro?.toLowerCase().includes(query);
+      const matchesBio = sponsor.bio.toLowerCase().includes(query);
+      
+      return matchesName || matchesTier || matchesIntro || matchesBio;
+    });
+  }, [sponsors, searchQuery]);
+
+  const groupedSponsors = filteredSponsors.reduce((acc, sponsor) => {
     const tier = sponsor.tier || 'Partner';
     if (!acc[tier]) {
       acc[tier] = [];
@@ -246,9 +294,47 @@ export default function SponsorsScreen() {
 
   const tierOrder = ['Platinum', 'Gold', 'Silver', 'Bronze', 'Partner'];
 
+  const clearSearch = () => {
+    console.log('SponsorsScreen - Clearing search');
+    setSearchQuery('');
+  };
+
   return (
     <React.Fragment>
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="magnifyingglass"
+              android_material_icon_name="search"
+              size={20}
+              color={appColors.textSecondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: appColors.text }]}
+              placeholder="Search sponsors, tiers..."
+              placeholderTextColor={appColors.textSecondary}
+              value={searchQuery}
+              onChangeText={(text) => {
+                console.log('SponsorsScreen - Search query changed:', text);
+                setSearchQuery(text);
+              }}
+            />
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -258,10 +344,21 @@ export default function SponsorsScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
             </View>
-          ) : sponsors.length === 0 ? (
-            <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
-              No sponsors available yet
-            </Text>
+          ) : filteredSponsors.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol
+                ios_icon_name="star"
+                android_material_icon_name="star"
+                size={48}
+                color={appColors.textSecondary}
+              />
+              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                {searchQuery ? 'No sponsors found' : 'No sponsors available yet'}
+              </Text>
+              <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
+                {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
+              </Text>
+            </View>
           ) : (
             <React.Fragment>
               {tierOrder.map(tier => {

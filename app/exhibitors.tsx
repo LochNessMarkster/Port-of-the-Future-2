@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -12,7 +12,8 @@ import {
   Modal,
   Pressable,
   Linking,
-  Platform
+  Platform,
+  TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -106,6 +107,29 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    paddingVertical: spacing.xs,
+  },
+  clearButton: {
+    padding: spacing.xs,
   },
   exhibitorCard: {
     borderRadius: borderRadius.md,
@@ -289,6 +313,7 @@ export default function ExhibitorsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedExhibitor, setSelectedExhibitor] = useState<Exhibitor | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   console.log('ExhibitorsScreen - Rendered');
 
@@ -356,6 +381,25 @@ export default function ExhibitorsScreen() {
     }
   };
 
+  // Filter exhibitors by search query
+  const filteredExhibitors = useMemo(() => {
+    if (searchQuery.trim() === '') return exhibitors;
+    
+    const query = searchQuery.toLowerCase();
+    return exhibitors.filter(exhibitor => {
+      const matchesName = exhibitor.name.toLowerCase().includes(query);
+      const matchesDescription = exhibitor.description.toLowerCase().includes(query);
+      const matchesBooth = exhibitor.boothNumber.toLowerCase().includes(query);
+      
+      return matchesName || matchesDescription || matchesBooth;
+    });
+  }, [exhibitors, searchQuery]);
+
+  const clearSearch = () => {
+    console.log('ExhibitorsScreen - Clearing search');
+    setSearchQuery('');
+  };
+
   const logoSource = selectedExhibitor?.logoUrl ? resolveImageSource(selectedExhibitor.logoUrl) : null;
   const hasLogo = !!logoSource;
   const firstLetter = selectedExhibitor?.name ? selectedExhibitor.name.charAt(0).toUpperCase() : '';
@@ -364,6 +408,39 @@ export default function ExhibitorsScreen() {
   return (
     <React.Fragment>
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="magnifyingglass"
+              android_material_icon_name="search"
+              size={20}
+              color={appColors.textSecondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: appColors.text }]}
+              placeholder="Search exhibitors, booths..."
+              placeholderTextColor={appColors.textSecondary}
+              value={searchQuery}
+              onChangeText={(text) => {
+                console.log('ExhibitorsScreen - Search query changed:', text);
+                setSearchQuery(text);
+              }}
+            />
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -399,7 +476,7 @@ export default function ExhibitorsScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-          ) : exhibitors.length === 0 ? (
+          ) : filteredExhibitors.length === 0 ? (
             <View style={styles.emptyContainer}>
               <IconSymbol
                 ios_icon_name="building.2"
@@ -408,14 +485,14 @@ export default function ExhibitorsScreen() {
                 color={appColors.textSecondary}
               />
               <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                No exhibitors available
+                {searchQuery ? 'No exhibitors found' : 'No exhibitors available'}
               </Text>
               <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                Check back later for updates
+                {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
               </Text>
             </View>
           ) : (
-            exhibitors.map((exhibitor, index) => {
+            filteredExhibitors.map((exhibitor, index) => {
               const cardLogoSource = exhibitor.logoUrl ? resolveImageSource(exhibitor.logoUrl) : null;
               const cardFirstLetter = exhibitor.name.charAt(0).toUpperCase();
               

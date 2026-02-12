@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-  Pressable
+  Pressable,
+  TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -41,6 +42,29 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    paddingVertical: spacing.xs,
+  },
+  clearButton: {
+    padding: spacing.xs,
   },
   attendeeCard: {
     borderRadius: borderRadius.md,
@@ -75,10 +99,18 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
   },
+  emptyContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
   emptyText: {
     ...typography.body,
     textAlign: 'center',
-    padding: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  emptySubtext: {
+    ...typography.bodySmall,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -152,6 +184,7 @@ export default function NetworkingScreen() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadAttendees();
@@ -176,8 +209,61 @@ export default function NetworkingScreen() {
     router.push(`/messages?recipientId=${attendeeId}`);
   };
 
+  // Filter attendees by search query
+  const filteredAttendees = useMemo(() => {
+    if (searchQuery.trim() === '') return attendees;
+    
+    const query = searchQuery.toLowerCase();
+    return attendees.filter(attendee => {
+      const matchesName = attendee.name.toLowerCase().includes(query);
+      const matchesCompany = attendee.company?.toLowerCase().includes(query);
+      const matchesTitle = attendee.title?.toLowerCase().includes(query);
+      const matchesBio = attendee.bio?.toLowerCase().includes(query);
+      
+      return matchesName || matchesCompany || matchesTitle || matchesBio;
+    });
+  }, [attendees, searchQuery]);
+
+  const clearSearch = () => {
+    console.log('NetworkingScreen - Clearing search');
+    setSearchQuery('');
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
+          <IconSymbol
+            ios_icon_name="magnifyingglass"
+            android_material_icon_name="search"
+            size={20}
+            color={appColors.textSecondary}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={[styles.searchInput, { color: appColors.text }]}
+            placeholder="Search attendees, companies..."
+            placeholderTextColor={appColors.textSecondary}
+            value={searchQuery}
+            onChangeText={(text) => {
+              console.log('NetworkingScreen - Search query changed:', text);
+              setSearchQuery(text);
+            }}
+          />
+          {searchQuery.length > 0 ? (
+            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+              <IconSymbol
+                ios_icon_name="xmark.circle.fill"
+                android_material_icon_name="cancel"
+                size={20}
+                color={appColors.textSecondary}
+              />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
@@ -187,12 +273,23 @@ export default function NetworkingScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={appColors.primary} />
           </View>
-        ) : attendees.length === 0 ? (
-          <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
-            No attendees available for networking yet
-          </Text>
+        ) : filteredAttendees.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <IconSymbol
+              ios_icon_name="person"
+              android_material_icon_name="person"
+              size={48}
+              color={appColors.textSecondary}
+            />
+            <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+              {searchQuery ? 'No attendees found' : 'No attendees available for networking yet'}
+            </Text>
+            <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
+              {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
+            </Text>
+          </View>
         ) : (
-          attendees.map((attendee) => (
+          filteredAttendees.map((attendee) => (
             <TouchableOpacity
               key={attendee.id}
               style={[styles.attendeeCard, { backgroundColor: appColors.card }]}

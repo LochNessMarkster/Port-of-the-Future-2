@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -12,7 +12,8 @@ import {
   Modal,
   Pressable,
   Linking,
-  Platform
+  Platform,
+  TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -34,6 +35,29 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    paddingVertical: spacing.xs,
+  },
+  clearButton: {
+    padding: spacing.xs,
   },
   portGrid: {
     flexDirection: 'row',
@@ -85,10 +109,18 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
   },
+  emptyContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
   emptyText: {
     ...typography.body,
     textAlign: 'center',
-    padding: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  emptySubtext: {
+    ...typography.bodySmall,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -176,6 +208,7 @@ export default function PortsScreen() {
   const [ports, setPorts] = useState<Port[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPort, setSelectedPort] = useState<Port | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadPorts();
@@ -201,9 +234,60 @@ export default function PortsScreen() {
     }
   };
 
+  // Filter ports by search query
+  const filteredPorts = useMemo(() => {
+    if (searchQuery.trim() === '') return ports;
+    
+    const query = searchQuery.toLowerCase();
+    return ports.filter(port => {
+      const matchesName = port.name.toLowerCase().includes(query);
+      const matchesBio = port.bio.toLowerCase().includes(query);
+      
+      return matchesName || matchesBio;
+    });
+  }, [ports, searchQuery]);
+
+  const clearSearch = () => {
+    console.log('PortsScreen - Clearing search');
+    setSearchQuery('');
+  };
+
   return (
     <React.Fragment>
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="magnifyingglass"
+              android_material_icon_name="search"
+              size={20}
+              color={appColors.textSecondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: appColors.text }]}
+              placeholder="Search ports..."
+              placeholderTextColor={appColors.textSecondary}
+              value={searchQuery}
+              onChangeText={(text) => {
+                console.log('PortsScreen - Search query changed:', text);
+                setSearchQuery(text);
+              }}
+            />
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -213,13 +297,24 @@ export default function PortsScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
             </View>
-          ) : ports.length === 0 ? (
-            <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
-              No ports available yet
-            </Text>
+          ) : filteredPorts.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol
+                ios_icon_name="anchor"
+                android_material_icon_name="place"
+                size={48}
+                color={appColors.textSecondary}
+              />
+              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                {searchQuery ? 'No ports found' : 'No ports available yet'}
+              </Text>
+              <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
+                {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
+              </Text>
+            </View>
           ) : (
             <View style={styles.portGrid}>
-              {ports.map((port, index) => (
+              {filteredPorts.map((port, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[styles.portCard, { backgroundColor: appColors.card }]}

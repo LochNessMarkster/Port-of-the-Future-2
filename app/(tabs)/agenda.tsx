@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  Image
+  Image,
+  TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -92,6 +93,28 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h1,
     marginBottom: spacing.md,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    paddingVertical: spacing.xs,
+  },
+  clearButton: {
+    padding: spacing.xs,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -233,6 +256,7 @@ export default function AgendaScreen() {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [bookmarkedSessions, setBookmarkedSessions] = useState<Set<string>>(new Set());
   const [bookmarkLoading, setBookmarkLoading] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   console.log('AgendaScreen - Rendered');
 
@@ -350,11 +374,25 @@ export default function AgendaScreen() {
     }
   };
 
-  // Sort and filter sessions by selected day and time
+  // Sort and filter sessions by selected day, time, and search query
   const sortedFilteredSessions = useMemo(() => {
     const filtered = sessions.filter(session => {
       const sessionDate = session.date.includes('24') ? '24' : '25';
-      return sessionDate === selectedDay;
+      const matchesDay = sessionDate === selectedDay;
+      
+      if (!matchesDay) return false;
+      
+      // Apply search filter
+      if (searchQuery.trim() === '') return true;
+      
+      const query = searchQuery.toLowerCase();
+      const matchesTitle = session.title.toLowerCase().includes(query);
+      const matchesSpeaker = session.speaker.toLowerCase().includes(query);
+      const matchesRoom = session.room.toLowerCase().includes(query);
+      const matchesType = session.type.toLowerCase().includes(query);
+      const matchesDescription = session.description.toLowerCase().includes(query);
+      
+      return matchesTitle || matchesSpeaker || matchesRoom || matchesType || matchesDescription;
     });
     
     // Sort by time (earliest to latest)
@@ -370,7 +408,7 @@ export default function AgendaScreen() {
       console.log('AgendaScreen - Last session time:', sorted[sorted.length - 1].time, '→', parseTime(sorted[sorted.length - 1].time));
     }
     return sorted;
-  }, [sessions, selectedDay]);
+  }, [sessions, selectedDay, searchQuery]);
 
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -385,6 +423,11 @@ export default function AgendaScreen() {
     }
   };
 
+  const clearSearch = () => {
+    console.log('AgendaScreen - Clearing search');
+    setSearchQuery('');
+  };
+
   return (
     <React.Fragment>
       <Stack.Screen
@@ -394,6 +437,39 @@ export default function AgendaScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="magnifyingglass"
+              android_material_icon_name="search"
+              size={20}
+              color={appColors.textSecondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: appColors.text }]}
+              placeholder="Search sessions, speakers, rooms..."
+              placeholderTextColor={appColors.textSecondary}
+              value={searchQuery}
+              onChangeText={(text) => {
+                console.log('AgendaScreen - Search query changed:', text);
+                setSearchQuery(text);
+              }}
+            />
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={20}
+                  color={appColors.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
         {/* Day Tabs */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -481,10 +557,10 @@ export default function AgendaScreen() {
                   color={appColors.textSecondary}
                 />
                 <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                  No sessions scheduled
+                  {searchQuery ? 'No sessions found' : 'No sessions scheduled'}
                 </Text>
                 <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                  Check back later for updates
+                  {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
                 </Text>
               </View>
             ) : (
