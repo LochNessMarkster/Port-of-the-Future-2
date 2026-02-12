@@ -35,29 +35,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  logoContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  title: {
-    ...typography.h1,
-    flex: 1,
-  },
   speakerGrid: {
     paddingHorizontal: spacing.lg,
     flexDirection: 'row',
@@ -222,23 +199,11 @@ export default function SpeakersScreen() {
     <React.Fragment>
       <Stack.Screen
         options={{
-          headerShown: false,
+          headerShown: true,
+          headerTitle: 'Speakers',
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('@/assets/images/POF-ICON.png')}
-              style={styles.logo}
-            />
-          </View>
-
-          <Text style={[styles.title, { color: appColors.text }]}>
-            Speakers
-          </Text>
-        </View>
-
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}

@@ -84,21 +84,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-  headerBranding: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  backButton: {
-    marginRight: spacing.sm,
-  },
-  brandingLogo: {
-    width: 80,
-    height: 80,
-    resizeMode: 'contain',
-  },
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
@@ -404,39 +389,11 @@ export default function AgendaScreen() {
     <React.Fragment>
       <Stack.Screen
         options={{
-          headerShown: false,
+          headerShown: true,
+          headerTitle: 'Agenda',
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding */}
-        <View style={styles.headerBranding}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => {
-              console.log('AgendaScreen - Back button pressed');
-              router.back();
-            }}
-            activeOpacity={0.7}
-          >
-            <IconSymbol
-              ios_icon_name="chevron.left"
-              android_material_icon_name="arrow-back"
-              size={28}
-              color={appColors.text}
-            />
-          </TouchableOpacity>
-          <Image
-            source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
-            style={styles.brandingLogo}
-          />
-        </View>
-
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: appColors.text }]}>
-            Agenda
-          </Text>
-        </View>
-
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
         {/* Day Tabs */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
