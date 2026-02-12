@@ -386,6 +386,7 @@ export interface SpeakerFields {
   'Speaking Topic': string;
   'Synopsis of Speaking topic': string;
   Bio: string;
+  Published?: boolean;
 }
 
 export interface PortFields {

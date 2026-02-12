@@ -49,7 +49,21 @@ export function registerSpeakersRoutes(app: App) {
           logger: app.logger,
         });
 
-        const speakers = data.records.map((record: AirtableRecord<SpeakerFields>) => ({
+        app.logger.info({ totalRecords: data.records.length }, 'Total speakers fetched from Airtable');
+
+        // Filter speakers by Published field
+        const publishedRecords = data.records.filter((record: AirtableRecord<SpeakerFields>) => {
+          const isPublished = record.fields.Published === true;
+          if (!isPublished) {
+            app.logger.debug(
+              { speakerId: record.id, speakerName: record.fields['Speaker Name'] },
+              'Speaker excluded (Published = false)'
+            );
+          }
+          return isPublished;
+        });
+
+        const speakers = publishedRecords.map((record: AirtableRecord<SpeakerFields>) => ({
           id: record.id,
           name: record.fields['Speaker Name'] || '',
           title: record.fields['Speaker Title'] || '',
@@ -59,7 +73,10 @@ export function registerSpeakersRoutes(app: App) {
           bio: record.fields.Bio || '',
         }));
 
-        app.logger.info({ count: speakers.length }, 'Speakers fetched successfully');
+        app.logger.info(
+          { totalFetched: data.records.length, publishedCount: speakers.length },
+          'Speakers fetched successfully'
+        );
         return speakers;
       } catch (error) {
         app.logger.error({ err: error }, 'Failed to fetch speakers');
@@ -114,6 +131,18 @@ export function registerSpeakersRoutes(app: App) {
           app.logger.warn({ speakerId: id }, 'Speaker not found (permission denied or record not found)');
           return reply.status(404).send({
             error: 'Speaker not found. The Airtable API may not have permission to access this table.',
+          });
+        }
+
+        // Check if speaker is published
+        const isPublished = record.fields.Published === true;
+        if (!isPublished) {
+          app.logger.warn(
+            { speakerId: id, speakerName: record.fields['Speaker Name'] },
+            'Speaker not published (Published = false)'
+          );
+          return reply.status(404).send({
+            error: 'Speaker not found. This speaker is not yet published.',
           });
         }
 
