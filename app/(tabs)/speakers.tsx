@@ -37,11 +37,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    padding: spacing.lg,
     paddingBottom: 100,
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -62,7 +64,6 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   speakerGrid: {
-    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
@@ -77,6 +78,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+      },
+    }),
   },
   speakerPhotoContainer: {
     width: '100%',
@@ -127,12 +133,11 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.md,
+    ...Platform.select({
+      web: {
+        maxWidth: 600,
+      },
+    }),
   },
   modalPhotoContainer: {
     alignItems: 'center',
