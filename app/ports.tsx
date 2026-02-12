@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       web: {
-        display: 'flex',
+        display: 'flex' as any,
       },
     }),
   },
@@ -116,6 +116,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.md,
     width: '100%',
+    maxWidth: 300,
     aspectRatio: 2,
     marginBottom: spacing.md,
     justifyContent: 'center',
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       web: {
-        display: 'flex',
+        display: 'flex' as any,
       },
     }),
   },

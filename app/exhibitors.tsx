@@ -131,15 +131,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    width: 80,
+    height: 80,
     ...Platform.select({
       web: {
-        display: 'flex',
+        display: 'flex' as any,
       },
     }),
   },
   exhibitorLogo: {
-    width: 80,
-    height: 80,
+    width: '100%',
+    height: '100%',
     borderRadius: borderRadius.sm,
   },
   exhibitorInfo: {
@@ -203,15 +205,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
     overflow: 'hidden',
+    width: 120,
+    height: 120,
     ...Platform.select({
       web: {
-        display: 'flex',
+        display: 'flex' as any,
       },
     }),
   },
   modalLogo: {
-    width: 120,
-    height: 120,
+    width: '100%',
+    height: '100%',
     borderRadius: borderRadius.md,
   },
   modalName: {

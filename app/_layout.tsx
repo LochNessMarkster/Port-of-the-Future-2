@@ -6,7 +6,7 @@ import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert, Platform } from "react-native";
+import { useColorScheme, Alert, Platform, View, StyleSheet } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -110,41 +110,72 @@ function RootLayoutInner() {
   // On iOS, don't show the FloatingTabBar (native tabs are used)
   const showFloatingTabBar = shouldShowTabBar && Platform.OS !== 'ios';
 
+  console.log('RootLayout - Pathname:', pathname, 'Show tab bar:', showFloatingTabBar);
+
   return (
     <>
       <ThemeProvider
         value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
       >
         <WidgetProvider>
-          <GestureHandlerRootView>
-            <Stack>
-              {/* Auth screens */}
-              <Stack.Screen name="auth" options={{ headerShown: false }} />
-              <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-              <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-              {/* Main app with tabs */}
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              {/* Additional screens */}
-              <Stack.Screen name="ports" options={{ headerShown: true, title: 'Ports' }} />
-              <Stack.Screen name="sponsors" options={{ headerShown: true, title: 'Sponsors' }} />
-              <Stack.Screen name="exhibitors" options={{ headerShown: true, title: 'Exhibitors' }} />
-              <Stack.Screen name="schedule" options={{ headerShown: true, title: 'My Schedule' }} />
-              <Stack.Screen name="networking" options={{ headerShown: true, title: 'Networking' }} />
-              <Stack.Screen name="messages" options={{ headerShown: true, title: 'Messages' }} />
-              <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile' }} />
-              <Stack.Screen name="admin" options={{ headerShown: true, title: 'Admin Panel' }} />
-              {/* 404 handler */}
-              <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
-            </Stack>
-            <SystemBars style={"auto"} />
-            {/* Show FloatingTabBar on all authenticated screens (except iOS which uses native tabs) */}
-            {showFloatingTabBar && <FloatingTabBar tabs={tabs} />}
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <View style={{ flex: 1 }}>
+              <Stack>
+                {/* Auth screens */}
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+                <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
+                <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+                {/* Main app with tabs */}
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                {/* Additional screens */}
+                <Stack.Screen name="ports" options={{ headerShown: true, title: 'Ports' }} />
+                <Stack.Screen name="sponsors" options={{ headerShown: true, title: 'Sponsors' }} />
+                <Stack.Screen name="exhibitors" options={{ headerShown: true, title: 'Exhibitors' }} />
+                <Stack.Screen name="schedule" options={{ headerShown: true, title: 'My Schedule' }} />
+                <Stack.Screen name="networking" options={{ headerShown: true, title: 'Networking' }} />
+                <Stack.Screen name="messages" options={{ headerShown: true, title: 'Messages' }} />
+                <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile' }} />
+                <Stack.Screen name="admin" options={{ headerShown: true, title: 'Admin Panel' }} />
+                {/* 404 handler */}
+                <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+              </Stack>
+              <SystemBars style={"auto"} />
+              {/* Show FloatingTabBar on all authenticated screens (except iOS which uses native tabs) */}
+              {showFloatingTabBar && (
+                <View style={webTabBarStyles.tabBarWrapper}>
+                  <FloatingTabBar tabs={tabs} />
+                </View>
+              )}
+            </View>
           </GestureHandlerRootView>
         </WidgetProvider>
       </ThemeProvider>
     </>
   );
 }
+
+const webTabBarStyles = StyleSheet.create({
+  tabBarWrapper: {
+    ...Platform.select({
+      web: {
+        position: 'fixed' as any,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 999999,
+        pointerEvents: 'box-none' as any,
+      },
+      default: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 999999,
+        pointerEvents: 'box-none',
+      },
+    }),
+  },
+});
 
 export default function RootLayout() {
   const [loaded] = useFonts({

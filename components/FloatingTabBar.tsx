@@ -96,6 +96,7 @@ export default function FloatingTabBar({
   }, [activeTabIndex, animatedValue]);
 
   const handleTabPress = (route: Href) => {
+    console.log('FloatingTabBar - Tab pressed:', route);
     router.push(route);
   };
 
@@ -221,6 +222,9 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         position: 'fixed' as any,
+        bottom: 0,
+        left: 0,
+        right: 0,
       },
     }),
   },
@@ -238,7 +242,8 @@ const styles = StyleSheet.create({
         elevation: 1000,
       },
       web: {
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+        position: 'relative' as any,
       },
     }),
   },
@@ -250,7 +255,7 @@ const styles = StyleSheet.create({
         elevation: 1000,
       },
       web: {
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
       },
     }),
   },
