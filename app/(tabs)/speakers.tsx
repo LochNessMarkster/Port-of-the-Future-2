@@ -262,7 +262,7 @@ export default function SpeakersScreen() {
           headerBackVisible: true,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
         <View style={[styles.container, { backgroundColor: appColors.background }]}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>

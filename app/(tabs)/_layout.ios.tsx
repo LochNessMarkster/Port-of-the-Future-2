@@ -1,8 +1,7 @@
 
 import React from 'react';
 import { Platform } from 'react-native';
-import { NativeTabs, Icon, Label, VectorIcon } from 'expo-router/unstable-native-tabs';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Redirect } from 'expo-router';
 
@@ -22,21 +21,21 @@ export default function TabLayout() {
 
   return (
     <NativeTabs>
-      <NativeTabs.Trigger key="home" name="(home)">
-        <Icon sf={{ default: 'house', selected: 'house.fill' }} />
+      <NativeTabs.Trigger name="(home)">
         <Label>Home</Label>
+        <Icon sf={{ default: 'house', selected: 'house.fill' }} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger key="agenda" name="agenda">
-        <Icon sf={{ default: 'calendar', selected: 'calendar.badge.clock' }} />
+      <NativeTabs.Trigger name="agenda">
         <Label>Agenda</Label>
+        <Icon sf={{ default: 'calendar', selected: 'calendar.badge.clock' }} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger key="speakers" name="speakers">
-        <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
+      <NativeTabs.Trigger name="speakers">
         <Label>Speakers</Label>
+        <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger key="more" name="more">
-        <Icon sf={{ default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' }} />
+      <NativeTabs.Trigger name="more">
         <Label>More</Label>
+        <Icon sf={{ default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' }} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );
