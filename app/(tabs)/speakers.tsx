@@ -42,8 +42,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.md,
   },
   searchInputWrapper: {
     flexDirection: 'row',
