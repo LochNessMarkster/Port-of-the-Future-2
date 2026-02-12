@@ -14,7 +14,6 @@ import {
   Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
@@ -36,21 +35,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
-  },
-  headerBranding: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  backButton: {
-    marginRight: spacing.sm,
-  },
-  brandingLogo: {
-    width: 120,
-    height: 50,
-    resizeMode: 'contain',
   },
   tierSection: {
     marginBottom: spacing.xl,
@@ -184,7 +168,6 @@ const styles = StyleSheet.create({
 export default function SponsorsScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const router = useRouter();
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSponsor, setSelectedSponsor] = useState<Sponsor | null>(null);
@@ -240,33 +223,8 @@ export default function SponsorsScreen() {
   const tierOrder = ['Platinum', 'Gold', 'Silver', 'Bronze', 'Partner'];
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Header with Back Button and Branding */}
-        <View style={styles.headerBranding}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <IconSymbol
-              ios_icon_name="chevron.left"
-              android_material_icon_name="arrow-back"
-              size={28}
-              color={appColors.text}
-            />
-          </TouchableOpacity>
-          <Image
-            source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
-            style={styles.brandingLogo}
-          />
-        </View>
-
+    <React.Fragment>
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -412,6 +370,6 @@ export default function SponsorsScreen() {
           </Pressable>
         </Modal>
       </SafeAreaView>
-    </>
+    </React.Fragment>
   );
 }
