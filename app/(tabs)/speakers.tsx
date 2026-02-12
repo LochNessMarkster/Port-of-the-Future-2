@@ -257,9 +257,10 @@ export default function SpeakersScreen() {
         options={{
           headerShown: true,
           headerTitle: 'Speakers',
+          headerBackTitle: 'Back',
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+      <View style={[styles.container, { backgroundColor: appColors.background }]}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
@@ -429,7 +430,7 @@ export default function SpeakersScreen() {
             </Pressable>
           </Pressable>
         </Modal>
-      </SafeAreaView>
+      </View>
     </React.Fragment>
   );
 }

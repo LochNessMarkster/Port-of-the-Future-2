@@ -199,11 +199,10 @@ export default function FloatingTabBar({
                     activeOpacity={0.7}
                   >
                     <View style={styles.tabContent}>
-                      <IconSymbol
-                        android_material_icon_name={tab.icon}
-                        ios_icon_name={tab.icon}
+                      <MaterialIcons
+                        name={tab.icon}
                         size={24}
-                        color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#000000')}
+                        color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#666666')}
                       />
                       <Text
                         style={[

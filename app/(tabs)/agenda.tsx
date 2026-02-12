@@ -434,9 +434,10 @@ export default function AgendaScreen() {
         options={{
           headerShown: true,
           headerTitle: 'Agenda',
+          headerBackTitle: 'Back',
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+      <View style={[styles.container, { backgroundColor: appColors.background }]}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
@@ -779,7 +780,7 @@ export default function AgendaScreen() {
             </Pressable>
           </Pressable>
         </Modal>
-      </SafeAreaView>
+      </View>
     </React.Fragment>
   );
 }
