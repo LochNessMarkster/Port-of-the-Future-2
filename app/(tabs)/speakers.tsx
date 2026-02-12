@@ -14,7 +14,6 @@ import {
   TextInput,
   Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
@@ -42,8 +41,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.md,
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -261,12 +259,11 @@ export default function SpeakersScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          headerTitle: 'Speakers',
+          title: 'Speakers',
           headerBackTitle: 'Back',
-          headerBackVisible: true,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+      <View style={[styles.container, { backgroundColor: appColors.background }]}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
@@ -436,7 +433,7 @@ export default function SpeakersScreen() {
             </Pressable>
           </Pressable>
         </Modal>
-      </SafeAreaView>
+      </View>
     </React.Fragment>
   );
 }
