@@ -1,15 +1,31 @@
 import axios from 'axios';
 
 const BASE_ID = 'appcNhRl5vEqug2D1';
-const API_KEY = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
+
+// Use environment variable if set, otherwise use default API key
+const API_KEY = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
+
+/**
+ * Get a masked version of the API key for logging (first 10 chars only)
+ */
+function getMaskedApiKey(key: string): string {
+  if (!key) return 'NOT_SET';
+  const visible = key.substring(0, 10);
+  return `${visible}...`;
+}
 
 /**
  * Initialize axios client with proper API key handling
  */
 function createAirtableClient() {
   if (!API_KEY) {
-    throw new Error('AIRTABLE_API_KEY is required.');
+    const errorMsg = 'AIRTABLE_API_KEY is required. Please set the AIRTABLE_API_KEY environment variable or ensure the default API key is configured.';
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
+
+  // Log that we're using an API key (masked for security)
+  console.log(`[Airtable] Initializing client with API key: ${getMaskedApiKey(API_KEY)}`);
 
   return axios.create({
     baseURL: `https://api.airtable.com/v0/${BASE_ID}`,
@@ -120,7 +136,7 @@ export async function fetchAirtableRecords<T>(
 
     // Handle 403 Forbidden errors gracefully
     if (status === 403) {
-      const logMsg = `Airtable API returned 403 FORBIDDEN for table ${tableName} (${tableId}). The API key may not have permission to access this table.`;
+      const logMsg = `Airtable API returned 403 FORBIDDEN for table ${tableName} (${tableId}). The API key may not have permission to access this table or the table/base may not exist.`;
 
       if (options?.logger) {
         options.logger.warn(
@@ -132,10 +148,17 @@ export async function fetchAirtableRecords<T>(
             errorType,
             errorMessage,
             endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+            apiKeyConfigured: !!API_KEY,
+            apiKeyMasked: getMaskedApiKey(API_KEY),
+            nodeEnv: process.env.NODE_ENV,
           },
           logMsg
         );
       }
+
+      // Log to console as well for debugging
+      console.warn(`[Airtable 403] ${logMsg}`);
+      console.warn(`[Airtable 403] Error details: ${errorMessage}`);
 
       // Return empty array instead of throwing error
       return { records: [] };
@@ -205,7 +228,7 @@ export async function fetchAirtableRecord<T>(
 
     // Handle 403 Forbidden errors gracefully
     if (status === 403) {
-      const logMsg = `Airtable API returned 403 FORBIDDEN for table ${tableName} (${tableId}). The API key may not have permission to access this table.`;
+      const logMsg = `Airtable API returned 403 FORBIDDEN for table ${tableName} (${tableId}). The API key may not have permission to access this table or the table/base may not exist.`;
 
       if (logger) {
         logger.warn(
@@ -218,10 +241,17 @@ export async function fetchAirtableRecord<T>(
             errorType,
             errorMessage,
             endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}`,
+            apiKeyConfigured: !!API_KEY,
+            apiKeyMasked: getMaskedApiKey(API_KEY),
+            nodeEnv: process.env.NODE_ENV,
           },
           logMsg
         );
       }
+
+      // Log to console as well for debugging
+      console.warn(`[Airtable 403] ${logMsg}`);
+      console.warn(`[Airtable 403] Error details: ${errorMessage}`);
 
       // Return null instead of throwing error
       return null;
