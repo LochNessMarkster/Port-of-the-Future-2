@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
+    paddingTop: spacing.md,
     paddingBottom: spacing.md,
   },
   title: {
@@ -100,12 +100,8 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     marginBottom: spacing.md,
-    ...Platform.select({
-      android: {
-        paddingTop: spacing.sm,
-      },
-    }),
   },
   searchInputWrapper: {
     flexDirection: 'row',

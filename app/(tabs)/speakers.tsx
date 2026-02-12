@@ -46,11 +46,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
-    ...Platform.select({
-      android: {
-        paddingTop: spacing.sm,
-      },
-    }),
   },
   searchInputWrapper: {
     flexDirection: 'row',

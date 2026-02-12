@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 300,
+    height: 350,
   },
   heroImageStyle: {
     width: '100%',
@@ -264,7 +264,7 @@ export default function HomeScreen() {
               >
                 <IconSymbol
                   ios_icon_name="calendar"
-                  android_material_icon_name="calendar-today"
+                  android_material_icon_name="event"
                   size={24}
                   color={appColors.primary}
                 />

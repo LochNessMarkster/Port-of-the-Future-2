@@ -75,7 +75,7 @@ function RootLayoutInner() {
     },
   };
 
-  // Define the tabs configuration
+  // Define the tabs configuration with CORRECT Material icon names
   const tabs: TabBarItem[] = [
     {
       name: '(home)',
@@ -98,7 +98,7 @@ function RootLayoutInner() {
     {
       name: 'more',
       route: '/(tabs)/more',
-      icon: 'menu',
+      icon: 'more-horiz',
       label: 'More',
     },
   ];
