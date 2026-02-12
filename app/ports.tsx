@@ -248,7 +248,7 @@ export default function PortsScreen() {
                     <Image
                       source={{ uri: port.logo }}
                       style={styles.portLogo}
-                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                      defaultSource={require('@/assets/images/POF-ICON.png')}
                     />
                   </View>
                   <Text style={[styles.portName, { color: appColors.text }]} numberOfLines={2}>
@@ -293,7 +293,7 @@ export default function PortsScreen() {
                     <Image
                       source={{ uri: selectedPort?.logo }}
                       style={styles.modalLogo}
-                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
+                      defaultSource={require('@/assets/images/POF-ICON.png')}
                     />
                   </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
