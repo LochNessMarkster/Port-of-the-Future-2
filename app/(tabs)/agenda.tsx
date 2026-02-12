@@ -330,15 +330,20 @@ export default function AgendaScreen() {
     }
   };
 
-  // Helper function to parse time string to comparable number
+  // Helper function to parse time string to comparable number (minutes since midnight)
   const parseTime = (timeStr: string): number => {
     try {
-      // Handle various time formats: "9:00 AM", "09:00", "9:00AM", etc.
+      if (!timeStr || timeStr.trim() === '') return 0;
+      
+      // Handle various time formats: "9:00 AM", "09:00", "9:00AM", "9:30 AM", etc.
       const cleanTime = timeStr.trim().toUpperCase();
       
       // Extract hours and minutes
       const match = cleanTime.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/);
-      if (!match) return 0;
+      if (!match) {
+        console.log('AgendaScreen - Could not parse time:', timeStr);
+        return 0;
+      }
       
       let hours = parseInt(match[1], 10);
       const minutes = parseInt(match[2] || '0', 10);
@@ -351,7 +356,9 @@ export default function AgendaScreen() {
         hours = 0;
       }
       
-      return hours * 60 + minutes;
+      const totalMinutes = hours * 60 + minutes;
+      console.log('AgendaScreen - Parsed time:', timeStr, '→', totalMinutes, 'minutes');
+      return totalMinutes;
     } catch (err) {
       console.error('AgendaScreen - Error parsing time:', timeStr, err);
       return 0;
@@ -373,6 +380,10 @@ export default function AgendaScreen() {
     });
     
     console.log('AgendaScreen - Sorted sessions for day', selectedDay, ':', sorted.length);
+    if (sorted.length > 0) {
+      console.log('AgendaScreen - First session time:', sorted[0].time, '→', parseTime(sorted[0].time));
+      console.log('AgendaScreen - Last session time:', sorted[sorted.length - 1].time, '→', parseTime(sorted[sorted.length - 1].time));
+    }
     return sorted;
   }, [sessions, selectedDay]);
 
@@ -390,7 +401,7 @@ export default function AgendaScreen() {
   };
 
   return (
-    <>
+    <React.Fragment>
       <Stack.Screen
         options={{
           headerShown: false,
@@ -520,13 +531,13 @@ export default function AgendaScreen() {
                 </Text>
               </View>
             ) : (
-              sortedFilteredSessions.map((session) => {
+              sortedFilteredSessions.map((session, index) => {
                 const isBookmarked = bookmarkedSessions.has(session.id);
                 const isBookmarkLoading = bookmarkLoading === session.id;
                 
                 return (
                   <TouchableOpacity
-                    key={session.id}
+                    key={index}
                     style={[styles.sessionCard, { backgroundColor: appColors.card }]}
                     onPress={() => {
                       console.log('AgendaScreen - Session card pressed:', session.title);
@@ -568,7 +579,7 @@ export default function AgendaScreen() {
                       </Text>
                     </View>
 
-                    {session.room && (
+                    {session.room ? (
                       <View style={styles.sessionMeta}>
                         <IconSymbol
                           ios_icon_name="location"
@@ -580,9 +591,9 @@ export default function AgendaScreen() {
                           {session.room}
                         </Text>
                       </View>
-                    )}
+                    ) : null}
 
-                    {session.speaker && (
+                    {session.speaker ? (
                       <View style={styles.sessionMeta}>
                         <IconSymbol
                           ios_icon_name="person"
@@ -594,7 +605,7 @@ export default function AgendaScreen() {
                           {session.speaker}
                         </Text>
                       </View>
-                    )}
+                    ) : null}
 
                     <Text style={[
                       styles.sessionType,
@@ -642,7 +653,7 @@ export default function AgendaScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {selectedSession?.speaker && (
+                {selectedSession?.speaker ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                       Speaker
@@ -651,7 +662,7 @@ export default function AgendaScreen() {
                       {selectedSession.speaker}
                     </Text>
                   </View>
-                )}
+                ) : null}
 
                 <View style={styles.modalSection}>
                   <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
@@ -662,7 +673,7 @@ export default function AgendaScreen() {
                   </Text>
                 </View>
 
-                {selectedSession?.room && (
+                {selectedSession?.room ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                       Location
@@ -671,9 +682,9 @@ export default function AgendaScreen() {
                       {selectedSession.room}
                     </Text>
                   </View>
-                )}
+                ) : null}
 
-                {selectedSession?.type && (
+                {selectedSession?.type ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                       Type
@@ -688,9 +699,9 @@ export default function AgendaScreen() {
                       {selectedSession.type}
                     </Text>
                   </View>
-                )}
+                ) : null}
 
-                {selectedSession?.description && (
+                {selectedSession?.description ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                       Description
@@ -699,10 +710,10 @@ export default function AgendaScreen() {
                       {selectedSession.description}
                     </Text>
                   </View>
-                )}
+                ) : null}
 
                 <View style={styles.modalActions}>
-                  {selectedSession && (
+                  {selectedSession ? (
                     <TouchableOpacity
                       style={[
                         styles.modalButton,
@@ -729,13 +740,13 @@ export default function AgendaScreen() {
                         </Text>
                       )}
                     </TouchableOpacity>
-                  )}
+                  ) : null}
                 </View>
               </ScrollView>
             </Pressable>
           </Pressable>
         </Modal>
       </SafeAreaView>
-    </>
+    </React.Fragment>
   );
 }
