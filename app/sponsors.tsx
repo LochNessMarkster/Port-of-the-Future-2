@@ -302,7 +302,6 @@ export default function SponsorsScreen() {
                           <Image
                             source={{ uri: sponsor.logo }}
                             style={styles.sponsorLogo}
-                            defaultSource={require('@/assets/images/app-icon-mmd.png')}
                           />
                         </View>
                         <View style={styles.sponsorInfo}>
@@ -355,7 +354,6 @@ export default function SponsorsScreen() {
                     <Image
                       source={{ uri: selectedSponsor?.logo }}
                       style={styles.modalLogo}
-                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
                     />
                   </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
