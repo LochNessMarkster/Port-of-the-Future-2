@@ -23,31 +23,19 @@ export default function TabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger key="home" name="(home)">
-        {Platform.select({
-          ios: <Icon sf={{ default: 'house', selected: 'house.fill' }} />,
-          default: <Icon src={<VectorIcon family={MaterialIcons} name="home" />} />,
-        })}
+        <Icon sf={{ default: 'house', selected: 'house.fill' }} />
         <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger key="agenda" name="agenda">
-        {Platform.select({
-          ios: <Icon sf={{ default: 'calendar', selected: 'calendar.badge.clock' }} />,
-          default: <Icon src={<VectorIcon family={MaterialIcons} name="event" />} />,
-        })}
+        <Icon sf={{ default: 'calendar', selected: 'calendar.badge.clock' }} />
         <Label>Agenda</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger key="speakers" name="speakers">
-        {Platform.select({
-          ios: <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />,
-          default: <Icon src={<VectorIcon family={MaterialIcons} name="group" />} />,
-        })}
+        <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
         <Label>Speakers</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger key="more" name="more">
-        {Platform.select({
-          ios: <Icon sf={{ default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' }} />,
-          default: <Icon src={<VectorIcon family={MaterialIcons} name="more-horiz" />} />,
-        })}
+        <Icon sf={{ default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' }} />
         <Label>More</Label>
       </NativeTabs.Trigger>
     </NativeTabs>

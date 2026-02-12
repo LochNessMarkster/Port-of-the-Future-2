@@ -437,9 +437,10 @@ export default function AgendaScreen() {
           headerShown: true,
           headerTitle: 'Agenda',
           headerBackTitle: 'Back',
+          headerBackVisible: true,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
         <View style={[styles.container, { backgroundColor: appColors.background }]}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>
