@@ -213,17 +213,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 9999,
+    zIndex: 99999,
     alignItems: 'center',
     pointerEvents: 'box-none',
+    elevation: 1000,
   },
   container: {
     marginHorizontal: 20,
     alignSelf: 'center',
     pointerEvents: 'auto',
+    zIndex: 99999,
+    elevation: 1000,
   },
   blurContainer: {
     overflow: 'hidden',
+    zIndex: 99999,
+    elevation: 1000,
   },
   background: {
     ...StyleSheet.absoluteFillObject,

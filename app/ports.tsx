@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   portLogo: {
     width: '100%',
@@ -103,6 +104,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   modalLogo: {
     width: '100%',
@@ -195,9 +197,9 @@ export default function PortsScreen() {
             </Text>
           ) : (
             <View style={styles.portGrid}>
-              {ports.map((port) => (
+              {ports.map((port, index) => (
                 <TouchableOpacity
-                  key={port.id}
+                  key={index}
                   style={[styles.portCard, { backgroundColor: appColors.card }]}
                   onPress={() => setSelectedPort(port)}
                   activeOpacity={0.7}

@@ -124,6 +124,7 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   exhibitorLogo: {
     width: 80,
@@ -185,6 +186,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
+    overflow: 'hidden',
   },
   modalLogo: {
     width: 120,

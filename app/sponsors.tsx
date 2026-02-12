@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   sponsorLogo: {
     width: '100%',
@@ -114,6 +115,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   modalLogo: {
     width: '100%',
@@ -249,9 +251,9 @@ export default function SponsorsScreen() {
                     <Text style={[styles.tierTitle, { color: appColors.text }]}>
                       {tier}
                     </Text>
-                    {tierSponsors.map((sponsor) => (
+                    {tierSponsors.map((sponsor, index) => (
                       <TouchableOpacity
-                        key={sponsor.id}
+                        key={index}
                         style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
                         onPress={() => setSelectedSponsor(sponsor)}
                         activeOpacity={0.7}
