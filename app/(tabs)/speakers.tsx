@@ -275,7 +275,6 @@ export default function SpeakersScreen() {
                     <Image
                       source={{ uri: speaker.photo }}
                       style={styles.speakerPhoto}
-                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
                     />
                   </View>
                   <Text style={[styles.speakerName, { color: appColors.text }]}>
@@ -323,7 +322,6 @@ export default function SpeakersScreen() {
                     <Image
                       source={{ uri: selectedSpeaker?.photo }}
                       style={styles.modalPhoto}
-                      defaultSource={require('@/assets/images/app-icon-mmd.png')}
                     />
                   </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
