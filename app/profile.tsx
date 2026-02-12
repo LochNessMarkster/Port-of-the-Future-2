@@ -32,6 +32,14 @@ interface UserProfile {
   emailVerified: boolean | null;
 }
 
+// Helper to resolve image sources
+function resolveImageSource(uri: string | null | undefined) {
+  if (uri) {
+    return { uri };
+  }
+  return require('@/assets/images/POF-ICON.png');
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -198,9 +206,8 @@ export default function ProfileScreen() {
       >
         <View style={styles.header}>
           <Image
-            source={{ uri: profile?.image || undefined }}
+            source={resolveImageSource(profile?.image)}
             style={styles.profileImage}
-            defaultSource={require('@/assets/images/app-icon-mmd.png')}
           />
           <Text style={[styles.profileName, { color: appColors.text }]}>
             {profile?.name}
