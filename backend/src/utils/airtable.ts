@@ -61,11 +61,11 @@ export interface AirtableListResponse<T> {
 
 // Table IDs
 export const TABLES = {
-  SESSIONS: 'tblHaxjP8sWviBQjD',
-  SPEAKERS: 'tblvDeIT1VDf7Cart',
-  PORTS: 'tblxgPx1eRl9iSX2S',
-  EXHIBITORS: 'tblTWLUNSEfW0Cvxx',
-  SPONSORS: 'tblyI3hc2dZZu0eQA',
+  SESSIONS: 'tblhUTXC3XHVGssO4',
+  SPEAKERS: 'tblNp1JZk4ARZZZlT',
+  PORTS: 'tblrXosiVXKhJHYLu',
+  EXHIBITORS: 'tblzex4bjwEZh1021',
+  SPONSORS: 'tblgWrwRvpdcVG8sB',
   PARTNERS: 'tblxn3Yie523MallN',
   ATTENDEES: 'tblQhLaWbOSI0t7iX',
   ANNOUNCEMENTS: 'tblGJQ3v4RMIXCP4W',
