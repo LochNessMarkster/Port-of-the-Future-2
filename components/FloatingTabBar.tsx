@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { IconSymbol } from '@/components/IconSymbol';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@react-navigation/native';
 import Animated, {
@@ -189,6 +189,7 @@ export default function FloatingTabBar({
             <View style={styles.tabsContainer}>
               {tabs.map((tab, index) => {
                 const isActive = activeTabIndex === index;
+                const iconColor = isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#666666');
 
                 return (
                   <React.Fragment key={index}>
@@ -198,11 +199,10 @@ export default function FloatingTabBar({
                     activeOpacity={0.7}
                   >
                     <View style={styles.tabContent}>
-                      <IconSymbol
-                        ios_icon_name={tab.icon}
-                        android_material_icon_name={tab.icon}
+                      <MaterialIcons
+                        name={tab.icon as any}
                         size={24}
-                        color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#666666')}
+                        color={iconColor}
                       />
                       <Text
                         style={[
