@@ -29,6 +29,11 @@ interface Attendee {
   emailVerified: boolean | null;
 }
 
+function resolveImageSource(source: string | null | undefined) {
+  if (!source) return require('@/assets/images/POF-ICON.png');
+  return { uri: source };
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -54,6 +59,7 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     marginRight: spacing.md,
+    backgroundColor: '#f0f0f0',
   },
   attendeeInfo: {
     flex: 1,
@@ -95,6 +101,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     marginBottom: spacing.md,
+    backgroundColor: '#f0f0f0',
   },
   modalName: {
     ...typography.h2,
@@ -193,9 +200,8 @@ export default function NetworkingScreen() {
               activeOpacity={0.7}
             >
               <Image
-                source={{ uri: attendee.image || undefined }}
+                source={resolveImageSource(attendee.image)}
                 style={styles.attendeeImage}
-                defaultSource={require('@/assets/images/app-icon-mmd.png')}
               />
               <View style={styles.attendeeInfo}>
                 <Text style={[styles.attendeeName, { color: appColors.text }]}>
@@ -242,9 +248,8 @@ export default function NetworkingScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeader}>
                 <Image
-                  source={{ uri: selectedAttendee?.image || undefined }}
+                  source={resolveImageSource(selectedAttendee?.image)}
                   style={styles.modalImage}
-                  defaultSource={require('@/assets/images/app-icon-mmd.png')}
                 />
                 <Text style={[styles.modalName, { color: appColors.text }]}>
                   {selectedAttendee?.name}
