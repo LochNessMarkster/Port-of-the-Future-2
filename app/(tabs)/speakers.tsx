@@ -11,7 +11,8 @@ import {
   Image,
   Modal,
   Pressable,
-  TextInput
+  TextInput,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -32,6 +33,9 @@ interface Speaker {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
@@ -42,6 +46,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
+    ...Platform.select({
+      android: {
+        paddingTop: spacing.sm,
+      },
+    }),
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -260,177 +269,179 @@ export default function SpeakersScreen() {
           headerBackTitle: 'Back',
         }}
       />
-      <View style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
-            <IconSymbol
-              ios_icon_name="magnifyingglass"
-              android_material_icon_name="search"
-              size={20}
-              color={appColors.textSecondary}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={[styles.searchInput, { color: appColors.text }]}
-              placeholder="Search speakers, topics..."
-              placeholderTextColor={appColors.textSecondary}
-              value={searchQuery}
-              onChangeText={(text) => {
-                console.log('SpeakersScreen - Search query changed:', text);
-                setSearchQuery(text);
-              }}
-            />
-            {searchQuery.length > 0 ? (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        <View style={[styles.container, { backgroundColor: appColors.background }]}>
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
+              <IconSymbol
+                ios_icon_name="magnifyingglass"
+                android_material_icon_name="search"
+                size={20}
+                color={appColors.textSecondary}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={[styles.searchInput, { color: appColors.text }]}
+                placeholder="Search speakers, topics..."
+                placeholderTextColor={appColors.textSecondary}
+                value={searchQuery}
+                onChangeText={(text) => {
+                  console.log('SpeakersScreen - Search query changed:', text);
+                  setSearchQuery(text);
+                }}
+              />
+              {searchQuery.length > 0 ? (
+                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                  <IconSymbol
+                    ios_icon_name="xmark.circle.fill"
+                    android_material_icon_name="cancel"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+
+          <ScrollView 
+            style={styles.container}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={appColors.primary} />
+              </View>
+            ) : sortedFilteredSpeakers.length === 0 ? (
+              <View style={styles.emptyContainer}>
                 <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={20}
+                  ios_icon_name="person"
+                  android_material_icon_name="person"
+                  size={48}
                   color={appColors.textSecondary}
                 />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
+                <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                  {searchQuery ? 'No speakers found' : 'No speakers available yet'}
+                </Text>
+                <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
+                  {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.speakerGrid}>
+                {sortedFilteredSpeakers.map((speaker, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.speakerCard, { backgroundColor: appColors.card }]}
+                    onPress={() => {
+                      console.log('SpeakersScreen - Speaker card pressed:', speaker.name);
+                      setSelectedSpeaker(speaker);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.speakerPhotoContainer}>
+                      <Image
+                        source={{ uri: speaker.photo }}
+                        style={styles.speakerPhoto}
+                      />
+                    </View>
+                    <Text style={[styles.speakerName, { color: appColors.text }]}>
+                      {speaker.name}
+                    </Text>
+                    <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
+                      {speaker.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </ScrollView>
 
-        <ScrollView 
-          style={styles.container}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={appColors.primary} />
-            </View>
-          ) : sortedFilteredSpeakers.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <IconSymbol
-                ios_icon_name="person"
-                android_material_icon_name="person"
-                size={48}
-                color={appColors.textSecondary}
-              />
-              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                {searchQuery ? 'No speakers found' : 'No speakers available yet'}
-              </Text>
-              <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.speakerGrid}>
-              {sortedFilteredSpeakers.map((speaker, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.speakerCard, { backgroundColor: appColors.card }]}
-                  onPress={() => {
-                    console.log('SpeakersScreen - Speaker card pressed:', speaker.name);
-                    setSelectedSpeaker(speaker);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.speakerPhotoContainer}>
-                    <Image
-                      source={{ uri: speaker.photo }}
-                      style={styles.speakerPhoto}
-                    />
-                  </View>
-                  <Text style={[styles.speakerName, { color: appColors.text }]}>
-                    {speaker.name}
-                  </Text>
-                  <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
-                    {speaker.title}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Speaker Detail Modal */}
-        <Modal
-          visible={selectedSpeaker !== null}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setSelectedSpeaker(null)}
-        >
-          <Pressable 
-            style={styles.modalOverlay}
-            onPress={() => setSelectedSpeaker(null)}
+          {/* Speaker Detail Modal */}
+          <Modal
+            visible={selectedSpeaker !== null}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setSelectedSpeaker(null)}
           >
             <Pressable 
-              style={[styles.modalContent, { backgroundColor: appColors.card }]}
-              onPress={(e) => e.stopPropagation()}
+              style={styles.modalOverlay}
+              onPress={() => setSelectedSpeaker(null)}
             >
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => {
-                  console.log('SpeakersScreen - Close modal button pressed');
-                  setSelectedSpeaker(null);
-                }}
+              <Pressable 
+                style={[styles.modalContent, { backgroundColor: appColors.card }]}
+                onPress={(e) => e.stopPropagation()}
               >
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={32}
-                  color={appColors.textSecondary}
-                />
-              </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.closeButton}
+                  onPress={() => {
+                    console.log('SpeakersScreen - Close modal button pressed');
+                    setSelectedSpeaker(null);
+                  }}
+                >
+                  <IconSymbol
+                    ios_icon_name="xmark.circle.fill"
+                    android_material_icon_name="cancel"
+                    size={32}
+                    color={appColors.textSecondary}
+                  />
+                </TouchableOpacity>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.modalPhotoContainer}>
-                  <View style={styles.modalPhotoWrapper}>
-                    <Image
-                      source={{ uri: selectedSpeaker?.photo }}
-                      style={styles.modalPhoto}
-                    />
-                  </View>
-                  <Text style={[styles.modalName, { color: appColors.text }]}>
-                    {selectedSpeaker?.name}
-                  </Text>
-                  <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
-                    {selectedSpeaker?.title}
-                  </Text>
-                </View>
-
-                {selectedSpeaker?.topic ? (
-                  <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Speaking Topic
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={styles.modalPhotoContainer}>
+                    <View style={styles.modalPhotoWrapper}>
+                      <Image
+                        source={{ uri: selectedSpeaker?.photo }}
+                        style={styles.modalPhoto}
+                      />
+                    </View>
+                    <Text style={[styles.modalName, { color: appColors.text }]}>
+                      {selectedSpeaker?.name}
                     </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.topic}
+                    <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
+                      {selectedSpeaker?.title}
                     </Text>
                   </View>
-                ) : null}
 
-                {selectedSpeaker?.synopsis ? (
-                  <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Synopsis
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.synopsis}
-                    </Text>
-                  </View>
-                ) : null}
+                  {selectedSpeaker?.topic ? (
+                    <View style={styles.modalSection}>
+                      <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                        Speaking Topic
+                      </Text>
+                      <Text style={[styles.modalText, { color: appColors.text }]}>
+                        {selectedSpeaker.topic}
+                      </Text>
+                    </View>
+                  ) : null}
 
-                {selectedSpeaker?.bio ? (
-                  <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Biography
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.bio}
-                    </Text>
-                  </View>
-                ) : null}
-              </ScrollView>
+                  {selectedSpeaker?.synopsis ? (
+                    <View style={styles.modalSection}>
+                      <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                        Synopsis
+                      </Text>
+                      <Text style={[styles.modalText, { color: appColors.text }]}>
+                        {selectedSpeaker.synopsis}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {selectedSpeaker?.bio ? (
+                    <View style={styles.modalSection}>
+                      <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                        Biography
+                      </Text>
+                      <Text style={[styles.modalText, { color: appColors.text }]}>
+                        {selectedSpeaker.bio}
+                      </Text>
+                    </View>
+                  ) : null}
+                </ScrollView>
+              </Pressable>
             </Pressable>
-          </Pressable>
-        </Modal>
-      </View>
+          </Modal>
+        </View>
+      </SafeAreaView>
     </React.Fragment>
   );
 }

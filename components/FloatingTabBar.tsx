@@ -19,7 +19,6 @@ import Animated, {
   withSpring,
   interpolate,
 } from 'react-native-reanimated';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Href } from 'expo-router';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -27,7 +26,7 @@ const { width: screenWidth } = Dimensions.get('window');
 export interface TabBarItem {
   name: string;
   route: Href;
-  icon: keyof typeof MaterialIcons.glyphMap;
+  icon: string;
   label: string;
 }
 
@@ -199,8 +198,9 @@ export default function FloatingTabBar({
                     activeOpacity={0.7}
                   >
                     <View style={styles.tabContent}>
-                      <MaterialIcons
-                        name={tab.icon}
+                      <IconSymbol
+                        ios_icon_name={tab.icon}
+                        android_material_icon_name={tab.icon}
                         size={24}
                         color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#666666')}
                       />

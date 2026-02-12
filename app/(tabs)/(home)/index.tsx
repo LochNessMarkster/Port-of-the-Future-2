@@ -28,7 +28,7 @@ interface Announcement {
   createdAt: string;
 }
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -39,10 +39,11 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 250,
+    height: 300,
   },
   heroImageStyle: {
-    marginTop: 0,
+    width: '100%',
+    height: '100%',
   },
   heroContent: {
     flex: 1,
