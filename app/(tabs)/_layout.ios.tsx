@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,7 +25,7 @@ export default function TabLayout() {
         <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger key="agenda" name="agenda">
-        <Icon sf={{ default: 'calendar', selected: 'calendar.badge.clock' }} drawable="calendar-today" />
+        <Icon sf={{ default: 'calendar', selected: 'calendar.badge.clock' }} drawable="event" />
         <Label>Agenda</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger key="speakers" name="speakers">

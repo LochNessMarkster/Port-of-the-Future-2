@@ -80,9 +80,6 @@ function mapSessionResponse(data: SessionBackendResponse): Session {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },
@@ -442,7 +439,7 @@ export default function AgendaScreen() {
           headerBackTitle: 'Back',
         }}
       />
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: appColors.background }]} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
         <View style={[styles.container, { backgroundColor: appColors.background }]}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>
