@@ -11,7 +11,8 @@ import {
   Image,
   Modal,
   Pressable,
-  Linking
+  Linking,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -54,6 +55,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+      },
+    }),
   },
   logoWhiteBackground: {
     backgroundColor: '#FFFFFF',
@@ -65,6 +71,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        display: 'flex',
+      },
+    }),
   },
   sponsorLogo: {
     width: '100%',
@@ -101,6 +112,11 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
+    ...Platform.select({
+      web: {
+        maxWidth: 600,
+      },
+    }),
   },
   modalHeader: {
     alignItems: 'center',
@@ -116,6 +132,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        display: 'flex',
+      },
+    }),
   },
   modalLogo: {
     width: '100%',
