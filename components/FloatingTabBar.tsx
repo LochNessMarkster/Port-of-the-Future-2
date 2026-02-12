@@ -53,6 +53,19 @@ export default function FloatingTabBar({
 
   // Improved active tab detection with better path matching
   const activeTabIndex = React.useMemo(() => {
+    // Special case: root path "/" should match the home tab
+    if (pathname === '/' || pathname === '') {
+      const homeTabIndex = tabs.findIndex(tab => 
+        tab.name === '(home)' || 
+        tab.route === '/(tabs)/(home)/' ||
+        tab.label === 'Home'
+      );
+      if (homeTabIndex >= 0) {
+        console.log('FloatingTabBar - Matched root path to home tab:', homeTabIndex);
+        return homeTabIndex;
+      }
+    }
+
     // Find the best matching tab based on the current pathname
     let bestMatch = -1;
     let bestMatchScore = 0;
