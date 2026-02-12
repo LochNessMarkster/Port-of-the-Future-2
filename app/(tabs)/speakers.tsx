@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
-import { useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 
 interface Speaker {
   id: string;
@@ -42,13 +42,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   logoContainer: {
     width: 40,
@@ -178,7 +171,6 @@ const styles = StyleSheet.create({
 export default function SpeakersScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const router = useRouter();
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
@@ -192,6 +184,7 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
+      console.log('SpeakersScreen - Fetching speakers from /api/speakers');
       const data = await apiGet<Speaker[]>('/api/speakers');
       setSpeakers(data);
       console.log('SpeakersScreen - Loaded speakers:', data.length);
@@ -218,31 +211,22 @@ export default function SpeakersScreen() {
     });
     
     console.log('SpeakersScreen - Sorted speakers alphabetically by last name:', sorted.length);
+    if (sorted.length > 0) {
+      console.log('SpeakersScreen - First speaker:', sorted[0].name, '(last name:', getLastName(sorted[0].name) + ')');
+      console.log('SpeakersScreen - Last speaker:', sorted[sorted.length - 1].name, '(last name:', getLastName(sorted[sorted.length - 1].name) + ')');
+    }
     return sorted;
   }, [speakers]);
 
-  const handleBackPress = () => {
-    console.log('SpeakersScreen - Back button pressed');
-    router.back();
-  };
-
   return (
     <React.Fragment>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+        }}
+      />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={[styles.backButton, { backgroundColor: appColors.card }]}
-            onPress={handleBackPress}
-            activeOpacity={0.7}
-          >
-            <IconSymbol
-              ios_icon_name="chevron.left"
-              android_material_icon_name="arrow-back"
-              size={24}
-              color={appColors.text}
-            />
-          </TouchableOpacity>
-
           <View style={styles.logoContainer}>
             <Image
               source={require('@/assets/images/POF-ICON.png')}
@@ -270,11 +254,14 @@ export default function SpeakersScreen() {
             </Text>
           ) : (
             <View style={styles.speakerGrid}>
-              {sortedSpeakers.map((speaker) => (
+              {sortedSpeakers.map((speaker, index) => (
                 <TouchableOpacity
-                  key={speaker.id}
+                  key={index}
                   style={[styles.speakerCard, { backgroundColor: appColors.card }]}
-                  onPress={() => setSelectedSpeaker(speaker)}
+                  onPress={() => {
+                    console.log('SpeakersScreen - Speaker card pressed:', speaker.name);
+                    setSelectedSpeaker(speaker);
+                  }}
                   activeOpacity={0.7}
                 >
                   <View style={styles.speakerPhotoContainer}>
@@ -312,7 +299,10 @@ export default function SpeakersScreen() {
             >
               <TouchableOpacity 
                 style={styles.closeButton}
-                onPress={() => setSelectedSpeaker(null)}
+                onPress={() => {
+                  console.log('SpeakersScreen - Close modal button pressed');
+                  setSelectedSpeaker(null);
+                }}
               >
                 <IconSymbol
                   ios_icon_name="xmark.circle.fill"
@@ -338,32 +328,38 @@ export default function SpeakersScreen() {
                   </Text>
                 </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Speaking Topic
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedSpeaker?.topic}
-                  </Text>
-                </View>
+                {selectedSpeaker?.topic ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Speaking Topic
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSpeaker.topic}
+                    </Text>
+                  </View>
+                ) : null}
 
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Synopsis
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedSpeaker?.synopsis}
-                  </Text>
-                </View>
+                {selectedSpeaker?.synopsis ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Synopsis
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSpeaker.synopsis}
+                    </Text>
+                  </View>
+                ) : null}
 
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Biography
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedSpeaker?.bio}
-                  </Text>
-                </View>
+                {selectedSpeaker?.bio ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Biography
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSpeaker.bio}
+                    </Text>
+                  </View>
+                ) : null}
               </ScrollView>
             </Pressable>
           </Pressable>

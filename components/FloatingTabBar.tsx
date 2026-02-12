@@ -49,6 +49,8 @@ export default function FloatingTabBar({
   const theme = useTheme();
   const animatedValue = useSharedValue(0);
 
+  console.log('FloatingTabBar - Current pathname:', pathname);
+
   // Improved active tab detection with better path matching
   const activeTabIndex = React.useMemo(() => {
     // Find the best matching tab based on the current pathname
@@ -81,6 +83,7 @@ export default function FloatingTabBar({
       }
     });
 
+    console.log('FloatingTabBar - Active tab index:', bestMatch, 'for pathname:', pathname);
     // Default to first tab if no match found
     return bestMatch >= 0 ? bestMatch : 0;
   }, [pathname, tabs]);
@@ -213,18 +216,22 @@ export default function FloatingTabBar({
 
 const styles = StyleSheet.create({
   outerContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 999999,
-    pointerEvents: 'box-none',
     ...Platform.select({
       web: {
         position: 'fixed' as any,
         bottom: 0,
         left: 0,
         right: 0,
+        zIndex: 999999,
+        pointerEvents: 'box-none' as any,
+      },
+      default: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 999999,
+        pointerEvents: 'box-none',
       },
     }),
   },

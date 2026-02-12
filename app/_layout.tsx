@@ -86,7 +86,7 @@ function RootLayoutInner() {
     {
       name: 'agenda',
       route: '/(tabs)/agenda',
-      icon: 'calendar-today',
+      icon: 'event',
       label: 'Agenda',
     },
     {
@@ -98,7 +98,7 @@ function RootLayoutInner() {
     {
       name: 'more',
       route: '/(tabs)/more',
-      icon: 'more-horiz',
+      icon: 'menu',
       label: 'More',
     },
   ];
@@ -110,7 +110,7 @@ function RootLayoutInner() {
   // On iOS, don't show the FloatingTabBar (native tabs are used)
   const showFloatingTabBar = shouldShowTabBar && Platform.OS !== 'ios';
 
-  console.log('RootLayout - Pathname:', pathname, 'Show tab bar:', showFloatingTabBar);
+  console.log('RootLayout - Pathname:', pathname, 'Show tab bar:', showFloatingTabBar, 'User:', !!user);
 
   return (
     <>
@@ -127,15 +127,71 @@ function RootLayoutInner() {
                 <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
                 {/* Main app with tabs */}
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                {/* Additional screens */}
-                <Stack.Screen name="ports" options={{ headerShown: true, title: 'Ports' }} />
-                <Stack.Screen name="sponsors" options={{ headerShown: true, title: 'Sponsors' }} />
-                <Stack.Screen name="exhibitors" options={{ headerShown: true, title: 'Exhibitors' }} />
-                <Stack.Screen name="schedule" options={{ headerShown: true, title: 'My Schedule' }} />
-                <Stack.Screen name="networking" options={{ headerShown: true, title: 'Networking' }} />
-                <Stack.Screen name="messages" options={{ headerShown: true, title: 'Messages' }} />
-                <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile' }} />
-                <Stack.Screen name="admin" options={{ headerShown: true, title: 'Admin Panel' }} />
+                {/* Additional screens with headers */}
+                <Stack.Screen 
+                  name="ports" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Ports',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="sponsors" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Sponsors',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="exhibitors" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Exhibitors',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="schedule" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'My Schedule',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="networking" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Networking',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="messages" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Messages',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="profile" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Profile',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="admin" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Admin Panel',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
                 {/* 404 handler */}
                 <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
               </Stack>
