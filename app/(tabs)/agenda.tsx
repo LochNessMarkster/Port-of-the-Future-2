@@ -97,7 +97,8 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -438,7 +439,7 @@ export default function AgendaScreen() {
           headerBackTitle: 'Back',
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
         <View style={[styles.container, { backgroundColor: appColors.background }]}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>
