@@ -39,7 +39,7 @@ interface FloatingTabBarProps {
 
 export default function FloatingTabBar({
   tabs,
-  containerWidth = screenWidth / 2.5,
+  containerWidth = screenWidth * 0.85, // Increased from screenWidth / 2.5 to 85% of screen width
   borderRadius = 35,
   bottomMargin
 }: FloatingTabBarProps) {
