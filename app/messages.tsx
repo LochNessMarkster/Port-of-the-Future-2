@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -150,15 +150,7 @@ export default function MessagesScreen() {
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    if (selectedUserId) {
-      loadConversation(selectedUserId);
-    } else {
-      loadThreads();
-    }
-  }, [selectedUserId]);
-
-  const loadThreads = async () => {
+  const loadThreads = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiGet<MessageThread[]>('/api/messages');
@@ -170,9 +162,9 @@ export default function MessagesScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadConversation = async (userId: string) => {
+  const loadConversation = useCallback(async (userId: string) => {
     try {
       setLoading(true);
       const data = await apiGet<Message[]>(`/api/messages/${userId}`);
@@ -190,7 +182,15 @@ export default function MessagesScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (selectedUserId) {
+      loadConversation(selectedUserId);
+    } else {
+      loadThreads();
+    }
+  }, [selectedUserId, loadConversation, loadThreads]);
 
   const sendMessage = async () => {
     if (!messageText.trim() || !selectedUserId) return;
