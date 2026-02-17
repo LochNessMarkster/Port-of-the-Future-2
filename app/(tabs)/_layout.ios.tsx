@@ -23,19 +23,19 @@ export default function TabLayout() {
     <NativeTabs>
       <NativeTabs.Trigger name="(home)">
         <Label>Home</Label>
-        <Icon sf="house" />
+        <Icon sf={{ default: 'house', selected: 'house.fill' }} drawable="home" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="agenda">
         <Label>Agenda</Label>
-        <Icon sf="calendar" />
+        <Icon sf={{ default: 'calendar', selected: 'calendar' }} drawable="event" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="speakers">
         <Label>Speakers</Label>
-        <Icon sf="person.2" />
+        <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} drawable="group" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="more">
         <Label>More</Label>
-        <Icon sf="ellipsis.circle" />
+        <Icon sf={{ default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' }} drawable="more-horiz" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

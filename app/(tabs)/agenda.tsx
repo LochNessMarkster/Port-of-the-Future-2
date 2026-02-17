@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: 0,
     paddingBottom: spacing.md,
   },
   searchInputWrapper: {
