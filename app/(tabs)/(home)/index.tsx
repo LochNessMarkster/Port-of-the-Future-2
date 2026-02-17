@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 280,
+    height: 200,
   },
   heroImageStyle: {
     width: '100%',
@@ -53,17 +53,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.md,
   },
   logo: {
-    width: 140,
-    height: 60,
+    width: 280,
+    height: 120,
     resizeMode: 'contain',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   dateLocationContainer: {
     alignItems: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   dateText: {
     ...typography.body,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   },
   navTile: {
     flex: 1,
-    height: 80,
+    height: 90,
     borderRadius: borderRadius.md,
     padding: spacing.sm,
     alignItems: 'center',
@@ -247,7 +247,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Image with Gradient Overlay */}
+          {/* Hero Image with Gradient Overlay - Reduced height to crop top/bottom */}
           <ImageBackground
             source={require('@/assets/images/97923d23-03e6-4821-a00d-7dd935532e6d.jpeg')}
             style={styles.heroContainer}
@@ -277,7 +277,7 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          {/* Navigation Grid */}
+          {/* Navigation Grid - Even 2-column layout */}
           <View style={styles.navigationGrid}>
             <View style={styles.gridRow}>
               <TouchableOpacity 
@@ -288,7 +288,7 @@ export default function HomeScreen() {
                 <IconSymbol
                   ios_icon_name="calendar"
                   android_material_icon_name="event"
-                  size={24}
+                  size={28}
                   color={appColors.primary}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Agenda</Text>
@@ -302,7 +302,7 @@ export default function HomeScreen() {
                 <IconSymbol
                   ios_icon_name="person.2"
                   android_material_icon_name="group"
-                  size={24}
+                  size={28}
                   color={appColors.secondary}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Speakers</Text>
@@ -318,7 +318,7 @@ export default function HomeScreen() {
                 <IconSymbol
                   ios_icon_name="building.2"
                   android_material_icon_name="store"
-                  size={24}
+                  size={28}
                   color={appColors.accent}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Exhibitors</Text>
@@ -332,7 +332,7 @@ export default function HomeScreen() {
                 <IconSymbol
                   ios_icon_name="star"
                   android_material_icon_name="star"
-                  size={24}
+                  size={28}
                   color={appColors.highlight}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Sponsors</Text>
@@ -348,7 +348,7 @@ export default function HomeScreen() {
                 <IconSymbol
                   ios_icon_name="map"
                   android_material_icon_name="place"
-                  size={24}
+                  size={28}
                   color={appColors.primary}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Ports</Text>
@@ -362,7 +362,7 @@ export default function HomeScreen() {
                 <IconSymbol
                   ios_icon_name="person.3"
                   android_material_icon_name="people"
-                  size={24}
+                  size={28}
                   color={appColors.secondary}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Networking</Text>
@@ -378,13 +378,25 @@ export default function HomeScreen() {
                 <IconSymbol
                   ios_icon_name="doc.text.fill"
                   android_material_icon_name="description"
-                  size={24}
+                  size={28}
                   color={appColors.accent}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Presentations</Text>
               </TouchableOpacity>
 
-              <View style={[styles.navTile, { backgroundColor: 'transparent' }]} />
+              <TouchableOpacity 
+                style={[styles.navTile, { backgroundColor: appColors.card }]}
+                activeOpacity={0.7}
+                onPress={() => handleNavigation('/schedule')}
+              >
+                <IconSymbol
+                  ios_icon_name="bookmark.fill"
+                  android_material_icon_name="bookmark"
+                  size={28}
+                  color={appColors.highlight}
+                />
+                <Text style={[styles.navLabel, { color: appColors.text }]}>My Schedule</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
