@@ -6,10 +6,10 @@ const BASE_ID = 'appkKjciinTlnsbkd';
 const PRIMARY_API_KEY = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
 // Secondary API key for Attendees table
-const SECONDARY_API_KEY = 'patZyEbyPVImqOPC9.3f079360e07787946058e636a2e8c6692588f57faa491dc915770953d4c57689';
+const SECONDARY_API_KEY = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
 // Base ID for Attendees table (if different)
-const ATTENDEES_BASE_ID = 'appcNhRl5vEqug2D1';
+const ATTENDEES_BASE_ID = 'appkKjciinTlnsbkd';
 
 /**
  * Get a masked version of the API key for logging (first 10 chars only)
@@ -84,7 +84,7 @@ export const TABLES = {
   EXHIBITORS: 'tblzex4bjwEZh1021',
   SPONSORS: 'tblgWrwRvpdcVG8sB',
   PARTNERS: 'tblxn3Yie523MallN',
-  ATTENDEES: 'tblQhLaWbOSI0t7iX',
+  ATTENDEES: 'tblqe1kPM95Cp4Srn',
   ANNOUNCEMENTS: 'tblGJQ3v4RMIXCP4W',
 };
 
