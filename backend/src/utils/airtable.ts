@@ -2,8 +2,14 @@ import axios from 'axios';
 
 const BASE_ID = 'appkKjciinTlnsbkd';
 
-// Use environment variable if set, otherwise use default API key
-const API_KEY = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
+// Primary API key for most tables
+const PRIMARY_API_KEY = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
+
+// Secondary API key for Attendees table
+const SECONDARY_API_KEY = 'patZyEbyPVImqOPC9.3f079360e07787946058e636a2e8c6692588f57faa491dc915770953d4c57689';
+
+// Base ID for Attendees table (if different)
+const ATTENDEES_BASE_ID = 'appcNhRl5vEqug2D1';
 
 /**
  * Get a masked version of the API key for logging (first 10 chars only)
@@ -17,35 +23,46 @@ function getMaskedApiKey(key: string): string {
 /**
  * Initialize axios client with proper API key handling
  */
-function createAirtableClient() {
-  if (!API_KEY) {
+function createAirtableClient(baseId: string = BASE_ID, apiKey: string = PRIMARY_API_KEY) {
+  if (!apiKey) {
     const errorMsg = 'AIRTABLE_API_KEY is required. Please set the AIRTABLE_API_KEY environment variable or ensure the default API key is configured.';
     console.error(errorMsg);
     throw new Error(errorMsg);
   }
 
   // Log that we're using an API key (masked for security)
-  console.log(`[Airtable] Initializing client with API key: ${getMaskedApiKey(API_KEY)}`);
+  console.log(`[Airtable] Initializing client with API key: ${getMaskedApiKey(apiKey)}`);
 
   return axios.create({
-    baseURL: `https://api.airtable.com/v0/${BASE_ID}`,
+    baseURL: `https://api.airtable.com/v0/${baseId}`,
     headers: {
-      Authorization: `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
   });
 }
 
 let airtableClient: ReturnType<typeof createAirtableClient> | null = null;
+let attendeesClient: ReturnType<typeof createAirtableClient> | null = null;
 
 /**
- * Get the Airtable client
+ * Get the Airtable client for main base
  */
 function getAirtableClient() {
   if (!airtableClient) {
-    airtableClient = createAirtableClient();
+    airtableClient = createAirtableClient(BASE_ID, PRIMARY_API_KEY);
   }
   return airtableClient;
+}
+
+/**
+ * Get the Airtable client for Attendees table
+ */
+function getAttendeesClient() {
+  if (!attendeesClient) {
+    attendeesClient = createAirtableClient(ATTENDEES_BASE_ID, SECONDARY_API_KEY);
+  }
+  return attendeesClient;
 }
 
 export interface AirtableRecord<T> {
@@ -148,8 +165,8 @@ export async function fetchAirtableRecords<T>(
             errorType,
             errorMessage,
             endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
-            apiKeyConfigured: !!API_KEY,
-            apiKeyMasked: getMaskedApiKey(API_KEY),
+            apiKeyConfigured: !!PRIMARY_API_KEY,
+            apiKeyMasked: getMaskedApiKey(PRIMARY_API_KEY),
             nodeEnv: process.env.NODE_ENV,
           },
           logMsg
@@ -241,8 +258,8 @@ export async function fetchAirtableRecord<T>(
             errorType,
             errorMessage,
             endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}`,
-            apiKeyConfigured: !!API_KEY,
-            apiKeyMasked: getMaskedApiKey(API_KEY),
+            apiKeyConfigured: !!PRIMARY_API_KEY,
+            apiKeyMasked: getMaskedApiKey(PRIMARY_API_KEY),
             nodeEnv: process.env.NODE_ENV,
           },
           logMsg
@@ -368,6 +385,98 @@ export async function deleteAirtableRecord(
   }
 }
 
+/**
+ * Fetch attendees from Airtable (uses separate base and API key)
+ */
+export async function fetchAirtableAttendees(
+  tableId: string,
+  options?: { pageSize?: number; offset?: string; fields?: string[]; logger?: any }
+): Promise<AirtableListResponse<AttendeeFields>> {
+  const params: any = {};
+  if (options?.pageSize) params.pageSize = options.pageSize;
+  if (options?.offset) params.offset = options.offset;
+  if (options?.fields) params.fields = options.fields;
+
+  const client = getAttendeesClient();
+
+  if (options?.logger) {
+    options.logger.debug(
+      {
+        baseId: ATTENDEES_BASE_ID,
+        tableId,
+        endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
+      },
+      'Fetching attendees from Airtable'
+    );
+  }
+
+  try {
+    const response = await client.get<AirtableListResponse<AttendeeFields>>(
+      `/${tableId}`,
+      { params }
+    );
+
+    if (options?.logger) {
+      options.logger.info(
+        { tableId, recordCount: response.data.records.length },
+        'Successfully fetched attendees from Airtable'
+      );
+    }
+
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorMessage = error.response?.data?.error?.message || error.message;
+    const errorType = error.response?.data?.error?.type || 'UNKNOWN';
+
+    // Handle 403 Forbidden errors gracefully
+    if (status === 403) {
+      const logMsg = `Airtable API returned 403 FORBIDDEN for attendees table (${tableId}). The API key may not have permission to access this table or the table/base may not exist.`;
+
+      if (options?.logger) {
+        options.logger.warn(
+          {
+            baseId: ATTENDEES_BASE_ID,
+            tableId,
+            status,
+            errorType,
+            errorMessage,
+            endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
+            apiKeyConfigured: !!SECONDARY_API_KEY,
+            apiKeyMasked: getMaskedApiKey(SECONDARY_API_KEY),
+            nodeEnv: process.env.NODE_ENV,
+          },
+          logMsg
+        );
+      }
+
+      // Log to console as well for debugging
+      console.warn(`[Airtable 403] ${logMsg}`);
+      console.warn(`[Airtable 403] Error details: ${errorMessage}`);
+
+      // Return empty array instead of throwing error
+      return { records: [] };
+    }
+
+    // For other errors, log and re-throw
+    if (options?.logger) {
+      options.logger.error(
+        {
+          baseId: ATTENDEES_BASE_ID,
+          tableId,
+          status,
+          errorType,
+          errorMessage,
+          endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
+        },
+        'Airtable API error while fetching attendees'
+      );
+    }
+
+    throw error;
+  }
+}
+
 // Type definitions for Airtable records
 export interface SessionFields {
   Title: string;
@@ -441,13 +550,11 @@ export interface AnnouncementFields {
 }
 
 export interface AttendeeFields {
-  Email: string;
-  Name: string;
-  Company: string;
-  Title: string;
-  Phone: string;
-  Photo: Array<{ url: string; id: string; size: number; type: string }>;
-  LinkedIn: string;
-  Bio: string;
-  OptInNetworking: boolean;
+  'First Name'?: string;
+  'Last Name'?: string;
+  Email?: string;
+  Company?: string;
+  'Job Title'?: string;
+  Phone?: string;
+  'Registration Level'?: string;
 }
