@@ -16,6 +16,7 @@ import {
   TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
@@ -23,32 +24,44 @@ import { apiGet } from '@/utils/api';
 interface Exhibitor {
   id: string;
   name: string;
+  logo: string;
   description: string;
-  logoUrl: string;
-  phone: string;
+  contactName: string;
+  contactTitle: string;
+  contactEmail: string;
+  contactPhoneDirect: string;
+  contactPhoneMobile: string;
+  contactFax: string;
   companyUrl: string;
   linkedIn: string;
+  facebook: string;
+  x: string;
   boothNumber: string;
+  demonstrations: string;
 }
 
-// Backend response type
 interface ExhibitorBackendResponse {
   id: string;
-  name: string;
+  name?: string;
   logo?: string;
   logoUrl?: string;
-  bio?: string;
   description?: string;
-  website?: string;
-  companyUrl?: string;
-  phone?: string;
-  linkedIn?: string;
-  boothNumber?: string;
+  bio?: string;
   contactName?: string;
+  contactTitle?: string;
   contactEmail?: string;
+  contactPhoneDirect?: string;
+  contactPhoneMobile?: string;
+  contactFax?: string;
+  companyUrl?: string;
+  website?: string;
+  linkedIn?: string;
+  facebook?: string;
+  x?: string;
+  boothNumber?: string;
+  demonstrations?: string;
 }
 
-// Helper to resolve image sources (handles both local require() and remote URLs)
 function resolveImageSource(source: string | number | undefined) {
   if (!source) return null;
   if (typeof source === 'string') {
@@ -58,46 +71,36 @@ function resolveImageSource(source: string | number | undefined) {
   return source;
 }
 
-// Map backend response to frontend format
 function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
-  // Handle logo - try multiple field names and handle both string and array formats
   let logoUrl = '';
   const logoField = data.logoUrl || data.logo || (data as any).Logo || (data as any)['Logo Url'];
   
   if (Array.isArray(logoField) && logoField.length > 0) {
-    // Handle attachment array format from Airtable
     logoUrl = (logoField[0] as any)?.url || '';
-    console.log('ExhibitorsScreen - Logo extracted from array:', logoUrl ? logoUrl.substring(0, 80) : '(empty)');
   } else if (typeof logoField === 'string') {
-    // Handle plain string URL
     logoUrl = logoField;
-    console.log('ExhibitorsScreen - Logo extracted from string:', logoUrl ? logoUrl.substring(0, 80) : '(empty)');
   }
   
-  // Handle company URL - try multiple field names
   const companyUrl = data.companyUrl || data.website || (data as any).URL || (data as any)['Company URL'] || '';
   
-  const mapped = {
+  return {
     id: data.id,
     name: data.name || '',
+    logo: logoUrl.trim(),
     description: data.description || data.bio || '',
-    logoUrl: logoUrl.trim(),
-    phone: data.phone || '',
+    contactName: data.contactName || '',
+    contactTitle: data.contactTitle || '',
+    contactEmail: data.contactEmail || '',
+    contactPhoneDirect: data.contactPhoneDirect || '',
+    contactPhoneMobile: data.contactPhoneMobile || '',
+    contactFax: data.contactFax || '',
     companyUrl: companyUrl.trim(),
     linkedIn: data.linkedIn || '',
+    facebook: data.facebook || '',
+    x: data.x || '',
     boothNumber: data.boothNumber || '',
+    demonstrations: data.demonstrations || '',
   };
-  
-  console.log('ExhibitorsScreen - Mapped exhibitor:', {
-    name: mapped.name,
-    hasLogo: !!mapped.logoUrl,
-    logoUrl: mapped.logoUrl ? mapped.logoUrl.substring(0, 80) : '(empty)',
-    hasCompanyUrl: !!mapped.companyUrl,
-    companyUrl: mapped.companyUrl || '(empty)',
-    rawData: JSON.stringify(data).substring(0, 200),
-  });
-  
-  return mapped;
 }
 
 const styles = StyleSheet.create({
@@ -266,6 +269,16 @@ const styles = StyleSheet.create({
     ...typography.body,
     lineHeight: 24,
   },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+    gap: spacing.sm,
+  },
+  contactText: {
+    ...typography.body,
+    flex: 1,
+  },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -277,6 +290,24 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     ...typography.body,
+    fontWeight: '600',
+  },
+  socialButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  socialButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
+  },
+  socialButtonText: {
+    ...typography.bodySmall,
     fontWeight: '600',
   },
   closeButton: {
@@ -329,25 +360,9 @@ export default function ExhibitorsScreen() {
       const data = await apiGet<ExhibitorBackendResponse[]>('/api/exhibitors');
       console.log('ExhibitorsScreen - Raw API response count:', data.length);
       
-      // Log first exhibitor raw data for debugging
-      if (data.length > 0) {
-        console.log('ExhibitorsScreen - First exhibitor raw data:', JSON.stringify(data[0], null, 2));
-      }
-      
       const mappedData = data.map(mapExhibitorResponse);
       setExhibitors(mappedData);
-      console.log('ExhibitorsScreen - Loaded exhibitors:', mappedData.length, 'exhibitors');
-      
-      // Log summary of data quality
-      const withLogos = mappedData.filter(e => e.logoUrl).length;
-      const withUrls = mappedData.filter(e => e.companyUrl).length;
-      console.log('ExhibitorsScreen - Data quality:', {
-        total: mappedData.length,
-        withLogos,
-        withUrls,
-        withoutLogos: mappedData.length - withLogos,
-        withoutUrls: mappedData.length - withUrls,
-      });
+      console.log('ExhibitorsScreen - Loaded exhibitors:', mappedData.length);
     } catch (err) {
       console.error('ExhibitorsScreen - Error loading exhibitors:', err);
       setError('Unable to load exhibitors. Please try again later.');
@@ -365,6 +380,14 @@ export default function ExhibitorsScreen() {
     }
   };
 
+  const openEmail = (email: string) => {
+    if (email) {
+      const mailtoUrl = `mailto:${email}`;
+      console.log('ExhibitorsScreen - Opening email:', mailtoUrl);
+      Linking.openURL(mailtoUrl).catch(err => console.error('ExhibitorsScreen - Error opening email:', err));
+    }
+  };
+
   const openPhone = (phone: string) => {
     if (phone) {
       const telUrl = `tel:${phone}`;
@@ -373,15 +396,6 @@ export default function ExhibitorsScreen() {
     }
   };
 
-  const openLinkedIn = (linkedIn: string) => {
-    if (linkedIn) {
-      const formattedUrl = linkedIn.startsWith('http') ? linkedIn : `https://${linkedIn}`;
-      console.log('ExhibitorsScreen - Opening LinkedIn:', formattedUrl);
-      Linking.openURL(formattedUrl).catch(err => console.error('ExhibitorsScreen - Error opening LinkedIn:', err));
-    }
-  };
-
-  // Filter exhibitors by search query
   const filteredExhibitors = useMemo(() => {
     if (searchQuery.trim() === '') return exhibitors;
     
@@ -390,8 +404,9 @@ export default function ExhibitorsScreen() {
       const matchesName = exhibitor.name.toLowerCase().includes(query);
       const matchesDescription = exhibitor.description.toLowerCase().includes(query);
       const matchesBooth = exhibitor.boothNumber.toLowerCase().includes(query);
+      const matchesContact = exhibitor.contactName.toLowerCase().includes(query);
       
-      return matchesName || matchesDescription || matchesBooth;
+      return matchesName || matchesDescription || matchesBooth || matchesContact;
     });
   }, [exhibitors, searchQuery]);
 
@@ -400,15 +415,20 @@ export default function ExhibitorsScreen() {
     setSearchQuery('');
   };
 
-  const logoSource = selectedExhibitor?.logoUrl ? resolveImageSource(selectedExhibitor.logoUrl) : null;
+  const logoSource = selectedExhibitor?.logo ? resolveImageSource(selectedExhibitor.logo) : null;
   const hasLogo = !!logoSource;
   const firstLetter = selectedExhibitor?.name ? selectedExhibitor.name.charAt(0).toUpperCase() : '';
-  const hasCompanyUrl = !!(selectedExhibitor?.companyUrl && selectedExhibitor.companyUrl.trim() !== '');
 
   return (
     <React.Fragment>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Exhibitors',
+          headerBackTitle: 'Back',
+        }}
+      />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
             <IconSymbol
@@ -492,54 +512,56 @@ export default function ExhibitorsScreen() {
               </Text>
             </View>
           ) : (
-            filteredExhibitors.map((exhibitor, index) => {
-              const cardLogoSource = exhibitor.logoUrl ? resolveImageSource(exhibitor.logoUrl) : null;
-              const cardFirstLetter = exhibitor.name.charAt(0).toUpperCase();
-              
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.exhibitorCard, { backgroundColor: appColors.card }]}
-                  onPress={() => {
-                    console.log('ExhibitorsScreen - Exhibitor card pressed:', exhibitor.name);
-                    setSelectedExhibitor(exhibitor);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.logoWhiteBackground}>
-                    {cardLogoSource ? (
-                      <Image
-                        source={cardLogoSource}
-                        style={styles.exhibitorLogo}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <View style={[styles.exhibitorLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
-                        <Text style={[styles.logoPlaceholderText, { color: appColors.primary }]}>
-                          {cardFirstLetter}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.exhibitorInfo}>
-                    <Text style={[styles.exhibitorName, { color: appColors.text }]}>
-                      {exhibitor.name}
-                    </Text>
-                    {exhibitor.boothNumber ? (
-                      <Text style={[
-                        styles.exhibitorBooth,
-                        { 
-                          backgroundColor: appColors.primary + '20',
-                          color: appColors.primary
-                        }
-                      ]}>
-                        Booth {exhibitor.boothNumber}
+            <React.Fragment>
+              {filteredExhibitors.map((exhibitor, index) => {
+                const cardLogoSource = exhibitor.logo ? resolveImageSource(exhibitor.logo) : null;
+                const cardFirstLetter = exhibitor.name.charAt(0).toUpperCase();
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.exhibitorCard, { backgroundColor: appColors.card }]}
+                    onPress={() => {
+                      console.log('ExhibitorsScreen - Exhibitor card pressed:', exhibitor.name);
+                      setSelectedExhibitor(exhibitor);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.logoWhiteBackground}>
+                      {cardLogoSource ? (
+                        <Image
+                          source={cardLogoSource}
+                          style={styles.exhibitorLogo}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <View style={[styles.exhibitorLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
+                          <Text style={[styles.logoPlaceholderText, { color: appColors.primary }]}>
+                            {cardFirstLetter}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.exhibitorInfo}>
+                      <Text style={[styles.exhibitorName, { color: appColors.text }]}>
+                        {exhibitor.name}
                       </Text>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+                      {exhibitor.boothNumber ? (
+                        <Text style={[
+                          styles.exhibitorBooth,
+                          { 
+                            backgroundColor: appColors.primary + '20',
+                            color: appColors.primary
+                          }
+                        ]}>
+                          Booth {exhibitor.boothNumber}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </React.Fragment>
           )}
         </ScrollView>
 
@@ -616,11 +638,108 @@ export default function ExhibitorsScreen() {
                   </View>
                 ) : null}
 
-                {hasCompanyUrl ? (
+                {selectedExhibitor?.demonstrations ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Demonstrations
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedExhibitor.demonstrations}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {(selectedExhibitor?.contactName || selectedExhibitor?.contactEmail || selectedExhibitor?.contactPhoneDirect || selectedExhibitor?.contactPhoneMobile) ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Primary Contact
+                    </Text>
+                    {selectedExhibitor?.contactName ? (
+                      <View style={styles.contactRow}>
+                        <IconSymbol
+                          ios_icon_name="person.fill"
+                          android_material_icon_name="person"
+                          size={16}
+                          color={appColors.textSecondary}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.text }]}>
+                          {selectedExhibitor.contactName}
+                          {selectedExhibitor.contactTitle ? ` - ${selectedExhibitor.contactTitle}` : ''}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {selectedExhibitor?.contactEmail ? (
+                      <TouchableOpacity 
+                        style={styles.contactRow}
+                        onPress={() => openEmail(selectedExhibitor.contactEmail)}
+                      >
+                        <IconSymbol
+                          ios_icon_name="envelope.fill"
+                          android_material_icon_name="email"
+                          size={16}
+                          color={appColors.primary}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.primary }]}>
+                          {selectedExhibitor.contactEmail}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {selectedExhibitor?.contactPhoneDirect ? (
+                      <TouchableOpacity 
+                        style={styles.contactRow}
+                        onPress={() => openPhone(selectedExhibitor.contactPhoneDirect)}
+                      >
+                        <IconSymbol
+                          ios_icon_name="phone.fill"
+                          android_material_icon_name="phone"
+                          size={16}
+                          color={appColors.primary}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.primary }]}>
+                          {selectedExhibitor.contactPhoneDirect}
+                          {' (Direct)'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {selectedExhibitor?.contactPhoneMobile ? (
+                      <TouchableOpacity 
+                        style={styles.contactRow}
+                        onPress={() => openPhone(selectedExhibitor.contactPhoneMobile)}
+                      >
+                        <IconSymbol
+                          ios_icon_name="phone.fill"
+                          android_material_icon_name="phone"
+                          size={16}
+                          color={appColors.primary}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.primary }]}>
+                          {selectedExhibitor.contactPhoneMobile}
+                          {' (Mobile)'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {selectedExhibitor?.contactFax ? (
+                      <View style={styles.contactRow}>
+                        <IconSymbol
+                          ios_icon_name="printer.fill"
+                          android_material_icon_name="print"
+                          size={16}
+                          color={appColors.textSecondary}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.text }]}>
+                          {selectedExhibitor.contactFax}
+                          {' (Fax)'}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
+
+                {selectedExhibitor?.companyUrl ? (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: appColors.primary }]}
                     onPress={() => {
-                      console.log('ExhibitorsScreen - Visit Website button pressed for:', selectedExhibitor?.companyUrl);
+                      console.log('ExhibitorsScreen - Visit Website button pressed');
                       if (selectedExhibitor?.companyUrl) {
                         openWebsite(selectedExhibitor.companyUrl);
                       }
@@ -639,46 +758,60 @@ export default function ExhibitorsScreen() {
                   </TouchableOpacity>
                 ) : null}
 
-                {selectedExhibitor?.phone ? (
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: appColors.secondary }]}
-                    onPress={() => {
-                      console.log('ExhibitorsScreen - Call button pressed');
-                      openPhone(selectedExhibitor.phone);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <IconSymbol
-                      ios_icon_name="phone.fill"
-                      android_material_icon_name="phone"
-                      size={20}
-                      color="#FFFFFF"
-                    />
-                    <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
-                      {selectedExhibitor.phone}
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {selectedExhibitor?.linkedIn ? (
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: '#0077B5' }]}
-                    onPress={() => {
-                      console.log('ExhibitorsScreen - LinkedIn button pressed');
-                      openLinkedIn(selectedExhibitor.linkedIn);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <IconSymbol
-                      ios_icon_name="link"
-                      android_material_icon_name="link"
-                      size={20}
-                      color="#FFFFFF"
-                    />
-                    <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
-                      View LinkedIn
-                    </Text>
-                  </TouchableOpacity>
+                {(selectedExhibitor?.linkedIn || selectedExhibitor?.facebook || selectedExhibitor?.x) ? (
+                  <View style={styles.socialButtonsRow}>
+                    {selectedExhibitor?.linkedIn ? (
+                      <TouchableOpacity
+                        style={[styles.socialButton, { backgroundColor: '#0077B5' }]}
+                        onPress={() => openWebsite(selectedExhibitor.linkedIn)}
+                        activeOpacity={0.7}
+                      >
+                        <IconSymbol
+                          ios_icon_name="link"
+                          android_material_icon_name="link"
+                          size={16}
+                          color="#FFFFFF"
+                        />
+                        <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>
+                          LinkedIn
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {selectedExhibitor?.facebook ? (
+                      <TouchableOpacity
+                        style={[styles.socialButton, { backgroundColor: '#1877F2' }]}
+                        onPress={() => openWebsite(selectedExhibitor.facebook)}
+                        activeOpacity={0.7}
+                      >
+                        <IconSymbol
+                          ios_icon_name="link"
+                          android_material_icon_name="link"
+                          size={16}
+                          color="#FFFFFF"
+                        />
+                        <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>
+                          Facebook
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {selectedExhibitor?.x ? (
+                      <TouchableOpacity
+                        style={[styles.socialButton, { backgroundColor: '#000000' }]}
+                        onPress={() => openWebsite(selectedExhibitor.x)}
+                        activeOpacity={0.7}
+                      >
+                        <IconSymbol
+                          ios_icon_name="link"
+                          android_material_icon_name="link"
+                          size={16}
+                          color="#FFFFFF"
+                        />
+                        <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>
+                          X
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 ) : null}
               </ScrollView>
             </Pressable>

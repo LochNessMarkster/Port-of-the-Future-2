@@ -349,6 +349,24 @@ export default function HomeScreen() {
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Networking</Text>
               </TouchableOpacity>
             </View>
+
+            <View style={styles.gridRow}>
+              <TouchableOpacity 
+                style={[styles.navTile, { backgroundColor: appColors.card }]}
+                activeOpacity={0.7}
+                onPress={() => handleNavigation('/speaker-presentations')}
+              >
+                <IconSymbol
+                  ios_icon_name="doc.text.fill"
+                  android_material_icon_name="description"
+                  size={24}
+                  color={appColors.accent}
+                />
+                <Text style={[styles.navLabel, { color: appColors.text }]}>Presentations</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.navTile, { backgroundColor: 'transparent' }]} />
+            </View>
           </View>
 
           {/* Announcements Section */}
