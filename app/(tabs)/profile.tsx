@@ -58,12 +58,12 @@ export default function ProfileScreen() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      console.log('ProfileScreen - Fetching profile from /api/profile');
+      console.log('[ProfileScreen] Fetching profile from /api/profile');
       const data = await apiGet<UserProfile>('/api/profile');
       setProfile(data);
-      console.log('ProfileScreen - Loaded profile:', data.email);
+      console.log('[ProfileScreen] Loaded profile:', data.email, '| Opt-in networking:', data.optInNetworking);
     } catch (error) {
-      console.error('ProfileScreen - Error loading profile:', error);
+      console.error('[ProfileScreen] Error loading profile:', error);
       setProfile(null);
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ export default function ProfileScreen() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      console.log('ProfileScreen - Updating profile');
+      console.log('[ProfileScreen] Updating profile with opt-in networking:', editOptInNetworking);
       const updatedProfile = await authenticatedPut<UserProfile>('/api/profile', {
         name: editName,
         company: editCompany,
@@ -101,10 +101,10 @@ export default function ProfileScreen() {
         optInNetworking: editOptInNetworking,
       });
       setProfile(updatedProfile);
-      console.log('ProfileScreen - Profile updated successfully');
+      console.log('[ProfileScreen] Profile updated successfully | Opt-in networking:', updatedProfile.optInNetworking);
       closeEditModal();
     } catch (error) {
-      console.error('ProfileScreen - Error updating profile:', error);
+      console.error('[ProfileScreen] Error updating profile:', error);
     } finally {
       setSaving(false);
     }
@@ -112,10 +112,10 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     try {
-      console.log('ProfileScreen - Signing out');
+      console.log('[ProfileScreen] Signing out');
       await signOut();
     } catch (error) {
-      console.error('ProfileScreen - Error signing out:', error);
+      console.error('[ProfileScreen] Error signing out:', error);
     }
   };
 
@@ -189,6 +189,26 @@ export default function ProfileScreen() {
               {profile.title} at {profile.company}
             </Text>
           )}
+        </GlassView>
+
+        {/* Networking Opt-in Status */}
+        <GlassView style={[
+          styles.section,
+          Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+        ]} glassEffectStyle="regular">
+          <View style={styles.infoRow}>
+            <IconSymbol 
+              ios_icon_name={profile.optInNetworking ? "checkmark.circle.fill" : "xmark.circle.fill"}
+              android_material_icon_name={profile.optInNetworking ? "check-circle" : "cancel"}
+              size={20} 
+              color={profile.optInNetworking ? '#4CAF50' : theme.dark ? '#98989D' : '#666'} 
+            />
+            <Text style={[styles.infoText, { color: theme.colors.text }]}>
+              {profile.optInNetworking 
+                ? 'You are visible to other attendees for networking' 
+                : 'You are not visible in the networking directory'}
+            </Text>
+          </View>
         </GlassView>
 
         {(profile.phone || profile.bio || profile.linkedin) && (
@@ -358,28 +378,33 @@ export default function ProfileScreen() {
                 numberOfLines={4}
               />
 
-              <TouchableOpacity
-                style={styles.checkboxRow}
-                onPress={() => setEditOptInNetworking(!editOptInNetworking)}
-              >
-                <View style={[
-                  styles.checkbox,
-                  { borderColor: theme.colors.border },
-                  editOptInNetworking && { backgroundColor: theme.colors.primary }
-                ]}>
-                  {editOptInNetworking && (
-                    <IconSymbol 
-                      ios_icon_name="checkmark" 
-                      android_material_icon_name="check" 
-                      size={16} 
-                      color="#FFFFFF" 
-                    />
-                  )}
-                </View>
-                <Text style={[styles.checkboxLabel, { color: theme.colors.text }]}>
-                  Opt-in to networking (show my profile to other attendees)
+              <View style={styles.optInSection}>
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setEditOptInNetworking(!editOptInNetworking)}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    { borderColor: theme.colors.border },
+                    editOptInNetworking && { backgroundColor: theme.colors.primary }
+                  ]}>
+                    {editOptInNetworking && (
+                      <IconSymbol 
+                        ios_icon_name="checkmark" 
+                        android_material_icon_name="check" 
+                        size={16} 
+                        color="#FFFFFF" 
+                      />
+                    )}
+                  </View>
+                  <Text style={[styles.checkboxLabel, { color: theme.colors.text }]}>
+                    Opt-in to networking
+                  </Text>
+                </TouchableOpacity>
+                <Text style={[styles.optInDescription, { color: theme.dark ? '#98989D' : '#666' }]}>
+                  When enabled, your profile will be visible to other attendees in the networking directory, making it easier to connect with fellow conference participants.
                 </Text>
-              </TouchableOpacity>
+              </View>
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
@@ -564,11 +589,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     textAlignVertical: 'top',
   },
+  optInSection: {
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   checkbox: {
     width: 24,
@@ -580,8 +608,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxLabel: {
-    ...typography.bodySmall,
+    ...typography.body,
+    fontWeight: '600',
     flex: 1,
+  },
+  optInDescription: {
+    ...typography.bodySmall,
+    lineHeight: 18,
+    marginLeft: 32,
+    marginTop: spacing.xs,
   },
   modalActions: {
     flexDirection: 'row',

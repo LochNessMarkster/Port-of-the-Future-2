@@ -29,6 +29,7 @@ interface Attendee {
   title: string | null;
   phone: string | null;
   registrationLevel: string | null;
+  optInNetworking: 'YES' | 'NO' | null;
   image: string | null;
 }
 
@@ -97,6 +98,17 @@ const styles = StyleSheet.create({
   attendeeTitle: {
     ...typography.bodySmall,
   },
+  optInBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  optInBadgeText: {
+    ...typography.bodySmall,
+    fontSize: 11,
+    fontWeight: '600',
+  },
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
@@ -113,6 +125,20 @@ const styles = StyleSheet.create({
   emptySubtext: {
     ...typography.bodySmall,
     textAlign: 'center',
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  infoText: {
+    ...typography.bodySmall,
+    flex: 1,
+    lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
@@ -207,11 +233,20 @@ export default function NetworkingScreen() {
   const loadAttendees = async () => {
     try {
       setLoading(true);
+      console.log('[NetworkingScreen] Fetching attendees who opted in to networking...');
       const data = await apiGet<Attendee[]>('/api/attendees');
       setAttendees(data);
-      console.log('NetworkingScreen - Loaded attendees:', data.length);
+      console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees opted in');
+      
+      // Log opt-in status for debugging
+      const optedInCount = data.filter(a => a.optInNetworking === 'YES').length;
+      console.log('[NetworkingScreen] Opt-in breakdown:', {
+        total: data.length,
+        optedIn: optedInCount,
+        notOptedIn: data.length - optedInCount
+      });
     } catch (error) {
-      console.error('NetworkingScreen - Error loading attendees:', error);
+      console.error('[NetworkingScreen] Error loading attendees:', error);
       setAttendees([]);
     } finally {
       setLoading(false);
@@ -241,12 +276,27 @@ export default function NetworkingScreen() {
   }, [attendees, searchQuery]);
 
   const clearSearch = () => {
-    console.log('NetworkingScreen - Clearing search');
+    console.log('[NetworkingScreen] Clearing search');
     setSearchQuery('');
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
+      {/* Info Card */}
+      {!loading && attendees.length > 0 && (
+        <View style={[styles.infoCard, { backgroundColor: appColors.card }]}>
+          <IconSymbol
+            ios_icon_name="info.circle.fill"
+            android_material_icon_name="info"
+            size={20}
+            color={appColors.primary}
+          />
+          <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
+            Only attendees who opted in to networking are shown. Update your profile to opt in.
+          </Text>
+        </View>
+      )}
+
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
@@ -263,7 +313,7 @@ export default function NetworkingScreen() {
             placeholderTextColor={appColors.textSecondary}
             value={searchQuery}
             onChangeText={(text) => {
-              console.log('NetworkingScreen - Search query changed:', text);
+              console.log('[NetworkingScreen] Search query changed:', text);
               setSearchQuery(text);
             }}
           />
@@ -301,7 +351,7 @@ export default function NetworkingScreen() {
               {searchQuery ? 'No attendees found' : 'No attendees available for networking yet'}
             </Text>
             <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-              {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
+              {searchQuery ? 'Try a different search term' : 'Only attendees who opted in to networking are shown here'}
             </Text>
           </View>
         ) : (
@@ -324,6 +374,19 @@ export default function NetworkingScreen() {
                   <Text style={[styles.attendeeTitle, { color: appColors.textSecondary }]}>
                     {attendee.title} at {attendee.company}
                   </Text>
+                )}
+                {attendee.optInNetworking === 'YES' && (
+                  <View style={styles.optInBadge}>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check-circle"
+                      size={14}
+                      color="#4CAF50"
+                    />
+                    <Text style={[styles.optInBadgeText, { color: '#4CAF50' }]}>
+                      Open to networking
+                    </Text>
+                  </View>
                 )}
               </View>
             </TouchableOpacity>
