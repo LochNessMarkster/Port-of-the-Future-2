@@ -407,6 +407,16 @@ export interface ExhibitorFields {
   LinkedIn?: string;
   'Booth Number'?: string;
   BoothNumber?: string;
+  // New expanded fields
+  'Primary contact name'?: string;
+  'Primary contact title'?: string;
+  'Primary contact email'?: string;
+  'Primary contact telephone direct'?: string;
+  'Primary contact telephone mobile'?: string;
+  'Primary contact fax number'?: string;
+  'Facebook URL'?: string;
+  'X (Twitter) URL'?: string;
+  Demonstrations?: string;
 }
 
 export interface SponsorFields {

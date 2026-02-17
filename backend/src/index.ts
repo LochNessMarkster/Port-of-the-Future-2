@@ -15,6 +15,7 @@ import { registerScheduleRoutes } from './routes/schedule.js';
 import { registerAttendeesRoutes } from './routes/attendees.js';
 import { registerMessagesRoutes } from './routes/messages.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerSpeakerPresentationsRoutes } from './routes/speaker-presentations.js';
 
 const schema = { ...appSchema, ...authSchema };
 
@@ -41,6 +42,7 @@ registerScheduleRoutes(app);
 registerAttendeesRoutes(app);
 registerMessagesRoutes(app);
 registerAdminRoutes(app);
+registerSpeakerPresentationsRoutes(app);
 
 await app.run();
 app.logger.info('Application running');

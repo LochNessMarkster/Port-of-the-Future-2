@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   boolean,
+  integer,
   index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
@@ -57,6 +58,33 @@ export const messages = pgTable(
 );
 
 /**
+ * Speaker Presentations - Track uploaded presentations by speakers
+ */
+export const speakerPresentations = pgTable(
+  'speaker_presentations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    speakerId: text('speaker_id').notNull(), // Airtable speaker ID
+    speakerName: text('speaker_name').notNull(),
+    title: text('title').notNull(),
+    description: text('description'),
+    fileUrl: text('file_url').notNull(),
+    fileName: text('file_name').notNull(),
+    fileSize: integer('file_size'), // file size in bytes
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('speaker_presentations_speaker_id_idx').on(table.speakerId),
+    index('speaker_presentations_created_at_idx').on(table.createdAt),
+  ]
+);
+
+/**
  * Relations
  */
 export const userSchedulesRelations = relations(userSchedules, ({ one }) => ({
@@ -75,4 +103,8 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     fields: [messages.recipientId],
     references: [user.id],
   }),
+}));
+
+export const speakerPresentationsRelations = relations(speakerPresentations, ({ one }) => ({
+  // Note: speakerId references Airtable speaker table, not our user table
 }));
