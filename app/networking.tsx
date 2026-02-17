@@ -21,13 +21,15 @@ import { apiGet } from '@/utils/api';
 
 interface Attendee {
   id: string;
+  firstName: string;
+  lastName: string;
   name: string;
   email: string;
-  image: string | null;
   company: string | null;
   title: string | null;
-  bio: string | null;
-  emailVerified: boolean | null;
+  phone: string | null;
+  registrationLevel: string | null;
+  image: string | null;
 }
 
 function resolveImageSource(source: string | null | undefined) {
@@ -156,6 +158,18 @@ const styles = StyleSheet.create({
     ...typography.body,
     lineHeight: 24,
   },
+  modalInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  modalInfoIcon: {
+    marginRight: spacing.sm,
+  },
+  modalInfoText: {
+    ...typography.body,
+    flex: 1,
+  },
   messageButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -216,11 +230,13 @@ export default function NetworkingScreen() {
     const query = searchQuery.toLowerCase();
     return attendees.filter(attendee => {
       const matchesName = attendee.name.toLowerCase().includes(query);
+      const matchesFirstName = attendee.firstName.toLowerCase().includes(query);
+      const matchesLastName = attendee.lastName.toLowerCase().includes(query);
       const matchesCompany = attendee.company?.toLowerCase().includes(query);
       const matchesTitle = attendee.title?.toLowerCase().includes(query);
-      const matchesBio = attendee.bio?.toLowerCase().includes(query);
+      const matchesEmail = attendee.email.toLowerCase().includes(query);
       
-      return matchesName || matchesCompany || matchesTitle || matchesBio;
+      return matchesName || matchesFirstName || matchesLastName || matchesCompany || matchesTitle || matchesEmail;
     });
   }, [attendees, searchQuery]);
 
@@ -358,16 +374,72 @@ export default function NetworkingScreen() {
                 )}
               </View>
 
-              {selectedAttendee?.bio && (
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    Bio
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedAttendee.bio}
-                  </Text>
-                </View>
-              )}
+              {/* Contact Information */}
+              <View style={styles.modalSection}>
+                <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                  Contact Information
+                </Text>
+                
+                {selectedAttendee?.email && (
+                  <View style={styles.modalInfoRow}>
+                    <IconSymbol
+                      ios_icon_name="envelope"
+                      android_material_icon_name="email"
+                      size={20}
+                      color={appColors.textSecondary}
+                      style={styles.modalInfoIcon}
+                    />
+                    <Text style={[styles.modalInfoText, { color: appColors.text }]}>
+                      {selectedAttendee.email}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedAttendee?.phone && (
+                  <View style={styles.modalInfoRow}>
+                    <IconSymbol
+                      ios_icon_name="phone"
+                      android_material_icon_name="phone"
+                      size={20}
+                      color={appColors.textSecondary}
+                      style={styles.modalInfoIcon}
+                    />
+                    <Text style={[styles.modalInfoText, { color: appColors.text }]}>
+                      {selectedAttendee.phone}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedAttendee?.company && (
+                  <View style={styles.modalInfoRow}>
+                    <IconSymbol
+                      ios_icon_name="building"
+                      android_material_icon_name="business"
+                      size={20}
+                      color={appColors.textSecondary}
+                      style={styles.modalInfoIcon}
+                    />
+                    <Text style={[styles.modalInfoText, { color: appColors.text }]}>
+                      {selectedAttendee.company}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedAttendee?.registrationLevel && (
+                  <View style={styles.modalInfoRow}>
+                    <IconSymbol
+                      ios_icon_name="ticket"
+                      android_material_icon_name="confirmation-number"
+                      size={20}
+                      color={appColors.textSecondary}
+                      style={styles.modalInfoIcon}
+                    />
+                    <Text style={[styles.modalInfoText, { color: appColors.text }]}>
+                      {selectedAttendee.registrationLevel}
+                    </Text>
+                  </View>
+                )}
+              </View>
 
               <TouchableOpacity
                 style={[styles.messageButton, { backgroundColor: appColors.primary }]}
