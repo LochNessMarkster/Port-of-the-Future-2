@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: spacing.md,
     gap: spacing.sm,
-    borderTopWidth: 1,
+    borderBottomWidth: 1,
   },
   input: {
     flex: 1,
@@ -223,7 +223,7 @@ export default function MessagesScreen() {
   };
 
   if (selectedUserId) {
-    // Show conversation view
+    // Show conversation view with input at the top
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
         <KeyboardAvoidingView 
@@ -231,6 +231,37 @@ export default function MessagesScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={100}
         >
+          {/* Input container moved to the top */}
+          <View style={[styles.inputContainer, { borderBottomColor: appColors.border, backgroundColor: appColors.card }]}>
+            <TextInput
+              style={[styles.input, { backgroundColor: appColors.background, color: appColors.text }]}
+              placeholder="Type a message..."
+              placeholderTextColor={appColors.textSecondary}
+              value={messageText}
+              onChangeText={setMessageText}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, { backgroundColor: appColors.primary }]}
+              onPress={sendMessage}
+              disabled={sending || !messageText.trim()}
+              activeOpacity={0.7}
+            >
+              {sending ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <IconSymbol
+                  ios_icon_name="paperplane.fill"
+                  android_material_icon_name="send"
+                  size={20}
+                  color="#FFFFFF"
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Messages list below the input */}
           <ScrollView 
             style={styles.container}
             contentContainerStyle={styles.messagesList}
@@ -273,35 +304,6 @@ export default function MessagesScreen() {
               })
             )}
           </ScrollView>
-
-          <View style={[styles.inputContainer, { borderTopColor: appColors.border, backgroundColor: appColors.card }]}>
-            <TextInput
-              style={[styles.input, { backgroundColor: appColors.background, color: appColors.text }]}
-              placeholder="Type a message..."
-              placeholderTextColor={appColors.textSecondary}
-              value={messageText}
-              onChangeText={setMessageText}
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity
-              style={[styles.sendButton, { backgroundColor: appColors.primary }]}
-              onPress={sendMessage}
-              disabled={sending || !messageText.trim()}
-              activeOpacity={0.7}
-            >
-              {sending ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <IconSymbol
-                  ios_icon_name="paperplane.fill"
-                  android_material_icon_name="send"
-                  size={20}
-                  color="#FFFFFF"
-                />
-              )}
-            </TouchableOpacity>
-          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     );
