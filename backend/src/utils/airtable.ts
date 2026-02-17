@@ -557,4 +557,5 @@ export interface AttendeeFields {
   'Job Title'?: string;
   Phone?: string;
   'Registration Level'?: string;
+  'Opt In Networking'?: string;
 }

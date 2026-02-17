@@ -19,7 +19,7 @@ export function registerAttendeesRoutes(app: App) {
     '/api/attendees',
     {
       schema: {
-        description: 'Get all conference attendees',
+        description: 'Get all conference attendees who opted in to networking',
         tags: ['attendees'],
         response: {
           200: {
@@ -36,6 +36,7 @@ export function registerAttendeesRoutes(app: App) {
                 title: { type: ['string', 'null'] },
                 phone: { type: ['string', 'null'] },
                 registrationLevel: { type: ['string', 'null'] },
+                optInNetworking: { type: ['string', 'null'] },
                 image: { type: 'null' },
               },
             },
@@ -54,7 +55,22 @@ export function registerAttendeesRoutes(app: App) {
           logger: app.logger,
         });
 
-        const result = data.records.map((record: AirtableRecord<AttendeeFields>) => {
+        // Filter attendees who opted in to networking
+        const filteredRecords = data.records.filter((record: AirtableRecord<AttendeeFields>) => {
+          const optInNetworking = record.fields['Opt In Networking'];
+          const isOptedIn = optInNetworking === 'YES';
+
+          if (!isOptedIn) {
+            app.logger.debug(
+              { attendeeId: record.id, optInNetworking, name: `${record.fields['First Name']} ${record.fields['Last Name']}` },
+              'Attendee excluded (Opt In Networking != YES)'
+            );
+          }
+
+          return isOptedIn;
+        });
+
+        const result = filteredRecords.map((record: AirtableRecord<AttendeeFields>) => {
           const firstName = record.fields['First Name'] || '';
           const lastName = record.fields['Last Name'] || '';
           const name = `${firstName} ${lastName}`.trim() || '';
@@ -69,11 +85,15 @@ export function registerAttendeesRoutes(app: App) {
             title: record.fields['Job Title'] || null,
             phone: record.fields.Phone || null,
             registrationLevel: record.fields['Registration Level'] || null,
+            optInNetworking: record.fields['Opt In Networking'] || null,
             image: null,
           };
         });
 
-        app.logger.info({ count: result.length }, 'Attendees fetched successfully');
+        app.logger.info(
+          { totalFetched: data.records.length, optedInCount: result.length },
+          'Attendees fetched successfully'
+        );
         return result;
       } catch (error) {
         app.logger.error({ err: error }, 'Failed to fetch attendees');
