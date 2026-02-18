@@ -250,7 +250,7 @@ export default function AgendaScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const router = useRouter();
-  const [selectedDay, setSelectedDay] = useState<'24' | '25'>('24');
+  const [selectedDay, setSelectedDay] = useState<'23' | '24' | '25'>('24');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -378,7 +378,15 @@ export default function AgendaScreen() {
   // Sort and filter sessions by selected day, time, and search query
   const sortedFilteredSessions = useMemo(() => {
     const filtered = sessions.filter(session => {
-      const sessionDate = session.date.includes('24') ? '24' : '25';
+      // Determine which day this session belongs to
+      let sessionDate: '23' | '24' | '25' = '24'; // default
+      if (session.date.includes('23')) {
+        sessionDate = '23';
+      } else if (session.date.includes('24')) {
+        sessionDate = '24';
+      } else if (session.date.includes('25')) {
+        sessionDate = '25';
+      }
       const matchesDay = sessionDate === selectedDay;
       
       if (!matchesDay) return false;
@@ -474,6 +482,25 @@ export default function AgendaScreen() {
 
         {/* Day Tabs */}
         <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              { backgroundColor: selectedDay === '23' ? appColors.primary : appColors.card }
+            ]}
+            onPress={() => {
+              console.log('AgendaScreen - Switched to March 23');
+              setSelectedDay('23');
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: selectedDay === '23' ? '#FFFFFF' : appColors.text }
+            ]}>
+              March 23
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[
               styles.tab,

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -26,6 +26,12 @@ interface ScheduleSession {
   createdAt: string;
 }
 
+interface SessionsByDay {
+  '23': ScheduleSession[];
+  '24': ScheduleSession[];
+  '25': ScheduleSession[];
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -33,6 +39,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
+  },
+  daySection: {
+    marginBottom: spacing.xl,
+  },
+  dayHeader: {
+    ...typography.h2,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 2,
   },
   sessionCard: {
     borderRadius: borderRadius.md,
@@ -92,6 +107,12 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     textAlign: 'center',
   },
+  emptyDayText: {
+    ...typography.bodySmall,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: spacing.md,
+  },
 });
 
 export default function ScheduleScreen() {
@@ -132,6 +153,33 @@ export default function ScheduleScreen() {
     }
   };
 
+  // Group sessions by day
+  const sessionsByDay = useMemo(() => {
+    const grouped: SessionsByDay = {
+      '23': [],
+      '24': [],
+      '25': [],
+    };
+
+    sessions.forEach(session => {
+      if (session.date.includes('23')) {
+        grouped['23'].push(session);
+      } else if (session.date.includes('24')) {
+        grouped['24'].push(session);
+      } else if (session.date.includes('25')) {
+        grouped['25'].push(session);
+      }
+    });
+
+    console.log('ScheduleScreen - Sessions by day:', {
+      march23: grouped['23'].length,
+      march24: grouped['24'].length,
+      march25: grouped['25'].length,
+    });
+
+    return grouped;
+  }, [sessions]);
+
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case 'keynote':
@@ -143,6 +191,100 @@ export default function ScheduleScreen() {
       default:
         return appColors.textSecondary;
     }
+  };
+
+  const renderDaySection = (day: '23' | '24' | '25', title: string) => {
+    const daySessions = sessionsByDay[day];
+    
+    if (daySessions.length === 0) {
+      return null; // Don't render empty day sections
+    }
+
+    return (
+      <View key={day} style={styles.daySection}>
+        <Text style={[styles.dayHeader, { color: appColors.text, borderBottomColor: appColors.primary }]}>
+          {title}
+        </Text>
+        {daySessions.map((session) => (
+          <View
+            key={session.id}
+            style={[styles.sessionCard, { backgroundColor: appColors.card }]}
+          >
+            <View style={styles.sessionHeader}>
+              <Text style={[styles.sessionTitle, { color: appColors.text }]}>
+                {session.title}
+              </Text>
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => removeSession(session.sessionId)}
+                disabled={removingId === session.sessionId}
+              >
+                {removingId === session.sessionId ? (
+                  <ActivityIndicator size="small" color={appColors.error} />
+                ) : (
+                  <IconSymbol
+                    ios_icon_name="trash"
+                    android_material_icon_name="delete"
+                    size={24}
+                    color={appColors.error}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.sessionMeta}>
+              <IconSymbol
+                ios_icon_name="clock"
+                android_material_icon_name="access-time"
+                size={16}
+                color={appColors.textSecondary}
+              />
+              <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                {session.time}
+              </Text>
+            </View>
+
+            {session.room && (
+              <View style={styles.sessionMeta}>
+                <IconSymbol
+                  ios_icon_name="location"
+                  android_material_icon_name="place"
+                  size={16}
+                  color={appColors.textSecondary}
+                />
+                <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                  {session.room}
+                </Text>
+              </View>
+            )}
+
+            {session.speaker && (
+              <View style={styles.sessionMeta}>
+                <IconSymbol
+                  ios_icon_name="person"
+                  android_material_icon_name="person"
+                  size={16}
+                  color={appColors.textSecondary}
+                />
+                <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                  {session.speaker}
+                </Text>
+              </View>
+            )}
+
+            <Text style={[
+              styles.sessionType,
+              { 
+                backgroundColor: getTypeColor(session.type) + '20',
+                color: getTypeColor(session.type)
+              }
+            ]}>
+              {session.type}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
   };
 
   return (
@@ -172,84 +314,11 @@ export default function ScheduleScreen() {
             </Text>
           </View>
         ) : (
-          sessions.map((session) => (
-            <View
-              key={session.id}
-              style={[styles.sessionCard, { backgroundColor: appColors.card }]}
-            >
-              <View style={styles.sessionHeader}>
-                <Text style={[styles.sessionTitle, { color: appColors.text }]}>
-                  {session.title}
-                </Text>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeSession(session.sessionId)}
-                  disabled={removingId === session.sessionId}
-                >
-                  {removingId === session.sessionId ? (
-                    <ActivityIndicator size="small" color={appColors.error} />
-                  ) : (
-                    <IconSymbol
-                      ios_icon_name="trash"
-                      android_material_icon_name="delete"
-                      size={24}
-                      color={appColors.error}
-                    />
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.sessionMeta}>
-                <IconSymbol
-                  ios_icon_name="clock"
-                  android_material_icon_name="access-time"
-                  size={16}
-                  color={appColors.textSecondary}
-                />
-                <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                  {session.time}
-                </Text>
-              </View>
-
-              {session.room && (
-                <View style={styles.sessionMeta}>
-                  <IconSymbol
-                    ios_icon_name="location"
-                    android_material_icon_name="place"
-                    size={16}
-                    color={appColors.textSecondary}
-                  />
-                  <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                    {session.room}
-                  </Text>
-                </View>
-              )}
-
-              {session.speaker && (
-                <View style={styles.sessionMeta}>
-                  <IconSymbol
-                    ios_icon_name="person"
-                    android_material_icon_name="person"
-                    size={16}
-                    color={appColors.textSecondary}
-                  />
-                  <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
-                    {session.speaker}
-                  </Text>
-                </View>
-              )}
-
-              <Text style={[
-                styles.sessionType,
-                { 
-                  backgroundColor: getTypeColor(session.type) + '20',
-                  color: getTypeColor(session.type)
-                }
-              ]}>
-                {session.type}
-              </Text>
-            </View>
-          ))
+          <>
+            {renderDaySection('23', 'March 23 - Pre-Conference Day')}
+            {renderDaySection('24', 'March 24 - Day 1')}
+            {renderDaySection('25', 'March 25 - Day 2')}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
