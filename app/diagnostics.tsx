@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme 
-} from 'react';
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -106,7 +106,7 @@ export default function DiagnosticsScreen() {
       console.log('[Diagnostics] Testing connection to:', BACKEND_URL);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(`${BACKEND_URL}/health`, {
         method: 'GET',
@@ -169,7 +169,6 @@ export default function DiagnosticsScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Status Badge */}
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
             <IconSymbol
               ios_icon_name={statusIcon}
@@ -182,7 +181,6 @@ export default function DiagnosticsScreen() {
             </Text>
           </View>
 
-          {/* Backend Configuration */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: appColors.text }]}>
               Backend Configuration
@@ -207,7 +205,6 @@ export default function DiagnosticsScreen() {
             </View>
           </View>
 
-          {/* Connection Test */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: appColors.text }]}>
               Connection Test
@@ -274,14 +271,13 @@ export default function DiagnosticsScreen() {
             </View>
           </View>
 
-          {/* Troubleshooting Tips */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: appColors.text }]}>
               Troubleshooting Tips
             </Text>
             <View style={[styles.card, { backgroundColor: appColors.card }]}>
               <Text style={[styles.value, { color: appColors.text, marginBottom: spacing.sm }]}>
-                If you're seeing "server is offline" errors:
+                If you&apos;re seeing &quot;server is offline&quot; errors:
               </Text>
               <Text style={[styles.value, { color: appColors.textSecondary, marginBottom: spacing.xs }]}>
                 • Check your internet connection
@@ -296,7 +292,7 @@ export default function DiagnosticsScreen() {
                 • Try the connection test above
               </Text>
               <Text style={[styles.value, { color: appColors.textSecondary }]}>
-                • Check if you're behind a firewall or VPN
+                • Check if you&apos;re behind a firewall or VPN
               </Text>
             </View>
           </View>
