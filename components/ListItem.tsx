@@ -1,3 +1,4 @@
+
 import React from "react";
 import * as Haptics from "expo-haptics";
 import { Pressable, StyleSheet, useColorScheme, View, Text } from "react-native";
@@ -11,7 +12,7 @@ import Animated, {
 import Reanimated from "react-native-reanimated";
 import { appleRed, borderColor } from "@/constants/Colors";
 import { IconCircle } from "./IconCircle";
-import { IconSymbol } from "./IconSymbol";
+import { IconSymbol } from "@/components/IconSymbol";
 
 configureReanimatedLogger({ strict: false });
 
@@ -37,7 +38,12 @@ export default function ListItem({ listId }: { listId: string }) {
         }}
       >
         <Reanimated.View style={[styleAnimation, styles.rightAction]}>
-          <IconSymbol name="trash.fill" size={24} color="white" />
+          <IconSymbol 
+            ios_icon_name="trash.fill" 
+            android_material_icon_name="delete" 
+            size={24} 
+            color="white" 
+          />
         </Reanimated.View>
       </Pressable>
     );
