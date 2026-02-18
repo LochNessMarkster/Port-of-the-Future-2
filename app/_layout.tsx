@@ -185,6 +185,22 @@ function RootLayoutInner() {
                   }} 
                 />
                 <Stack.Screen 
+                  name="speaker-presentations" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Speaker Presentations',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="diagnostics" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Diagnostics',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
                   name="admin" 
                   options={{ 
                     headerShown: true, 
