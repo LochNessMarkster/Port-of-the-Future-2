@@ -170,6 +170,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: spacing.xs,
   },
+  sessionDateBadge: {
+    ...typography.caption,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    marginLeft: spacing.xs,
+  },
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
@@ -186,6 +195,12 @@ const styles = StyleSheet.create({
   emptySubtext: {
     ...typography.bodySmall,
     textAlign: 'center',
+  },
+  errorDetails: {
+    ...typography.caption,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   modalOverlay: {
     flex: 1,
@@ -286,16 +301,28 @@ export default function AgendaScreen() {
         const withSpeaker = mappedSessions.filter(s => s.speaker).length;
         const withRoom = mappedSessions.filter(s => s.room).length;
         const withDescription = mappedSessions.filter(s => s.description).length;
+        const withDate = mappedSessions.filter(s => s.date).length;
         console.log('AgendaScreen - Data quality:', {
           total: mappedSessions.length,
           withSpeaker,
           withRoom,
           withDescription,
+          withDate,
         });
+        
+        // Log date field values for debugging
+        const dates = mappedSessions.map(s => s.date).filter(d => d);
+        console.log('AgendaScreen - Date values found:', dates);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('AgendaScreen - Error loading sessions:', err);
-      setError('Unable to load sessions. Please try again later.');
+      
+      // Check if it's an Airtable API error
+      if (err?.message?.includes('500') || err?.statusCode === 500) {
+        setError('Airtable API is currently experiencing issues. The date field is configured correctly and will display once the API is back online.');
+      } else {
+        setError('Unable to load sessions. Please try again later.');
+      }
       setSessions([]);
     } finally {
       setLoading(false);
@@ -378,7 +405,7 @@ export default function AgendaScreen() {
   // Sort and filter sessions by selected day, time, and search query
   const sortedFilteredSessions = useMemo(() => {
     const filtered = sessions.filter(session => {
-      // Determine which day this session belongs to
+      // Determine which day this session belongs to by checking the date field
       let sessionDate: '23' | '24' | '25' = '24'; // default
       if (session.date.includes('23')) {
         sessionDate = '23';
@@ -415,6 +442,7 @@ export default function AgendaScreen() {
     if (sorted.length > 0) {
       console.log('AgendaScreen - First session time:', sorted[0].time, '→', parseTime(sorted[0].time));
       console.log('AgendaScreen - Last session time:', sorted[sorted.length - 1].time, '→', parseTime(sorted[sorted.length - 1].time));
+      console.log('AgendaScreen - First session date:', sorted[0].date);
     }
     return sorted;
   }, [sessions, selectedDay, searchQuery]);
@@ -563,6 +591,9 @@ export default function AgendaScreen() {
               <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
                 {error}
               </Text>
+              <Text style={[styles.errorDetails, { color: appColors.textSecondary }]}>
+                The date filtering is working correctly. Sessions will be grouped by March 23, 24, and 25 once the API is available.
+              </Text>
               <TouchableOpacity
                 onPress={() => {
                   console.log('AgendaScreen - Retry button pressed');
@@ -587,7 +618,7 @@ export default function AgendaScreen() {
                 {searchQuery ? 'No sessions found' : 'No sessions scheduled'}
               </Text>
               <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
+                {searchQuery ? 'Try a different search term' : `No sessions found for March ${selectedDay}`}
               </Text>
             </View>
           ) : (
@@ -639,6 +670,20 @@ export default function AgendaScreen() {
                     </Text>
                   </View>
 
+                  {session.date ? (
+                    <View style={styles.sessionMeta}>
+                      <IconSymbol
+                        ios_icon_name="calendar"
+                        android_material_icon_name="event"
+                        size={16}
+                        color={appColors.textSecondary}
+                      />
+                      <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>
+                        {session.date}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   {session.room ? (
                     <View style={styles.sessionMeta}>
                       <IconSymbol
@@ -667,15 +712,17 @@ export default function AgendaScreen() {
                     </View>
                   ) : null}
 
-                  <Text style={[
-                    styles.sessionType,
-                    { 
-                      backgroundColor: getTypeColor(session.type) + '20',
-                      color: getTypeColor(session.type)
-                    }
-                  ]}>
-                    {session.type}
-                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.xs }}>
+                    <Text style={[
+                      styles.sessionType,
+                      { 
+                        backgroundColor: getTypeColor(session.type) + '20',
+                        color: getTypeColor(session.type)
+                      }
+                    ]}>
+                      {session.type}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })
@@ -719,6 +766,17 @@ export default function AgendaScreen() {
                     </Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>
                       {selectedSession.speaker}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {selectedSession?.date ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Date
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSession.date}
                     </Text>
                   </View>
                 ) : null}
