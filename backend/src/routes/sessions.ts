@@ -8,6 +8,7 @@ import {
   type SessionFields,
   type SpeakerFields,
 } from '../utils/airtable.js';
+import { airtableCache } from '../services/airtable-cache.js';
 
 /**
  * Resolve linked speaker record IDs to speaker names
@@ -108,39 +109,13 @@ export function registerSessionsRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return;
 
-      app.logger.info('Fetching all sessions from Airtable');
+      app.logger.info('Fetching all sessions from cache');
       try {
-        const data = await fetchAirtableRecords<SessionFields>(TABLES.SESSIONS, {
-          logger: app.logger,
-        });
-
-        // Log raw Airtable response structure to identify actual field names
-        if (data.records.length > 0) {
-          const fieldNames = Object.keys(data.records[0]?.fields || {});
-          app.logger.info(
-            { fieldNames },
-            'Available field names in first session record'
-          );
-
-          // Check for speaker-related fields
-          const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
-          const foundSpeakerFields = speakerFieldNames.filter(name => fieldNames.includes(name));
-          if (foundSpeakerFields.length > 0) {
-            app.logger.info(
-              { foundSpeakerFields },
-              'Found speaker-related fields in session record'
-            );
-          } else {
-            app.logger.warn(
-              { attemptedSpeakerFields: speakerFieldNames },
-              'No speaker-related fields found in session records'
-            );
-          }
-        }
+        const cachedRecords = airtableCache.getSessions();
 
         // Process all sessions and resolve linked speaker records
         const sessions = await Promise.all(
-          data.records.map(async (record: AirtableRecord<SessionFields>) => {
+          cachedRecords.map(async (record: AirtableRecord<SessionFields>) => {
             const fields = record.fields as any;
 
             // Try multiple speaker field name variations
@@ -149,19 +124,8 @@ export function registerSessionsRoutes(app: App) {
             for (const fieldName of speakerFieldNames) {
               if (fields[fieldName]) {
                 speakerValue = fields[fieldName];
-                app.logger.debug(
-                  { sessionId: record.id, speakerField: fieldName, speakerValue },
-                  'Speaker value extracted from field'
-                );
                 break;
               }
-            }
-
-            if (!speakerValue) {
-              app.logger.debug(
-                { sessionId: record.id, attemptedFields: speakerFieldNames },
-                'No speaker field found'
-              );
             }
 
             // Resolve linked speaker records to speaker names
@@ -180,7 +144,7 @@ export function registerSessionsRoutes(app: App) {
           })
         );
 
-        app.logger.info({ count: sessions.length }, 'Sessions fetched successfully');
+        app.logger.info({ count: sessions.length }, 'Sessions fetched successfully from cache');
         return sessions;
       } catch (error) {
         app.logger.error({ err: error }, 'Failed to fetch sessions');

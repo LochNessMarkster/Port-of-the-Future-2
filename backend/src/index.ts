@@ -16,6 +16,8 @@ import { registerAttendeesRoutes } from './routes/attendees.js';
 import { registerMessagesRoutes } from './routes/messages.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerSpeakerPresentationsRoutes } from './routes/speaker-presentations.js';
+import { registerCacheRoutes } from './routes/cache.js';
+import { airtableCache } from './services/airtable-cache.js';
 
 const schema = { ...appSchema, ...authSchema };
 
@@ -27,6 +29,10 @@ export type App = typeof app;
 
 // Enable authentication with email/password support
 app.withAuth();
+
+// Initialize Airtable cache
+airtableCache.setLogger(app.logger);
+await airtableCache.initialize();
 
 // Register routes - add your route modules here
 // IMPORTANT: Always use registration functions to avoid circular dependency issues
@@ -43,6 +49,7 @@ registerAttendeesRoutes(app);
 registerMessagesRoutes(app);
 registerAdminRoutes(app);
 registerSpeakerPresentationsRoutes(app);
+registerCacheRoutes(app);
 
 await app.run();
 app.logger.info('Application running');
