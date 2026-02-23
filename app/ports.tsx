@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
+import { Stack } from 'expo-router';
 
 interface Port {
   id: string;
@@ -254,6 +255,13 @@ export default function PortsScreen() {
 
   return (
     <React.Fragment>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Ports',
+          headerBackTitle: 'Back',
+        }}
+      />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>

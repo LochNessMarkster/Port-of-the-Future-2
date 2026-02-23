@@ -332,7 +332,7 @@ export default function AgendaScreen() {
   const loadBookmarkedSessions = async () => {
     try {
       console.log('AgendaScreen - Fetching bookmarked sessions from /api/schedule');
-      const data = await apiGet<Array<{ sessionId: string }>>('/api/schedule');
+      const data = await apiGet<{ sessionId: string }[]>('/api/schedule');
       setBookmarkedSessions(new Set(data.map(item => item.sessionId)));
       console.log('AgendaScreen - Loaded bookmarked sessions:', data.length);
     } catch (err) {
