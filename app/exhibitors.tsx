@@ -279,6 +279,17 @@ const styles = StyleSheet.create({
     ...typography.body,
     flex: 1,
   },
+  contactFieldRow: {
+    marginBottom: spacing.sm,
+  },
+  contactFieldLabel: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  contactFieldValue: {
+    ...typography.body,
+  },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -427,6 +438,10 @@ export default function ExhibitorsScreen() {
   const logoSource = selectedExhibitor?.logo ? resolveImageSource(selectedExhibitor.logo) : null;
   const hasLogo = !!logoSource;
   const firstLetter = selectedExhibitor?.name ? selectedExhibitor.name.charAt(0).toUpperCase() : '';
+
+  const hasContactInfo = selectedExhibitor?.contactName || selectedExhibitor?.contactTitle || selectedExhibitor?.contactEmail || selectedExhibitor?.contactPhoneDirect || selectedExhibitor?.contactPhoneMobile;
+
+  const contactPhoneDisplay = selectedExhibitor?.contactPhoneDirect || selectedExhibitor?.contactPhoneMobile || '';
 
   return (
     <React.Fragment>
@@ -658,86 +673,67 @@ export default function ExhibitorsScreen() {
                   </View>
                 ) : null}
 
-                {(selectedExhibitor?.contactName || selectedExhibitor?.contactEmail || selectedExhibitor?.contactPhoneDirect || selectedExhibitor?.contactPhoneMobile) ? (
+                {hasContactInfo ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Primary Contact
+                      Contact Information
                     </Text>
+                    
                     {selectedExhibitor?.contactName ? (
-                      <View style={styles.contactRow}>
-                        <IconSymbol
-                          ios_icon_name="person.fill"
-                          android_material_icon_name="person"
-                          size={16}
-                          color={appColors.textSecondary}
-                        />
-                        <Text style={[styles.contactText, { color: appColors.text }]}>
+                      <View style={styles.contactFieldRow}>
+                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
+                          Contact Name
+                        </Text>
+                        <Text style={[styles.contactFieldValue, { color: appColors.text }]}>
                           {selectedExhibitor.contactName}
-                          {selectedExhibitor.contactTitle ? ` - ${selectedExhibitor.contactTitle}` : ''}
                         </Text>
                       </View>
                     ) : null}
+
+                    {selectedExhibitor?.contactTitle ? (
+                      <View style={styles.contactFieldRow}>
+                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
+                          Contact Title
+                        </Text>
+                        <Text style={[styles.contactFieldValue, { color: appColors.text }]}>
+                          {selectedExhibitor.contactTitle}
+                        </Text>
+                      </View>
+                    ) : null}
+
                     {selectedExhibitor?.contactEmail ? (
-                      <TouchableOpacity 
-                        style={styles.contactRow}
-                        onPress={() => openEmail(selectedExhibitor.contactEmail)}
-                      >
-                        <IconSymbol
-                          ios_icon_name="envelope.fill"
-                          android_material_icon_name="email"
-                          size={16}
-                          color={appColors.primary}
-                        />
-                        <Text style={[styles.contactText, { color: appColors.primary }]}>
-                          {selectedExhibitor.contactEmail}
+                      <View style={styles.contactFieldRow}>
+                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
+                          Contact Email
                         </Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity onPress={() => openEmail(selectedExhibitor.contactEmail)}>
+                          <Text style={[styles.contactFieldValue, { color: appColors.primary }]}>
+                            {selectedExhibitor.contactEmail}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     ) : null}
-                    {selectedExhibitor?.contactPhoneDirect ? (
-                      <TouchableOpacity 
-                        style={styles.contactRow}
-                        onPress={() => openPhone(selectedExhibitor.contactPhoneDirect)}
-                      >
-                        <IconSymbol
-                          ios_icon_name="phone.fill"
-                          android_material_icon_name="phone"
-                          size={16}
-                          color={appColors.primary}
-                        />
-                        <Text style={[styles.contactText, { color: appColors.primary }]}>
-                          {selectedExhibitor.contactPhoneDirect}
-                          {' (Direct)'}
+
+                    {contactPhoneDisplay ? (
+                      <View style={styles.contactFieldRow}>
+                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
+                          Contact Phone
                         </Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity onPress={() => openPhone(contactPhoneDisplay)}>
+                          <Text style={[styles.contactFieldValue, { color: appColors.primary }]}>
+                            {contactPhoneDisplay}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     ) : null}
-                    {selectedExhibitor?.contactPhoneMobile ? (
-                      <TouchableOpacity 
-                        style={styles.contactRow}
-                        onPress={() => openPhone(selectedExhibitor.contactPhoneMobile)}
-                      >
-                        <IconSymbol
-                          ios_icon_name="phone.fill"
-                          android_material_icon_name="phone"
-                          size={16}
-                          color={appColors.primary}
-                        />
-                        <Text style={[styles.contactText, { color: appColors.primary }]}>
-                          {selectedExhibitor.contactPhoneMobile}
-                          {' (Mobile)'}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
+
                     {selectedExhibitor?.contactFax ? (
-                      <View style={styles.contactRow}>
-                        <IconSymbol
-                          ios_icon_name="printer.fill"
-                          android_material_icon_name="print"
-                          size={16}
-                          color={appColors.textSecondary}
-                        />
-                        <Text style={[styles.contactText, { color: appColors.text }]}>
+                      <View style={styles.contactFieldRow}>
+                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
+                          Fax
+                        </Text>
+                        <Text style={[styles.contactFieldValue, { color: appColors.text }]}>
                           {selectedExhibitor.contactFax}
-                          {' (Fax)'}
                         </Text>
                       </View>
                     ) : null}
