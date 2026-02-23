@@ -259,6 +259,57 @@ const styles = StyleSheet.create({
   bookmarkButton: {
     padding: spacing.xs,
   },
+  conflictModalContent: {
+    width: '90%',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    ...Platform.select({
+      web: {
+        maxWidth: 500,
+      },
+    }),
+  },
+  conflictIcon: {
+    alignSelf: 'center',
+    marginBottom: spacing.md,
+  },
+  conflictTitle: {
+    ...typography.h2,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  conflictMessage: {
+    ...typography.body,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  conflictSessionCard: {
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  conflictSessionTitle: {
+    ...typography.h3,
+    marginBottom: spacing.xs,
+  },
+  conflictSessionTime: {
+    ...typography.bodySmall,
+  },
+  conflictActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  conflictButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  conflictButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
 });
 
 export default function AgendaScreen() {
@@ -273,6 +324,9 @@ export default function AgendaScreen() {
   const [bookmarkedSessions, setBookmarkedSessions] = useState<Set<string>>(new Set());
   const [bookmarkLoading, setBookmarkLoading] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [conflictModalVisible, setConflictModalVisible] = useState(false);
+  const [conflictingSessions, setConflictingSessions] = useState<Session[]>([]);
+  const [pendingBookmarkSession, setPendingBookmarkSession] = useState<Session | null>(null);
 
   console.log('AgendaScreen - Rendered');
 
@@ -340,33 +394,6 @@ export default function AgendaScreen() {
     }
   };
 
-  const toggleBookmark = async (sessionId: string) => {
-    const isBookmarked = bookmarkedSessions.has(sessionId);
-    setBookmarkLoading(sessionId);
-    
-    try {
-      if (isBookmarked) {
-        console.log('AgendaScreen - Removing bookmark for session:', sessionId);
-        await authenticatedDelete(`/api/schedule/${sessionId}`);
-        setBookmarkedSessions(prev => {
-          const next = new Set(prev);
-          next.delete(sessionId);
-          return next;
-        });
-        console.log('AgendaScreen - Bookmark removed successfully');
-      } else {
-        console.log('AgendaScreen - Adding bookmark for session:', sessionId);
-        await authenticatedPost('/api/schedule', { sessionId });
-        setBookmarkedSessions(prev => new Set(prev).add(sessionId));
-        console.log('AgendaScreen - Bookmark added successfully');
-      }
-    } catch (err) {
-      console.error('AgendaScreen - Error toggling bookmark:', err);
-    } finally {
-      setBookmarkLoading(null);
-    }
-  };
-
   // Helper function to parse time string to comparable number (minutes since midnight)
   const parseTime = (timeStr: string): number => {
     try {
@@ -394,12 +421,147 @@ export default function AgendaScreen() {
       }
       
       const totalMinutes = hours * 60 + minutes;
-      console.log('AgendaScreen - Parsed time:', timeStr, '→', totalMinutes, 'minutes');
       return totalMinutes;
     } catch (err) {
       console.error('AgendaScreen - Error parsing time:', timeStr, err);
       return 0;
     }
+  };
+
+  // Helper function to extract end time from time string (e.g., "9:00 AM - 10:30 AM")
+  const parseEndTime = (timeStr: string): number => {
+    try {
+      if (!timeStr || timeStr.trim() === '') return 0;
+      
+      // Check if time string contains a range (e.g., "9:00 AM - 10:30 AM")
+      const rangeParts = timeStr.split('-');
+      if (rangeParts.length === 2) {
+        // Parse the end time
+        return parseTime(rangeParts[1].trim());
+      }
+      
+      // If no range, assume 1 hour duration
+      const startMinutes = parseTime(timeStr);
+      const endMinutes = startMinutes + 60;
+      return endMinutes;
+    } catch (err) {
+      console.error('AgendaScreen - Error parsing end time:', timeStr, err);
+      return parseTime(timeStr) + 60; // Default to 1 hour duration
+    }
+  };
+
+  // Check for time conflicts between sessions
+  const checkTimeConflicts = (newSession: Session, bookmarkedSessionIds: Set<string>): Session[] => {
+    const conflicts: Session[] = [];
+    
+    // Get the bookmarked sessions
+    const bookmarkedSessionsList = sessions.filter(s => bookmarkedSessionIds.has(s.id));
+    
+    // Parse new session times
+    const newStartMinutes = parseTime(newSession.time);
+    const newEndMinutes = parseEndTime(newSession.time);
+    
+    console.log('AgendaScreen - Checking conflicts for:', newSession.title);
+    console.log('AgendaScreen - New session time:', newSession.time, '→', newStartMinutes, '-', newEndMinutes);
+    
+    for (const bookmarked of bookmarkedSessionsList) {
+      // Skip if same session
+      if (bookmarked.id === newSession.id) continue;
+      
+      // Only check conflicts for sessions on the same date
+      if (bookmarked.date !== newSession.date) continue;
+      
+      const bookmarkedStartMinutes = parseTime(bookmarked.time);
+      const bookmarkedEndMinutes = parseEndTime(bookmarked.time);
+      
+      console.log('AgendaScreen - Comparing with:', bookmarked.title, '→', bookmarkedStartMinutes, '-', bookmarkedEndMinutes);
+      
+      // Check for overlap: (start1 < end2 && start2 < end1)
+      const hasOverlap = newStartMinutes < bookmarkedEndMinutes && bookmarkedStartMinutes < newEndMinutes;
+      
+      if (hasOverlap) {
+        console.log('AgendaScreen - CONFLICT DETECTED with:', bookmarked.title);
+        conflicts.push(bookmarked);
+      }
+    }
+    
+    console.log('AgendaScreen - Total conflicts found:', conflicts.length);
+    return conflicts;
+  };
+
+  const toggleBookmark = async (sessionId: string) => {
+    const isBookmarked = bookmarkedSessions.has(sessionId);
+    
+    // If removing bookmark, no need to check conflicts
+    if (isBookmarked) {
+      setBookmarkLoading(sessionId);
+      try {
+        console.log('AgendaScreen - Removing bookmark for session:', sessionId);
+        await authenticatedDelete(`/api/schedule/${sessionId}`);
+        setBookmarkedSessions(prev => {
+          const next = new Set(prev);
+          next.delete(sessionId);
+          return next;
+        });
+        console.log('AgendaScreen - Bookmark removed successfully');
+      } catch (err) {
+        console.error('AgendaScreen - Error removing bookmark:', err);
+      } finally {
+        setBookmarkLoading(null);
+      }
+      return;
+    }
+    
+    // If adding bookmark, check for conflicts
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) {
+      console.error('AgendaScreen - Session not found:', sessionId);
+      return;
+    }
+    
+    const conflicts = checkTimeConflicts(session, bookmarkedSessions);
+    
+    if (conflicts.length > 0) {
+      // Show conflict modal
+      console.log('AgendaScreen - Showing conflict modal for', conflicts.length, 'conflicts');
+      setPendingBookmarkSession(session);
+      setConflictingSessions(conflicts);
+      setConflictModalVisible(true);
+    } else {
+      // No conflicts, proceed with bookmark
+      await addBookmark(sessionId);
+    }
+  };
+
+  const addBookmark = async (sessionId: string) => {
+    setBookmarkLoading(sessionId);
+    try {
+      console.log('AgendaScreen - Adding bookmark for session:', sessionId);
+      await authenticatedPost('/api/schedule', { sessionId });
+      setBookmarkedSessions(prev => new Set(prev).add(sessionId));
+      console.log('AgendaScreen - Bookmark added successfully');
+    } catch (err) {
+      console.error('AgendaScreen - Error adding bookmark:', err);
+    } finally {
+      setBookmarkLoading(null);
+    }
+  };
+
+  const handleConflictConfirm = async () => {
+    if (pendingBookmarkSession) {
+      console.log('AgendaScreen - User confirmed bookmark despite conflicts');
+      await addBookmark(pendingBookmarkSession.id);
+      setConflictModalVisible(false);
+      setPendingBookmarkSession(null);
+      setConflictingSessions([]);
+    }
+  };
+
+  const handleConflictCancel = () => {
+    console.log('AgendaScreen - User cancelled bookmark due to conflicts');
+    setConflictModalVisible(false);
+    setPendingBookmarkSession(null);
+    setConflictingSessions([]);
   };
 
   // Sort and filter sessions by selected day, time, and search query
@@ -439,11 +601,6 @@ export default function AgendaScreen() {
     });
     
     console.log('AgendaScreen - Sorted sessions for day', selectedDay, ':', sorted.length);
-    if (sorted.length > 0) {
-      console.log('AgendaScreen - First session time:', sorted[0].time, '→', parseTime(sorted[0].time));
-      console.log('AgendaScreen - Last session time:', sorted[sorted.length - 1].time, '→', parseTime(sorted[sorted.length - 1].time));
-      console.log('AgendaScreen - First session date:', sorted[0].date);
-    }
     return sorted;
   }, [sessions, selectedDay, searchQuery]);
 
@@ -860,6 +1017,87 @@ export default function AgendaScreen() {
                   ) : null}
                 </View>
               </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Time Conflict Modal */}
+        <Modal
+          visible={conflictModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleConflictCancel}
+        >
+          <Pressable 
+            style={styles.modalOverlay}
+            onPress={handleConflictCancel}
+          >
+            <Pressable 
+              style={[styles.conflictModalContent, { backgroundColor: appColors.card }]}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="warning"
+                size={48}
+                color={appColors.error}
+                style={styles.conflictIcon}
+              />
+              
+              <Text style={[styles.conflictTitle, { color: appColors.text }]}>
+                Time Conflict Detected
+              </Text>
+              
+              <Text style={[styles.conflictMessage, { color: appColors.textSecondary }]}>
+                This session overlaps with the following bookmarked session(s):
+              </Text>
+              
+              <ScrollView style={{ maxHeight: 200, marginBottom: spacing.lg }}>
+                {conflictingSessions.map((conflict, index) => (
+                  <View 
+                    key={index}
+                    style={[styles.conflictSessionCard, { backgroundColor: appColors.background }]}
+                  >
+                    <Text style={[styles.conflictSessionTitle, { color: appColors.text }]}>
+                      {conflict.title}
+                    </Text>
+                    <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>
+                      {conflict.time}
+                    </Text>
+                    {conflict.room ? (
+                      <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>
+                        {conflict.room}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+              </ScrollView>
+              
+              <Text style={[styles.conflictMessage, { color: appColors.textSecondary, marginBottom: spacing.lg }]}>
+                Do you still want to bookmark this session?
+              </Text>
+              
+              <View style={styles.conflictActions}>
+                <TouchableOpacity
+                  style={[styles.conflictButton, { backgroundColor: appColors.textSecondary }]}
+                  onPress={handleConflictCancel}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.conflictButtonText, { color: '#FFFFFF' }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.conflictButton, { backgroundColor: appColors.primary }]}
+                  onPress={handleConflictConfirm}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.conflictButtonText, { color: '#FFFFFF' }]}>
+                    Bookmark Anyway
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </Pressable>
           </Pressable>
         </Modal>
