@@ -113,6 +113,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   logo: {
     width: '100%',
@@ -182,6 +183,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     marginBottom: spacing.lg,
     alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
   },
   sectionTitle: {
     ...typography.h3,
@@ -478,7 +480,7 @@ export default function ExhibitorsScreen() {
                     }}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.logoContainer, { backgroundColor: appColors.background }]}>
+                    <View style={styles.logoContainer}>
                       {exhibitor.logo ? (
                         <Image
                           source={resolveImageSource(exhibitor.logo)}
@@ -538,7 +540,7 @@ export default function ExhibitorsScreen() {
                 {selectedExhibitor?.logo && (
                   <Image
                     source={resolveImageSource(selectedExhibitor.logo)}
-                    style={[styles.modalLogo, { backgroundColor: appColors.background }]}
+                    style={styles.modalLogo}
                   />
                 )}
 
