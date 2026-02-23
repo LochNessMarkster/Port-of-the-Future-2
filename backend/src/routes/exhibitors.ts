@@ -59,16 +59,56 @@ export function registerExhibitorsRoutes(app: App) {
           logger: app.logger,
         });
 
-        // Log first record's field names for debugging
+        // Log ALL field names for each exhibitor
         if (data.records.length > 0) {
           app.logger.info(
-            { fieldNames: Object.keys(data.records[0]?.fields || {}) },
-            'Available field names in first exhibitor record'
+            { totalRecords: data.records.length },
+            'Exhibitors fetched from Airtable'
           );
-          app.logger.debug(
-            { firstRecordRaw: JSON.stringify(data.records[0], null, 2) },
-            'First exhibitor raw record from Airtable'
-          );
+
+          // Log field names and contact-related values for each record
+          data.records.forEach((record: AirtableRecord<ExhibitorFields>) => {
+            const fields = record.fields as any;
+            const fieldNames = Object.keys(fields);
+            const companyName = fields.Name || 'Unknown';
+
+            // Log all field names
+            app.logger.info(
+              { exhibitorId: record.id, companyName, fieldNames },
+              `All available fields for exhibitor`
+            );
+
+            // Extract and log contact-related fields
+            const contactFields: Record<string, any> = {};
+            fieldNames.forEach((fieldName) => {
+              const lowerFieldName = fieldName.toLowerCase();
+              if (
+                lowerFieldName.includes('contact') ||
+                lowerFieldName.includes('phone') ||
+                lowerFieldName.includes('email') ||
+                lowerFieldName.includes('title') ||
+                lowerFieldName.includes('fax') ||
+                lowerFieldName.includes('name')
+              ) {
+                contactFields[fieldName] = fields[fieldName];
+              }
+            });
+
+            if (Object.keys(contactFields).length > 0) {
+              app.logger.info(
+                { exhibitorId: record.id, companyName, contactFields },
+                'Contact-related fields found'
+              );
+            }
+
+            // Special logging for BMT exhibitor
+            if (companyName.includes('BMT') || companyName.includes('bmt')) {
+              app.logger.warn(
+                { exhibitorId: record.id, allFields: fields },
+                'BMT EXHIBITOR - Full record for reference'
+              );
+            }
+          });
         }
 
         const exhibitors = data.records.map((record: AirtableRecord<ExhibitorFields>) => {
@@ -76,37 +116,87 @@ export function registerExhibitorsRoutes(app: App) {
 
           // Extract logo URL - try multiple field names and handle both attachment arrays and URL strings
           let logoUrl = '';
-          let logoFieldFound = '';
           const logoFieldNames = ['Logo', 'Logo Url', 'Logo URL', 'LogoUrl'];
 
           for (const fieldName of logoFieldNames) {
             const logoField = fields[fieldName];
             if (logoField) {
-              logoFieldFound = fieldName;
               // Check if it's an array (attachment field)
               if (Array.isArray(logoField) && logoField.length > 0) {
                 logoUrl = logoField[0]?.url || '';
-                app.logger.debug(
-                  { exhibitorId: record.id, logoField: fieldName, type: 'array', logoUrl },
-                  'Logo extracted from attachment array'
-                );
               } else if (typeof logoField === 'string') {
-                // It's a direct URL string
                 logoUrl = logoField;
-                app.logger.debug(
-                  { exhibitorId: record.id, logoField: fieldName, type: 'string', logoUrl },
-                  'Logo extracted from URL string'
-                );
               }
               break;
             }
           }
 
-          if (!logoUrl && logoFieldNames.length > 0) {
-            app.logger.debug(
-              { exhibitorId: record.id, attemptedFields: logoFieldNames },
-              'No logo field found in exhibitor record'
-            );
+          // Try multiple variations for contact name
+          let contactName = '';
+          const contactNameVariations = [
+            'Contact Name',
+            'Primary Contact Name',
+            'Primary contact name',
+            'Contact',
+            'Name (Contact)',
+          ];
+          for (const fieldName of contactNameVariations) {
+            if (fields[fieldName]) {
+              contactName = fields[fieldName];
+              break;
+            }
+          }
+
+          // Try multiple variations for contact title
+          let contactTitle = '';
+          const contactTitleVariations = [
+            'Contact Title',
+            'Primary Contact Title',
+            'Primary contact title',
+            'Title (Contact)',
+          ];
+          for (const fieldName of contactTitleVariations) {
+            if (fields[fieldName]) {
+              contactTitle = fields[fieldName];
+              break;
+            }
+          }
+
+          // Try multiple variations for contact email
+          let contactEmail = '';
+          const contactEmailVariations = [
+            'Contact Email',
+            'Primary Contact Email',
+            'Primary contact email',
+            'Email',
+            'Email (Contact)',
+          ];
+          for (const fieldName of contactEmailVariations) {
+            if (fields[fieldName]) {
+              contactEmail = fields[fieldName];
+              break;
+            }
+          }
+
+          // Try multiple variations for contact phone
+          let contactPhoneDirect = '';
+          let contactPhoneMobile = '';
+          const contactPhoneVariations = [
+            'Contact Phone',
+            'Primary Contact Phone',
+            'Primary contact phone',
+            'Phone',
+            'Direct Phone',
+            'Mobile Phone',
+          ];
+          for (const fieldName of contactPhoneVariations) {
+            if (fields[fieldName]) {
+              if (fieldName.toLowerCase().includes('mobile')) {
+                contactPhoneMobile = fields[fieldName];
+              } else {
+                contactPhoneDirect = fields[fieldName];
+              }
+            }
           }
 
           // Company URL is stored in "URL" field
@@ -117,12 +207,12 @@ export function registerExhibitorsRoutes(app: App) {
             name: record.fields.Name || '',
             description: record.fields.Description || record.fields.Bio || '',
             logoUrl,
-            contactName: fields['Primary contact name'] || '',
-            contactTitle: fields['Primary contact title'] || '',
-            contactEmail: fields['Primary contact email'] || '',
-            contactPhoneDirect: fields['Primary contact telephone direct'] || '',
-            contactPhoneMobile: fields['Primary contact telephone mobile'] || '',
-            contactFax: fields['Primary contact fax number'] || '',
+            contactName,
+            contactTitle,
+            contactEmail,
+            contactPhoneDirect,
+            contactPhoneMobile,
+            contactFax: fields['Primary contact fax number'] || fields['Contact Fax'] || '',
             phone: record.fields.Phone || '',
             companyUrl,
             linkedIn: record.fields.LinkedIn || '',
@@ -202,49 +292,121 @@ export function registerExhibitorsRoutes(app: App) {
         }
 
         // Log field names for debugging
+        const fields = record.fields as any;
+        const fieldNames = Object.keys(fields);
+        const companyName = fields.Name || 'Unknown';
+
         app.logger.info(
-          { fieldNames: Object.keys(record?.fields || {}) },
-          'Available field names in exhibitor record'
+          { exhibitorId: id, companyName, fieldNames },
+          'All available fields in exhibitor record'
         );
-        app.logger.debug(
-          { exhibitorRaw: JSON.stringify(record, null, 2) },
-          'Exhibitor raw record from Airtable'
-        );
+
+        // Extract and log contact-related fields
+        const contactFields: Record<string, any> = {};
+        fieldNames.forEach((fieldName) => {
+          const lowerFieldName = fieldName.toLowerCase();
+          if (
+            lowerFieldName.includes('contact') ||
+            lowerFieldName.includes('phone') ||
+            lowerFieldName.includes('email') ||
+            lowerFieldName.includes('title') ||
+            lowerFieldName.includes('fax') ||
+            lowerFieldName.includes('name')
+          ) {
+            contactFields[fieldName] = fields[fieldName];
+          }
+        });
+
+        if (Object.keys(contactFields).length > 0) {
+          app.logger.info(
+            { exhibitorId: id, companyName, contactFields },
+            'Contact-related fields found'
+          );
+        }
 
         // Extract logo URL - try multiple field names and handle both attachment arrays and URL strings
         let logoUrl = '';
-        let logoFieldFound = '';
         const logoFieldNames = ['Logo', 'Logo Url', 'Logo URL', 'LogoUrl'];
-        const fields = record.fields as any;
 
         for (const fieldName of logoFieldNames) {
           const logoField = fields[fieldName];
           if (logoField) {
-            logoFieldFound = fieldName;
             // Check if it's an array (attachment field)
             if (Array.isArray(logoField) && logoField.length > 0) {
               logoUrl = logoField[0]?.url || '';
-              app.logger.debug(
-                { exhibitorId: id, logoField: fieldName, type: 'array', logoUrl },
-                'Logo extracted from attachment array'
-              );
             } else if (typeof logoField === 'string') {
-              // It's a direct URL string
               logoUrl = logoField;
-              app.logger.debug(
-                { exhibitorId: id, logoField: fieldName, type: 'string', logoUrl },
-                'Logo extracted from URL string'
-              );
             }
             break;
           }
         }
 
-        if (!logoUrl && logoFieldNames.length > 0) {
-          app.logger.debug(
-            { exhibitorId: id, attemptedFields: logoFieldNames },
-            'No logo field found in exhibitor record'
-          );
+        // Try multiple variations for contact name
+        let contactName = '';
+        const contactNameVariations = [
+          'Contact Name',
+          'Primary Contact Name',
+          'Primary contact name',
+          'Contact',
+          'Name (Contact)',
+        ];
+        for (const fieldName of contactNameVariations) {
+          if (fields[fieldName]) {
+            contactName = fields[fieldName];
+            break;
+          }
+        }
+
+        // Try multiple variations for contact title
+        let contactTitle = '';
+        const contactTitleVariations = [
+          'Contact Title',
+          'Primary Contact Title',
+          'Primary contact title',
+          'Title (Contact)',
+        ];
+        for (const fieldName of contactTitleVariations) {
+          if (fields[fieldName]) {
+            contactTitle = fields[fieldName];
+            break;
+          }
+        }
+
+        // Try multiple variations for contact email
+        let contactEmail = '';
+        const contactEmailVariations = [
+          'Contact Email',
+          'Primary Contact Email',
+          'Primary contact email',
+          'Email',
+          'Email (Contact)',
+        ];
+        for (const fieldName of contactEmailVariations) {
+          if (fields[fieldName]) {
+            contactEmail = fields[fieldName];
+            break;
+          }
+        }
+
+        // Try multiple variations for contact phone
+        let contactPhoneDirect = '';
+        let contactPhoneMobile = '';
+        const contactPhoneVariations = [
+          'Contact Phone',
+          'Primary Contact Phone',
+          'Primary contact phone',
+          'Phone',
+          'Direct Phone',
+          'Mobile Phone',
+        ];
+        for (const fieldName of contactPhoneVariations) {
+          if (fields[fieldName]) {
+            if (fieldName.toLowerCase().includes('mobile')) {
+              contactPhoneMobile = fields[fieldName];
+            } else {
+              contactPhoneDirect = fields[fieldName];
+            }
+          }
         }
 
         // Company URL is stored in "URL" field
@@ -255,12 +417,12 @@ export function registerExhibitorsRoutes(app: App) {
           name: record.fields.Name || '',
           description: record.fields.Description || record.fields.Bio || '',
           logoUrl,
-          contactName: fields['Primary contact name'] || '',
-          contactTitle: fields['Primary contact title'] || '',
-          contactEmail: fields['Primary contact email'] || '',
-          contactPhoneDirect: fields['Primary contact telephone direct'] || '',
-          contactPhoneMobile: fields['Primary contact telephone mobile'] || '',
-          contactFax: fields['Primary contact fax number'] || '',
+          contactName,
+          contactTitle,
+          contactEmail,
+          contactPhoneDirect,
+          contactPhoneMobile,
+          contactFax: fields['Primary contact fax number'] || fields['Contact Fax'] || '',
           phone: record.fields.Phone || '',
           companyUrl,
           linkedIn: record.fields.LinkedIn || '',
