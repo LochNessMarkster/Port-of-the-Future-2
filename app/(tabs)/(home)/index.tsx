@@ -197,17 +197,18 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('HomeScreen - Loading announcements');
+    console.log('HomeScreen - Component mounted, loading announcements');
     loadAnnouncements();
   }, []);
 
   const loadAnnouncements = async () => {
     try {
       setLoading(true);
+      console.log('HomeScreen - Fetching announcements from API');
       const { apiGet } = await import('@/utils/api');
       const data = await apiGet<Announcement[]>('/api/announcements');
-      setAnnouncements(data);
-      console.log('HomeScreen - Loaded announcements:', data.length);
+      setAnnouncements(data || []);
+      console.log('HomeScreen - Loaded announcements:', data?.length || 0);
     } catch (error) {
       console.error('HomeScreen - Error loading announcements:', error);
       setAnnouncements([]);
@@ -217,22 +218,33 @@ export default function HomeScreen() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
+    try {
+      const date = new Date(dateString);
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${month}/${day}/${year}`;
+    } catch (error) {
+      console.error('HomeScreen - Error formatting date:', error);
+      return dateString;
+    }
   };
 
   const handleNavigation = (route: string) => {
     console.log('HomeScreen - Navigating to:', route);
-    router.push(route as any);
+    try {
+      router.push(route as any);
+    } catch (error) {
+      console.error('HomeScreen - Navigation error:', error);
+    }
   };
 
   const userName = user?.name || 'Guest';
   const welcomeText = `Welcome, ${userName}!`;
   const dateText = 'March 24-25, 2026';
   const locationText = 'Houston, Texas';
+
+  console.log('HomeScreen - Rendering with user:', userName, 'announcements:', announcements.length);
 
   return (
     <React.Fragment>
@@ -247,7 +259,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Image with Gradient Overlay - Reduced height to crop top/bottom */}
+          {/* Hero Image with Gradient Overlay */}
           <ImageBackground
             source={require('@/assets/images/97923d23-03e6-4821-a00d-7dd935532e6d.jpeg')}
             style={styles.heroContainer}
@@ -270,14 +282,14 @@ export default function HomeScreen() {
             </View>
           </ImageBackground>
 
-          {/* Header Section - Welcome message */}
+          {/* Header Section */}
           <View style={styles.header}>
             <Text style={[styles.welcomeText, { color: appColors.primary }]}>
               {welcomeText}
             </Text>
           </View>
 
-          {/* Navigation Grid - Even 2-column layout */}
+          {/* Navigation Grid */}
           <View style={styles.navigationGrid}>
             <View style={styles.gridRow}>
               <TouchableOpacity 
