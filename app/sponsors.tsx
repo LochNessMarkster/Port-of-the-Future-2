@@ -237,11 +237,12 @@ export default function SponsorsScreen() {
   const loadSponsors = async () => {
     try {
       setLoading(true);
+      console.log('[Sponsors] Fetching sponsors from /api/sponsors');
       const data = await apiGet<Sponsor[]>('/api/sponsors');
+      console.log('[Sponsors] Received sponsors:', data.length);
       setSponsors(data);
-      console.log('SponsorsScreen - Loaded sponsors:', data.length);
     } catch (error) {
-      console.error('SponsorsScreen - Error loading sponsors:', error);
+      console.error('[Sponsors] Error loading sponsors:', error);
       setSponsors([]);
     } finally {
       setLoading(false);
@@ -250,7 +251,8 @@ export default function SponsorsScreen() {
 
   const openWebsite = (url: string) => {
     if (url) {
-      Linking.openURL(url).catch(err => console.error('Error opening URL:', err));
+      console.log('[Sponsors] Opening website:', url);
+      Linking.openURL(url).catch(err => console.error('[Sponsors] Error opening URL:', err));
     }
   };
 
@@ -271,10 +273,12 @@ export default function SponsorsScreen() {
 
   // Filter sponsors by search query
   const filteredSponsors = useMemo(() => {
-    if (searchQuery.trim() === '') return sponsors;
+    if (searchQuery.trim() === '') {
+      return sponsors;
+    }
     
     const query = searchQuery.toLowerCase();
-    return sponsors.filter(sponsor => {
+    const filtered = sponsors.filter(sponsor => {
       const matchesName = sponsor.name.toLowerCase().includes(query);
       const matchesTier = sponsor.tier.toLowerCase().includes(query);
       const matchesIntro = sponsor.intro?.toLowerCase().includes(query);
@@ -282,21 +286,28 @@ export default function SponsorsScreen() {
       
       return matchesName || matchesTier || matchesIntro || matchesBio;
     });
+    
+    return filtered;
   }, [sponsors, searchQuery]);
 
-  const groupedSponsors = filteredSponsors.reduce((acc, sponsor) => {
-    const tier = sponsor.tier || 'Partner';
-    if (!acc[tier]) {
-      acc[tier] = [];
-    }
-    acc[tier].push(sponsor);
-    return acc;
-  }, {} as Record<string, Sponsor[]>);
+  // Group sponsors by tier (already sorted by backend)
+  const groupedSponsors = useMemo(() => {
+    const grouped = filteredSponsors.reduce((acc, sponsor) => {
+      const tier = sponsor.tier || 'Partner';
+      if (!acc[tier]) {
+        acc[tier] = [];
+      }
+      acc[tier].push(sponsor);
+      return acc;
+    }, {} as Record<string, Sponsor[]>);
+    
+    return grouped;
+  }, [filteredSponsors]);
 
   const tierOrder = ['Platinum', 'Gold', 'Silver', 'Bronze', 'Partner'];
 
   const clearSearch = () => {
-    console.log('SponsorsScreen - Clearing search');
+    console.log('[Sponsors] Clearing search');
     setSearchQuery('');
   };
 
@@ -326,7 +337,7 @@ export default function SponsorsScreen() {
               placeholderTextColor={appColors.textSecondary}
               value={searchQuery}
               onChangeText={(text) => {
-                console.log('SponsorsScreen - Search query changed:', text);
+                console.log('[Sponsors] Search query changed:', text);
                 setSearchQuery(text);
               }}
             />
@@ -351,6 +362,9 @@ export default function SponsorsScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
+              <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+                Loading sponsors...
+              </Text>
             </View>
           ) : filteredSponsors.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -378,11 +392,14 @@ export default function SponsorsScreen() {
                     <Text style={[styles.tierTitle, { color: appColors.text }]}>
                       {tier}
                     </Text>
-                    {tierSponsors.map((sponsor, index) => (
+                    {tierSponsors.map((sponsor) => (
                       <TouchableOpacity
-                        key={index}
+                        key={sponsor.id}
                         style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
-                        onPress={() => setSelectedSponsor(sponsor)}
+                        onPress={() => {
+                          console.log('[Sponsors] Opening sponsor details:', sponsor.name);
+                          setSelectedSponsor(sponsor);
+                        }}
                         activeOpacity={0.7}
                       >
                         <View style={styles.logoWhiteBackground}>
