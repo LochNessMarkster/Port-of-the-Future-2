@@ -346,6 +346,14 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
   },
+  noContactInfo: {
+    ...typography.bodySmall,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+  },
 });
 
 export default function ExhibitorsScreen() {
@@ -738,7 +746,13 @@ export default function ExhibitorsScreen() {
                       </View>
                     ) : null}
                   </View>
-                ) : null}
+                ) : (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.noContactInfo, { color: appColors.textSecondary, backgroundColor: appColors.background }]}>
+                      Contact information is not available for this exhibitor at this time. Please visit their booth or website for more details.
+                    </Text>
+                  </View>
+                )}
 
                 {selectedExhibitor?.companyUrl ? (
                   <TouchableOpacity
