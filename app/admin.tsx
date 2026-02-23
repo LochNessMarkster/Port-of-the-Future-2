@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet, authenticatedPost, authenticatedPut, authenticatedDelete } from '@/utils/api';
+import { apiGet, apiPost, authenticatedPost, authenticatedPut, authenticatedDelete } from '@/utils/api';
 
 interface Announcement {
   id: string;
@@ -191,6 +191,8 @@ export default function AdminScreen() {
   const [announcementContent, setAnnouncementContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [cacheRefreshing, setCacheRefreshing] = useState(false);
+  const [cacheRefreshMessage, setCacheRefreshMessage] = useState<{ success: boolean; text: string } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -270,6 +272,22 @@ export default function AdminScreen() {
     }
   };
 
+  const triggerCacheRefresh = async () => {
+    setCacheRefreshing(true);
+    setCacheRefreshMessage(null);
+    try {
+      console.log('[Admin] Triggering cache refresh via POST /api/cache/refresh');
+      const result = await apiPost<{ success: boolean; message: string }>('/api/cache/refresh', {});
+      console.log('[Admin] Cache refresh result:', result);
+      setCacheRefreshMessage({ success: true, text: result.message || 'Cache refresh started! Airtable data will be updated shortly.' });
+    } catch (error: any) {
+      console.error('[Admin] Failed to trigger cache refresh:', error);
+      setCacheRefreshMessage({ success: false, text: error.message || 'Failed to trigger cache refresh' });
+    } finally {
+      setCacheRefreshing(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
@@ -282,6 +300,57 @@ export default function AdminScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Cache Management Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: appColors.text }]}>
+              Cache Management
+            </Text>
+          </View>
+          <View style={[styles.card, { backgroundColor: appColors.card }]}>
+            <Text style={[styles.cardContent, { color: appColors.textSecondary, marginBottom: spacing.md }]}>
+              Force a refresh of all Airtable data. Use this when you know data has been updated in Airtable and want it to appear in the app immediately.
+            </Text>
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: '#FF6B35', width: '100%', justifyContent: 'center', paddingVertical: spacing.md }]}
+              onPress={triggerCacheRefresh}
+              disabled={cacheRefreshing}
+              activeOpacity={0.7}
+            >
+              {cacheRefreshing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <React.Fragment>
+                  <IconSymbol
+                    ios_icon_name="arrow.triangle.2.circlepath"
+                    android_material_icon_name="sync"
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                  <Text style={[styles.addButtonText, { color: '#FFFFFF', marginLeft: spacing.sm }]}>
+                    Force Refresh Airtable Cache
+                  </Text>
+                </React.Fragment>
+              )}
+            </TouchableOpacity>
+            {cacheRefreshMessage && (
+              <View style={{
+                marginTop: spacing.md,
+                padding: spacing.md,
+                borderRadius: borderRadius.sm,
+                backgroundColor: cacheRefreshMessage.success ? '#4CAF5020' : '#FF572220',
+              }}>
+                <Text style={{
+                  ...typography.bodySmall,
+                  color: cacheRefreshMessage.success ? '#4CAF50' : '#FF5722',
+                }}>
+                  {cacheRefreshMessage.text}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
         {/* Announcements Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

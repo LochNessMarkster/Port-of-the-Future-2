@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
-import { BACKEND_URL, isBackendConfigured, apiGet } from '@/utils/api';
+import { BACKEND_URL, isBackendConfigured, apiGet, apiPost } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
 
 interface CacheStatus {
@@ -112,6 +112,11 @@ export default function DiagnosticsScreen() {
   const [cacheStatus, setCacheStatus] = useState<CacheStatus | null>(null);
   const [cacheLoading, setCacheLoading] = useState(false);
   const [cacheError, setCacheError] = useState<string | null>(null);
+  const [cacheRefreshing, setCacheRefreshing] = useState(false);
+  const [cacheRefreshResult, setCacheRefreshResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const backendConfigured = isBackendConfigured();
 
@@ -134,6 +139,32 @@ export default function DiagnosticsScreen() {
       setCacheError(error.message || 'Failed to load cache status');
     } finally {
       setCacheLoading(false);
+    }
+  };
+
+  const triggerCacheRefresh = async () => {
+    setCacheRefreshing(true);
+    setCacheRefreshResult(null);
+    try {
+      console.log('[Diagnostics] Triggering cache refresh via POST /api/cache/refresh');
+      const result = await apiPost<{ success: boolean; message: string; status: CacheStatus }>(
+        '/api/cache/refresh',
+        {}
+      );
+      console.log('[Diagnostics] Cache refresh triggered:', result);
+      setCacheRefreshResult({ success: true, message: result.message || 'Cache refresh started successfully!' });
+      // Reload cache status after a short delay to show updated counts
+      setTimeout(() => {
+        loadCacheStatus();
+      }, 2000);
+    } catch (error: any) {
+      console.error('[Diagnostics] Failed to trigger cache refresh:', error);
+      setCacheRefreshResult({
+        success: false,
+        message: error.message || 'Failed to trigger cache refresh',
+      });
+    } finally {
+      setCacheRefreshing(false);
     }
   };
 
@@ -389,7 +420,55 @@ export default function DiagnosticsScreen() {
                     </View>
                   ))}
                   <TouchableOpacity
-                    style={[styles.testButton, { backgroundColor: appColors.primary, marginTop: spacing.md }]}
+                    style={[styles.testButton, { backgroundColor: '#FF6B35', marginTop: spacing.md }]}
+                    onPress={triggerCacheRefresh}
+                    disabled={cacheRefreshing || cacheStatus?.isRefreshing}
+                    activeOpacity={0.7}
+                  >
+                    {cacheRefreshing ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <React.Fragment>
+                        <IconSymbol
+                          ios_icon_name="arrow.triangle.2.circlepath"
+                          android_material_icon_name="sync"
+                          size={20}
+                          color="#FFFFFF"
+                        />
+                        <Text style={[styles.testButtonText, { color: '#FFFFFF' }]}>
+                          Force Refresh Cache
+                        </Text>
+                      </React.Fragment>
+                    )}
+                  </TouchableOpacity>
+
+                  {cacheRefreshResult && (
+                    <View style={[
+                      styles.resultCard,
+                      { backgroundColor: cacheRefreshResult.success ? '#4CAF5020' : '#FF572220', marginTop: spacing.sm }
+                    ]}>
+                      <View style={[styles.row, { marginBottom: 0 }]}>
+                        <IconSymbol
+                          ios_icon_name={cacheRefreshResult.success ? 'checkmark.circle' : 'xmark.circle'}
+                          android_material_icon_name={cacheRefreshResult.success ? 'check-circle' : 'cancel'}
+                          size={20}
+                          color={cacheRefreshResult.success ? '#4CAF50' : '#FF5722'}
+                        />
+                        <Text style={[
+                          styles.value,
+                          {
+                            color: cacheRefreshResult.success ? '#4CAF50' : '#FF5722',
+                            marginLeft: spacing.sm,
+                          }
+                        ]}>
+                          {cacheRefreshResult.message}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={[styles.testButton, { backgroundColor: appColors.primary, marginTop: spacing.sm }]}
                     onPress={loadCacheStatus}
                     activeOpacity={0.7}
                   >

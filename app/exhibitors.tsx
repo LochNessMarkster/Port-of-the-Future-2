@@ -1,5 +1,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
   View, 
   Text, 
@@ -13,31 +15,30 @@ import {
   Pressable,
   Linking,
   Platform,
-  TextInput
+  TextInput,
+  RefreshControl
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
-import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
+import { IconSymbol } from '@/components/IconSymbol';
+import { Stack } from 'expo-router';
 
 interface Exhibitor {
   id: string;
   name: string;
-  logo: string;
-  description: string;
-  contactName: string;
-  contactTitle: string;
-  contactEmail: string;
-  contactPhoneDirect: string;
-  contactPhoneMobile: string;
-  contactFax: string;
-  companyUrl: string;
-  linkedIn: string;
-  facebook: string;
-  x: string;
-  boothNumber: string;
-  demonstrations: string;
+  logo: string | null;
+  description: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
+  contactEmail: string | null;
+  contactPhoneDirect: string | null;
+  contactPhoneMobile: string | null;
+  contactFax: string | null;
+  companyUrl: string | null;
+  linkedIn: string | null;
+  facebook: string | null;
+  x: string | null;
+  boothNumber: string | null;
+  demonstrations: string | null;
 }
 
 interface ExhibitorBackendResponse {
@@ -62,66 +63,22 @@ interface ExhibitorBackendResponse {
   demonstrations?: string;
 }
 
-function resolveImageSource(source: string | number | undefined) {
-  if (!source) return null;
-  if (typeof source === 'string') {
-    if (source.trim() === '') return null;
-    return { uri: source };
-  }
-  return source;
-}
-
-function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
-  let logoUrl = '';
-  const logoField = data.logoUrl || data.logo || (data as any).Logo || (data as any)['Logo Url'];
-  
-  if (Array.isArray(logoField) && logoField.length > 0) {
-    logoUrl = (logoField[0] as any)?.url || '';
-  } else if (typeof logoField === 'string') {
-    logoUrl = logoField;
-  }
-  
-  const companyUrl = data.companyUrl || data.website || (data as any).URL || (data as any)['Company URL'] || '';
-  
-  return {
-    id: data.id,
-    name: data.name || '',
-    logo: logoUrl.trim(),
-    description: data.description || data.bio || '',
-    contactName: data.contactName || '',
-    contactTitle: data.contactTitle || '',
-    contactEmail: data.contactEmail || '',
-    contactPhoneDirect: data.contactPhoneDirect || '',
-    contactPhoneMobile: data.contactPhoneMobile || '',
-    contactFax: data.contactFax || '',
-    companyUrl: companyUrl.trim(),
-    linkedIn: data.linkedIn || '',
-    facebook: data.facebook || '',
-    x: data.x || '',
-    boothNumber: data.boothNumber || '',
-    demonstrations: data.demonstrations || '',
-  };
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   scrollContent: {
     padding: spacing.lg,
-    paddingBottom: 100,
   },
   searchContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
-  searchInputWrapper: {
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
   },
   searchIcon: {
     marginRight: spacing.sm,
@@ -129,327 +86,291 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     ...typography.body,
-    paddingVertical: spacing.xs,
   },
   clearButton: {
-    padding: spacing.xs,
+    padding: spacing.sm,
   },
-  exhibitorCard: {
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -spacing.sm,
+  },
+  card: {
+    width: '50%',
+    padding: spacing.sm,
+  },
+  cardInner: {
     borderRadius: borderRadius.md,
     padding: spacing.md,
-    marginBottom: spacing.md,
-    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-      },
-    }),
+    minHeight: 180,
   },
-  logoWhiteBackground: {
-    backgroundColor: '#FFFFFF',
+  logoContainer: {
+    width: 80,
+    height: 80,
     borderRadius: borderRadius.sm,
-    padding: spacing.xs,
+    marginBottom: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    width: 80,
-    height: 80,
-    ...Platform.select({
-      web: {
-        display: 'flex' as any,
-      },
-    }),
   },
-  exhibitorLogo: {
+  logo: {
     width: '100%',
     height: '100%',
-    borderRadius: borderRadius.sm,
+    resizeMode: 'contain',
   },
-  exhibitorInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
+  logoPlaceholder: {
+    width: 60,
+    height: 60,
   },
-  exhibitorName: {
+  name: {
     ...typography.h3,
+    textAlign: 'center',
     marginBottom: spacing.xs,
   },
-  exhibitorBooth: {
+  boothNumber: {
     ...typography.bodySmall,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    alignSelf: 'flex-start',
+    textAlign: 'center',
   },
   loadingContainer: {
-    padding: spacing.xl,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   emptyContainer: {
-    padding: spacing.xl,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: spacing.xl,
   },
   emptyText: {
-    ...typography.body,
+    ...typography.h3,
     textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  emptySubtext: {
-    ...typography.bodySmall,
-    textAlign: 'center',
+    marginTop: spacing.md,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: spacing.lg,
   },
   modalContent: {
-    width: '90%',
-    maxHeight: '80%',
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    ...Platform.select({
-      web: {
-        maxWidth: 600,
-      },
-    }),
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
   },
   modalHeader: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: spacing.lg,
   },
-  modalLogoWhiteBackground: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-    width: 120,
-    height: 120,
-    ...Platform.select({
-      web: {
-        display: 'flex' as any,
-      },
-    }),
-  },
-  modalLogo: {
-    width: '100%',
-    height: '100%',
-    borderRadius: borderRadius.md,
-  },
-  modalName: {
+  modalTitle: {
     ...typography.h2,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  modalBooth: {
-    ...typography.body,
-    textAlign: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  modalSection: {
-    marginBottom: spacing.md,
-  },
-  modalLabel: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  modalText: {
-    ...typography.body,
-    lineHeight: 24,
-  },
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-    gap: spacing.sm,
-  },
-  contactText: {
-    ...typography.body,
     flex: 1,
-  },
-  contactFieldRow: {
-    marginBottom: spacing.sm,
-  },
-  contactFieldLabel: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  contactFieldValue: {
-    ...typography.body,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  actionButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  socialButtonsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  socialButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
-  },
-  socialButtonText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+    marginRight: spacing.md,
   },
   closeButton: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    zIndex: 1,
+    padding: spacing.sm,
   },
-  retryButton: {
+  modalLogo: {
+    width: 120,
+    height: 120,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
+    alignSelf: 'center',
+  },
+  sectionTitle: {
+    ...typography.h3,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  detailRow: {
+    marginBottom: spacing.md,
+  },
+  detailLabel: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  detailValue: {
+    ...typography.body,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.sm,
+  },
+  linkButtonText: {
+    ...typography.body,
+    marginLeft: spacing.sm,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
+    marginBottom: spacing.lg,
   },
-  retryButtonText: {
+  refreshButtonText: {
     ...typography.body,
     fontWeight: '600',
-  },
-  logoPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoPlaceholderText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  noContactInfo: {
-    ...typography.bodySmall,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
+    marginLeft: spacing.sm,
   },
 });
+
+function resolveImageSource(source: string | number | undefined) {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source;
+}
+
+function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
+  return {
+    id: data.id,
+    name: data.name || '',
+    logo: data.logoUrl || data.logo || null,
+    description: data.description || data.bio || null,
+    contactName: data.contactName || null,
+    contactTitle: data.contactTitle || null,
+    contactEmail: data.contactEmail || null,
+    contactPhoneDirect: data.contactPhoneDirect || null,
+    contactPhoneMobile: data.contactPhoneMobile || null,
+    contactFax: data.contactFax || null,
+    companyUrl: data.companyUrl || data.website || null,
+    linkedIn: data.linkedIn || null,
+    facebook: data.facebook || null,
+    x: data.x || null,
+    boothNumber: data.boothNumber || null,
+    demonstrations: data.demonstrations || null,
+  };
+}
 
 export default function ExhibitorsScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const [exhibitors, setExhibitors] = useState<Exhibitor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedExhibitor, setSelectedExhibitor] = useState<Exhibitor | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  console.log('ExhibitorsScreen - Rendered');
 
   useEffect(() => {
     loadExhibitors();
   }, []);
 
-  const loadExhibitors = async () => {
-    try {
+  const loadExhibitors = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
-      setError(null);
-      console.log('ExhibitorsScreen - Fetching exhibitors from /api/exhibitors');
+    }
+    
+    try {
+      console.log('[Exhibitors] Fetching exhibitors from /api/exhibitors');
       const data = await apiGet<ExhibitorBackendResponse[]>('/api/exhibitors');
-      console.log('ExhibitorsScreen - Raw API response count:', data.length);
+      console.log('[Exhibitors] Received exhibitors:', data.length);
       
-      const mappedData = data.map(mapExhibitorResponse);
-      setExhibitors(mappedData);
-      console.log('ExhibitorsScreen - Loaded exhibitors:', mappedData.length);
-    } catch (err) {
-      console.error('ExhibitorsScreen - Error loading exhibitors:', err);
-      setError('Unable to load exhibitors. Please try again later.');
-      setExhibitors([]);
+      const mappedExhibitors = data.map(mapExhibitorResponse);
+      
+      const sortedExhibitors = mappedExhibitors.sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+      
+      setExhibitors(sortedExhibitors);
+      console.log('[Exhibitors] Exhibitors loaded and sorted:', sortedExhibitors.length);
+    } catch (error) {
+      console.error('[Exhibitors] Failed to load exhibitors:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  const filteredExhibitors = useMemo(() => {
+    if (!searchQuery.trim()) return exhibitors;
+    
+    const query = searchQuery.toLowerCase();
+    const filtered = exhibitors.filter(exhibitor =>
+      exhibitor.name.toLowerCase().includes(query) ||
+      exhibitor.boothNumber?.toLowerCase().includes(query) ||
+      exhibitor.description?.toLowerCase().includes(query)
+    );
+    
+    return filtered;
+  }, [exhibitors, searchQuery]);
+
   const openWebsite = (url: string) => {
     if (url) {
-      const formattedUrl = url.startsWith('http') ? url : `https://${url}`;
-      console.log('ExhibitorsScreen - Opening website:', formattedUrl);
-      Linking.openURL(formattedUrl).catch(err => console.error('ExhibitorsScreen - Error opening URL:', err));
+      console.log('[Exhibitors] Opening website:', url);
+      Linking.openURL(url).catch(err => {
+        console.error('[Exhibitors] Failed to open URL:', err);
+      });
     }
   };
 
   const openEmail = (email: string) => {
     if (email) {
-      const mailtoUrl = `mailto:${email}`;
-      console.log('ExhibitorsScreen - Opening email:', mailtoUrl);
-      Linking.openURL(mailtoUrl).catch(err => console.error('ExhibitorsScreen - Error opening email:', err));
+      console.log('[Exhibitors] Opening email:', email);
+      Linking.openURL(`mailto:${email}`).catch(err => {
+        console.error('[Exhibitors] Failed to open email:', err);
+      });
     }
   };
 
   const openPhone = (phone: string) => {
     if (phone) {
-      const telUrl = `tel:${phone}`;
-      console.log('ExhibitorsScreen - Opening phone:', telUrl);
-      Linking.openURL(telUrl).catch(err => console.error('ExhibitorsScreen - Error opening phone:', err));
+      console.log('[Exhibitors] Opening phone:', phone);
+      Linking.openURL(`tel:${phone}`).catch(err => {
+        console.error('[Exhibitors] Failed to open phone:', err);
+      });
     }
   };
 
-  const sortedExhibitors = useMemo(() => {
-    if (!exhibitors || exhibitors.length === 0) return [];
-    console.log('ExhibitorsScreen - Sorting exhibitors alphabetically by name');
-    return [...exhibitors].sort((a, b) => a.name.localeCompare(b.name));
-  }, [exhibitors]);
-
-  const filteredExhibitors = useMemo(() => {
-    if (searchQuery.trim() === '') return sortedExhibitors;
-    
-    const query = searchQuery.toLowerCase();
-    const filtered = sortedExhibitors.filter(exhibitor => {
-      const matchesName = exhibitor.name.toLowerCase().includes(query);
-      const matchesDescription = exhibitor.description.toLowerCase().includes(query);
-      const matchesBooth = exhibitor.boothNumber.toLowerCase().includes(query);
-      const matchesContact = exhibitor.contactName.toLowerCase().includes(query);
-      
-      return matchesName || matchesDescription || matchesBooth || matchesContact;
-    });
-    
-    console.log('ExhibitorsScreen - Filtered exhibitors count:', filtered.length);
-    return filtered;
-  }, [sortedExhibitors, searchQuery]);
-
   const clearSearch = () => {
-    console.log('ExhibitorsScreen - Clearing search');
+    console.log('[Exhibitors] Clearing search');
     setSearchQuery('');
   };
 
-  const logoSource = selectedExhibitor?.logo ? resolveImageSource(selectedExhibitor.logo) : null;
-  const hasLogo = !!logoSource;
-  const firstLetter = selectedExhibitor?.name ? selectedExhibitor.name.charAt(0).toUpperCase() : '';
+  const hasContactInfo = (exhibitor: Exhibitor) => {
+    return !!(
+      exhibitor.contactName ||
+      exhibitor.contactTitle ||
+      exhibitor.contactEmail ||
+      exhibitor.contactPhoneDirect ||
+      exhibitor.contactPhoneMobile
+    );
+  };
 
-  const hasContactInfo = selectedExhibitor?.contactName || selectedExhibitor?.contactTitle || selectedExhibitor?.contactEmail || selectedExhibitor?.contactPhoneDirect || selectedExhibitor?.contactPhoneMobile;
-
-  const contactPhoneDisplay = selectedExhibitor?.contactPhoneDirect || selectedExhibitor?.contactPhoneMobile || '';
+  if (loading) {
+    return (
+      <React.Fragment>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: 'Exhibitors',
+            headerBackTitle: 'Back',
+          }}
+        />
+        <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={appColors.primary} />
+            <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+              Loading exhibitors...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </React.Fragment>
+    );
+  }
 
   return (
     <React.Fragment>
@@ -461,139 +382,130 @@ export default function ExhibitorsScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
-        <View style={styles.searchContainer}>
-          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
-            <IconSymbol
-              ios_icon_name="magnifyingglass"
-              android_material_icon_name="search"
-              size={20}
-              color={appColors.textSecondary}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={[styles.searchInput, { color: appColors.text }]}
-              placeholder="Search exhibitors, booths..."
-              placeholderTextColor={appColors.textSecondary}
-              value={searchQuery}
-              onChangeText={(text) => {
-                console.log('ExhibitorsScreen - Search query changed:', text);
-                setSearchQuery(text);
-              }}
-            />
-            {searchQuery.length > 0 ? (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={20}
-                  color={appColors.textSecondary}
-                />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
-
-        <ScrollView 
+        <ScrollView
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadExhibitors(true)}
+              tintColor={appColors.primary}
+              colors={[appColors.primary]}
+            />
+          }
         >
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={appColors.primary} />
-              <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>
-                Loading exhibitors...
-              </Text>
-            </View>
-          ) : error ? (
-            <View style={styles.emptyContainer}>
+          <View style={styles.searchContainer}>
+            <View style={[styles.searchInputContainer, { backgroundColor: appColors.card }]}>
               <IconSymbol
-                ios_icon_name="exclamationmark.triangle"
-                android_material_icon_name="warning"
-                size={48}
-                color={appColors.error}
+                ios_icon_name="magnifyingglass"
+                android_material_icon_name="search"
+                size={20}
+                color={appColors.textSecondary}
+                style={styles.searchIcon}
               />
-              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                {error}
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  console.log('ExhibitorsScreen - Retry button pressed');
-                  loadExhibitors();
-                }}
-                style={[styles.retryButton, { backgroundColor: appColors.primary }]}
-              >
-                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>
-                  Retry
-                </Text>
-              </TouchableOpacity>
+              <TextInput
+                style={[styles.searchInput, { color: appColors.text }]}
+                placeholder="Search exhibitors..."
+                placeholderTextColor={appColors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                  <IconSymbol
+                    ios_icon_name="xmark.circle.fill"
+                    android_material_icon_name="cancel"
+                    size={20}
+                    color={appColors.textSecondary}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
-          ) : filteredExhibitors.length === 0 ? (
+          </View>
+
+          <TouchableOpacity
+            style={[styles.refreshButton, { backgroundColor: appColors.primary }]}
+            onPress={() => loadExhibitors(true)}
+            disabled={refreshing}
+            activeOpacity={0.7}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <React.Fragment>
+                <IconSymbol
+                  ios_icon_name="arrow.clockwise"
+                  android_material_icon_name="refresh"
+                  size={20}
+                  color="#FFFFFF"
+                />
+                <Text style={[styles.refreshButtonText, { color: '#FFFFFF' }]}>
+                  Refresh Exhibitors
+                </Text>
+              </React.Fragment>
+            )}
+          </TouchableOpacity>
+
+          {filteredExhibitors.length === 0 ? (
             <View style={styles.emptyContainer}>
               <IconSymbol
-                ios_icon_name="building.2"
-                android_material_icon_name="store"
-                size={48}
+                ios_icon_name="magnifyingglass"
+                android_material_icon_name="search"
+                size={64}
                 color={appColors.textSecondary}
               />
-              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                {searchQuery ? 'No exhibitors found' : 'No exhibitors available'}
+              <Text style={[styles.emptyText, { color: appColors.text }]}>
+                No exhibitors found
               </Text>
-              <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
-              </Text>
+              {searchQuery.length > 0 && (
+                <Text style={[styles.boothNumber, { color: appColors.textSecondary, marginTop: spacing.sm }]}>
+                  Try a different search term
+                </Text>
+              )}
             </View>
           ) : (
-            <React.Fragment>
-              {filteredExhibitors.map((exhibitor, index) => {
-                const cardLogoSource = exhibitor.logo ? resolveImageSource(exhibitor.logo) : null;
-                const cardFirstLetter = exhibitor.name.charAt(0).toUpperCase();
-                
-                return (
+            <View style={styles.grid}>
+              {filteredExhibitors.map((exhibitor) => (
+                <View key={exhibitor.id} style={styles.card}>
                   <TouchableOpacity
-                    key={index}
-                    style={[styles.exhibitorCard, { backgroundColor: appColors.card }]}
+                    style={[styles.cardInner, { backgroundColor: appColors.card }]}
                     onPress={() => {
-                      console.log('ExhibitorsScreen - Exhibitor card pressed:', exhibitor.name);
+                      console.log('[Exhibitors] Opening exhibitor details:', exhibitor.name);
                       setSelectedExhibitor(exhibitor);
                     }}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.logoWhiteBackground}>
-                      {cardLogoSource ? (
+                    <View style={[styles.logoContainer, { backgroundColor: appColors.background }]}>
+                      {exhibitor.logo ? (
                         <Image
-                          source={cardLogoSource}
-                          style={styles.exhibitorLogo}
-                          resizeMode="contain"
+                          source={resolveImageSource(exhibitor.logo)}
+                          style={styles.logo}
                         />
                       ) : (
-                        <View style={[styles.exhibitorLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
-                          <Text style={[styles.logoPlaceholderText, { color: appColors.primary }]}>
-                            {cardFirstLetter}
-                          </Text>
-                        </View>
+                        <IconSymbol
+                          ios_icon_name="building.2"
+                          android_material_icon_name="business"
+                          size={40}
+                          color={appColors.textSecondary}
+                          style={styles.logoPlaceholder}
+                        />
                       )}
                     </View>
-                    <View style={styles.exhibitorInfo}>
-                      <Text style={[styles.exhibitorName, { color: appColors.text }]}>
-                        {exhibitor.name}
+                    <Text style={[styles.name, { color: appColors.text }]} numberOfLines={2}>
+                      {exhibitor.name}
+                    </Text>
+                    {exhibitor.boothNumber && (
+                      <Text style={[styles.boothNumber, { color: appColors.textSecondary }]}>
+                        Booth {exhibitor.boothNumber}
                       </Text>
-                      {exhibitor.boothNumber ? (
-                        <Text style={[
-                          styles.exhibitorBooth,
-                          { 
-                            backgroundColor: appColors.primary + '20',
-                            color: appColors.primary
-                          }
-                        ]}>
-                          Booth {exhibitor.boothNumber}
-                        </Text>
-                      ) : null}
-                    </View>
+                    )}
                   </TouchableOpacity>
-                );
-              })}
-            </React.Fragment>
+                </View>
+              ))}
+            </View>
           )}
         </ScrollView>
 
@@ -603,167 +515,166 @@ export default function ExhibitorsScreen() {
           animationType="fade"
           onRequestClose={() => setSelectedExhibitor(null)}
         >
-          <Pressable 
-            style={styles.modalOverlay}
-            onPress={() => setSelectedExhibitor(null)}
-          >
-            <Pressable 
-              style={[styles.modalContent, { backgroundColor: appColors.card }]}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => {
-                  console.log('ExhibitorsScreen - Close modal button pressed');
-                  setSelectedExhibitor(null);
-                }}
-              >
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={32}
-                  color={appColors.textSecondary}
-                />
-              </TouchableOpacity>
-
+          <Pressable style={styles.modalOverlay} onPress={() => setSelectedExhibitor(null)}>
+            <Pressable style={[styles.modalContent, { backgroundColor: appColors.card }]} onPress={(e) => e.stopPropagation()}>
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <View style={styles.modalLogoWhiteBackground}>
-                    {hasLogo && logoSource ? (
-                      <Image
-                        source={logoSource}
-                        style={styles.modalLogo}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <View style={[styles.modalLogo, styles.logoPlaceholder, { backgroundColor: appColors.primary + '20' }]}>
-                        <Text style={[typography.h1, { color: appColors.primary }]}>
-                          {firstLetter}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={[styles.modalName, { color: appColors.text }]}>
+                  <Text style={[styles.modalTitle, { color: appColors.text }]}>
                     {selectedExhibitor?.name}
                   </Text>
-                  {selectedExhibitor?.boothNumber ? (
-                    <Text style={[
-                      styles.modalBooth,
-                      { 
-                        backgroundColor: appColors.primary + '20',
-                        color: appColors.primary
-                      }
-                    ]}>
-                      Booth {selectedExhibitor.boothNumber}
-                    </Text>
-                  ) : null}
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setSelectedExhibitor(null)}
+                  >
+                    <IconSymbol
+                      ios_icon_name="xmark"
+                      android_material_icon_name="close"
+                      size={24}
+                      color={appColors.text}
+                    />
+                  </TouchableOpacity>
                 </View>
 
-                {selectedExhibitor?.description ? (
-                  <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Description
+                {selectedExhibitor?.logo && (
+                  <Image
+                    source={resolveImageSource(selectedExhibitor.logo)}
+                    style={[styles.modalLogo, { backgroundColor: appColors.background }]}
+                  />
+                )}
+
+                {selectedExhibitor?.boothNumber && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>
+                      Booth Number
                     </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedExhibitor.description}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {selectedExhibitor?.demonstrations ? (
-                  <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Demonstrations
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedExhibitor.demonstrations}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {hasContactInfo ? (
-                  <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Contact Information
-                    </Text>
-                    
-                    {selectedExhibitor?.contactName ? (
-                      <View style={styles.contactFieldRow}>
-                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
-                          Contact Name
-                        </Text>
-                        <Text style={[styles.contactFieldValue, { color: appColors.text }]}>
-                          {selectedExhibitor.contactName}
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    {selectedExhibitor?.contactTitle ? (
-                      <View style={styles.contactFieldRow}>
-                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
-                          Contact Title
-                        </Text>
-                        <Text style={[styles.contactFieldValue, { color: appColors.text }]}>
-                          {selectedExhibitor.contactTitle}
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    {selectedExhibitor?.contactEmail ? (
-                      <View style={styles.contactFieldRow}>
-                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
-                          Contact Email
-                        </Text>
-                        <TouchableOpacity onPress={() => openEmail(selectedExhibitor.contactEmail)}>
-                          <Text style={[styles.contactFieldValue, { color: appColors.primary }]}>
-                            {selectedExhibitor.contactEmail}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : null}
-
-                    {contactPhoneDisplay ? (
-                      <View style={styles.contactFieldRow}>
-                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
-                          Contact Phone
-                        </Text>
-                        <TouchableOpacity onPress={() => openPhone(contactPhoneDisplay)}>
-                          <Text style={[styles.contactFieldValue, { color: appColors.primary }]}>
-                            {contactPhoneDisplay}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : null}
-
-                    {selectedExhibitor?.contactFax ? (
-                      <View style={styles.contactFieldRow}>
-                        <Text style={[styles.contactFieldLabel, { color: appColors.textSecondary }]}>
-                          Fax
-                        </Text>
-                        <Text style={[styles.contactFieldValue, { color: appColors.text }]}>
-                          {selectedExhibitor.contactFax}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : (
-                  <View style={styles.modalSection}>
-                    <Text style={[styles.noContactInfo, { color: appColors.textSecondary, backgroundColor: appColors.background }]}>
-                      Contact information is not available for this exhibitor at this time. Please visit their booth or website for more details.
+                    <Text style={[styles.detailValue, { color: appColors.text }]}>
+                      {selectedExhibitor.boothNumber}
                     </Text>
                   </View>
                 )}
 
-                {selectedExhibitor?.companyUrl ? (
+                {selectedExhibitor?.description && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>
+                      Description
+                    </Text>
+                    <Text style={[styles.detailValue, { color: appColors.text }]}>
+                      {selectedExhibitor.description}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedExhibitor && hasContactInfo(selectedExhibitor) && (
+                  <React.Fragment>
+                    <Text style={[styles.sectionTitle, { color: appColors.text }]}>
+                      Contact Information
+                    </Text>
+
+                    {selectedExhibitor.contactName && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>
+                          Contact Name
+                        </Text>
+                        <Text style={[styles.detailValue, { color: appColors.text }]}>
+                          {selectedExhibitor.contactName}
+                        </Text>
+                      </View>
+                    )}
+
+                    {selectedExhibitor.contactTitle && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>
+                          Title
+                        </Text>
+                        <Text style={[styles.detailValue, { color: appColors.text }]}>
+                          {selectedExhibitor.contactTitle}
+                        </Text>
+                      </View>
+                    )}
+
+                    {selectedExhibitor.contactEmail && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>
+                          Email
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
+                          onPress={() => openEmail(selectedExhibitor.contactEmail!)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="envelope"
+                            android_material_icon_name="email"
+                            size={20}
+                            color={appColors.primary}
+                          />
+                          <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
+                            {selectedExhibitor.contactEmail}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {selectedExhibitor.contactPhoneDirect && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>
+                          Direct Phone
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
+                          onPress={() => openPhone(selectedExhibitor.contactPhoneDirect!)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="phone"
+                            android_material_icon_name="phone"
+                            size={20}
+                            color={appColors.primary}
+                          />
+                          <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
+                            {selectedExhibitor.contactPhoneDirect}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {selectedExhibitor.contactPhoneMobile && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>
+                          Mobile Phone
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
+                          onPress={() => openPhone(selectedExhibitor.contactPhoneMobile!)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="phone"
+                            android_material_icon_name="phone"
+                            size={20}
+                            color={appColors.primary}
+                          />
+                          <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
+                            {selectedExhibitor.contactPhoneMobile}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </React.Fragment>
+                )}
+
+                {selectedExhibitor?.demonstrations && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>
+                      Demonstrations
+                    </Text>
+                    <Text style={[styles.detailValue, { color: appColors.text }]}>
+                      {selectedExhibitor.demonstrations}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedExhibitor?.companyUrl && (
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: appColors.primary }]}
-                    onPress={() => {
-                      console.log('ExhibitorsScreen - Visit Website button pressed');
-                      if (selectedExhibitor?.companyUrl) {
-                        openWebsite(selectedExhibitor.companyUrl);
-                      }
-                    }}
-                    activeOpacity={0.7}
+                    style={[styles.linkButton, { backgroundColor: appColors.primary }]}
+                    onPress={() => openWebsite(selectedExhibitor.companyUrl!)}
                   >
                     <IconSymbol
                       ios_icon_name="globe"
@@ -771,67 +682,28 @@ export default function ExhibitorsScreen() {
                       size={20}
                       color="#FFFFFF"
                     />
-                    <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
+                    <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>
                       Visit Website
                     </Text>
                   </TouchableOpacity>
-                ) : null}
+                )}
 
-                {(selectedExhibitor?.linkedIn || selectedExhibitor?.facebook || selectedExhibitor?.x) ? (
-                  <View style={styles.socialButtonsRow}>
-                    {selectedExhibitor?.linkedIn ? (
-                      <TouchableOpacity
-                        style={[styles.socialButton, { backgroundColor: '#0077B5' }]}
-                        onPress={() => openWebsite(selectedExhibitor.linkedIn)}
-                        activeOpacity={0.7}
-                      >
-                        <IconSymbol
-                          ios_icon_name="link"
-                          android_material_icon_name="link"
-                          size={16}
-                          color="#FFFFFF"
-                        />
-                        <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>
-                          LinkedIn
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {selectedExhibitor?.facebook ? (
-                      <TouchableOpacity
-                        style={[styles.socialButton, { backgroundColor: '#1877F2' }]}
-                        onPress={() => openWebsite(selectedExhibitor.facebook)}
-                        activeOpacity={0.7}
-                      >
-                        <IconSymbol
-                          ios_icon_name="link"
-                          android_material_icon_name="link"
-                          size={16}
-                          color="#FFFFFF"
-                        />
-                        <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>
-                          Facebook
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {selectedExhibitor?.x ? (
-                      <TouchableOpacity
-                        style={[styles.socialButton, { backgroundColor: '#000000' }]}
-                        onPress={() => openWebsite(selectedExhibitor.x)}
-                        activeOpacity={0.7}
-                      >
-                        <IconSymbol
-                          ios_icon_name="link"
-                          android_material_icon_name="link"
-                          size={16}
-                          color="#FFFFFF"
-                        />
-                        <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>
-                          X
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ) : null}
+                {selectedExhibitor?.linkedIn && (
+                  <TouchableOpacity
+                    style={[styles.linkButton, { backgroundColor: '#0077B5' }]}
+                    onPress={() => openWebsite(selectedExhibitor.linkedIn!)}
+                  >
+                    <IconSymbol
+                      ios_icon_name="link"
+                      android_material_icon_name="link"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>
+                      LinkedIn
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </Pressable>
           </Pressable>
