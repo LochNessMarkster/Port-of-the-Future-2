@@ -396,11 +396,17 @@ export default function ExhibitorsScreen() {
     }
   };
 
+  const sortedExhibitors = useMemo(() => {
+    if (!exhibitors || exhibitors.length === 0) return [];
+    console.log('ExhibitorsScreen - Sorting exhibitors alphabetically by name');
+    return [...exhibitors].sort((a, b) => a.name.localeCompare(b.name));
+  }, [exhibitors]);
+
   const filteredExhibitors = useMemo(() => {
-    if (searchQuery.trim() === '') return exhibitors;
+    if (searchQuery.trim() === '') return sortedExhibitors;
     
     const query = searchQuery.toLowerCase();
-    return exhibitors.filter(exhibitor => {
+    const filtered = sortedExhibitors.filter(exhibitor => {
       const matchesName = exhibitor.name.toLowerCase().includes(query);
       const matchesDescription = exhibitor.description.toLowerCase().includes(query);
       const matchesBooth = exhibitor.boothNumber.toLowerCase().includes(query);
@@ -408,7 +414,10 @@ export default function ExhibitorsScreen() {
       
       return matchesName || matchesDescription || matchesBooth || matchesContact;
     });
-  }, [exhibitors, searchQuery]);
+    
+    console.log('ExhibitorsScreen - Filtered exhibitors count:', filtered.length);
+    return filtered;
+  }, [sortedExhibitors, searchQuery]);
 
   const clearSearch = () => {
     console.log('ExhibitorsScreen - Clearing search');
