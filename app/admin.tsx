@@ -21,6 +21,9 @@ interface Announcement {
   id: string;
   title: string;
   content: string;
+  image?: string | null;
+  date?: string | null;
+  time?: string | null;
   createdAt: string;
 }
 
@@ -136,6 +139,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
+    maxHeight: '80%',
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
   },
@@ -189,6 +193,8 @@ export default function AdminScreen() {
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementContent, setAnnouncementContent] = useState('');
+  const [announcementDate, setAnnouncementDate] = useState('');
+  const [announcementTime, setAnnouncementTime] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [cacheRefreshing, setCacheRefreshing] = useState(false);
@@ -220,10 +226,14 @@ export default function AdminScreen() {
       setEditingAnnouncement(announcement);
       setAnnouncementTitle(announcement.title);
       setAnnouncementContent(announcement.content);
+      setAnnouncementDate(announcement.date || '');
+      setAnnouncementTime(announcement.time || '');
     } else {
       setEditingAnnouncement(null);
       setAnnouncementTitle('');
       setAnnouncementContent('');
+      setAnnouncementDate('');
+      setAnnouncementTime('');
     }
     setShowAnnouncementModal(true);
   };
@@ -233,6 +243,8 @@ export default function AdminScreen() {
     setEditingAnnouncement(null);
     setAnnouncementTitle('');
     setAnnouncementContent('');
+    setAnnouncementDate('');
+    setAnnouncementTime('');
   };
 
   const saveAnnouncement = async () => {
@@ -240,16 +252,23 @@ export default function AdminScreen() {
 
     setSaving(true);
     try {
+      const payload: any = {
+        title: announcementTitle,
+        content: announcementContent,
+      };
+
+      if (announcementDate.trim()) {
+        payload.date = announcementDate;
+      }
+
+      if (announcementTime.trim()) {
+        payload.time = announcementTime;
+      }
+
       if (editingAnnouncement) {
-        await authenticatedPut(`/api/admin/announcements/${editingAnnouncement.id}`, {
-          title: announcementTitle,
-          content: announcementContent,
-        });
+        await authenticatedPut(`/api/admin/announcements/${editingAnnouncement.id}`, payload);
       } else {
-        await authenticatedPost('/api/admin/announcements', {
-          title: announcementTitle,
-          content: announcementContent,
-        });
+        await authenticatedPost('/api/admin/announcements', payload);
       }
       await loadData();
       closeAnnouncementModal();
@@ -383,46 +402,65 @@ export default function AdminScreen() {
               No announcements yet
             </Text>
           ) : (
-            announcements.map((announcement) => (
-              <View key={announcement.id} style={[styles.card, { backgroundColor: appColors.card }]}>
-                <View style={styles.cardHeader}>
-                  <Text style={[styles.cardTitle, { color: appColors.text }]}>
-                    {announcement.title}
-                  </Text>
-                  <View style={styles.cardActions}>
-                    <TouchableOpacity onPress={() => openAnnouncementModal(announcement)}>
-                      <IconSymbol
-                        ios_icon_name="pencil"
-                        android_material_icon_name="edit"
-                        size={20}
-                        color={appColors.primary}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => deleteAnnouncement(announcement.id)}
-                      disabled={deletingId === announcement.id}
-                    >
-                      {deletingId === announcement.id ? (
-                        <ActivityIndicator size="small" color={appColors.error} />
-                      ) : (
+            announcements.map((announcement) => {
+              const hasDate = announcement.date && announcement.date.trim() !== '';
+              const hasTime = announcement.time && announcement.time.trim() !== '';
+              
+              return (
+                <View key={announcement.id} style={[styles.card, { backgroundColor: appColors.card }]}>
+                  <View style={styles.cardHeader}>
+                    <Text style={[styles.cardTitle, { color: appColors.text }]}>
+                      {announcement.title}
+                    </Text>
+                    <View style={styles.cardActions}>
+                      <TouchableOpacity onPress={() => openAnnouncementModal(announcement)}>
                         <IconSymbol
-                          ios_icon_name="trash"
-                          android_material_icon_name="delete"
+                          ios_icon_name="pencil"
+                          android_material_icon_name="edit"
                           size={20}
-                          color={appColors.error}
+                          color={appColors.primary}
                         />
-                      )}
-                    </TouchableOpacity>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        onPress={() => deleteAnnouncement(announcement.id)}
+                        disabled={deletingId === announcement.id}
+                      >
+                        {deletingId === announcement.id ? (
+                          <ActivityIndicator size="small" color={appColors.error} />
+                        ) : (
+                          <IconSymbol
+                            ios_icon_name="trash"
+                            android_material_icon_name="delete"
+                            size={20}
+                            color={appColors.error}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
+                  <Text style={[styles.cardContent, { color: appColors.textSecondary }]} numberOfLines={3}>
+                    {announcement.content}
+                  </Text>
+                  {(hasDate || hasTime) && (
+                    <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs }}>
+                      {hasDate && (
+                        <Text style={[styles.cardDate, { color: appColors.textSecondary }]}>
+                          📅 {announcement.date}
+                        </Text>
+                      )}
+                      {hasTime && (
+                        <Text style={[styles.cardDate, { color: appColors.textSecondary }]}>
+                          🕐 {announcement.time}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                  <Text style={[styles.cardDate, { color: appColors.textSecondary, marginTop: spacing.xs }]}>
+                    Created: {formatDate(announcement.createdAt)}
+                  </Text>
                 </View>
-                <Text style={[styles.cardContent, { color: appColors.textSecondary }]} numberOfLines={3}>
-                  {announcement.content}
-                </Text>
-                <Text style={[styles.cardDate, { color: appColors.textSecondary }]}>
-                  {formatDate(announcement.createdAt)}
-                </Text>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
 
@@ -480,64 +518,92 @@ export default function AdminScreen() {
             style={[styles.modalContent, { backgroundColor: appColors.card }]}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              {editingAnnouncement ? 'Edit Announcement' : 'New Announcement'}
-            </Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={[styles.modalTitle, { color: appColors.text }]}>
+                {editingAnnouncement ? 'Edit Announcement' : 'New Announcement'}
+              </Text>
 
-            <Text style={[styles.label, { color: appColors.text }]}>Title *</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: appColors.background, 
-                borderColor: appColors.border,
-                color: appColors.text 
-              }]}
-              placeholder="Announcement title"
-              placeholderTextColor={appColors.textSecondary}
-              value={announcementTitle}
-              onChangeText={setAnnouncementTitle}
-            />
+              <Text style={[styles.label, { color: appColors.text }]}>Title *</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: appColors.background, 
+                  borderColor: appColors.border,
+                  color: appColors.text 
+                }]}
+                placeholder="Announcement title"
+                placeholderTextColor={appColors.textSecondary}
+                value={announcementTitle}
+                onChangeText={setAnnouncementTitle}
+              />
 
-            <Text style={[styles.label, { color: appColors.text }]}>Content *</Text>
-            <TextInput
-              style={[styles.input, styles.textArea, { 
-                backgroundColor: appColors.background, 
-                borderColor: appColors.border,
-                color: appColors.text 
-              }]}
-              placeholder="Announcement content"
-              placeholderTextColor={appColors.textSecondary}
-              value={announcementContent}
-              onChangeText={setAnnouncementContent}
-              multiline
-              numberOfLines={4}
-            />
+              <Text style={[styles.label, { color: appColors.text }]}>Content *</Text>
+              <TextInput
+                style={[styles.input, styles.textArea, { 
+                  backgroundColor: appColors.background, 
+                  borderColor: appColors.border,
+                  color: appColors.text 
+                }]}
+                placeholder="Announcement content"
+                placeholderTextColor={appColors.textSecondary}
+                value={announcementContent}
+                onChangeText={setAnnouncementContent}
+                multiline
+                numberOfLines={4}
+              />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: appColors.border }]}
-                onPress={closeAnnouncementModal}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.modalButtonText, { color: appColors.text }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
+              <Text style={[styles.label, { color: appColors.text }]}>Date (optional)</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: appColors.background, 
+                  borderColor: appColors.border,
+                  color: appColors.text 
+                }]}
+                placeholder="e.g., March 24, 2026"
+                placeholderTextColor={appColors.textSecondary}
+                value={announcementDate}
+                onChangeText={setAnnouncementDate}
+              />
 
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: appColors.primary }]}
-                onPress={saveAnnouncement}
-                disabled={saving || !announcementTitle.trim() || !announcementContent.trim()}
-                activeOpacity={0.7}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
-                    {editingAnnouncement ? 'Update' : 'Create'}
+              <Text style={[styles.label, { color: appColors.text }]}>Time (optional)</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: appColors.background, 
+                  borderColor: appColors.border,
+                  color: appColors.text 
+                }]}
+                placeholder="e.g., 9:00 AM - 5:00 PM"
+                placeholderTextColor={appColors.textSecondary}
+                value={announcementTime}
+                onChangeText={setAnnouncementTime}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: appColors.border }]}
+                  onPress={closeAnnouncementModal}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.modalButtonText, { color: appColors.text }]}>
+                    Cancel
                   </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: appColors.primary }]}
+                  onPress={saveAnnouncement}
+                  disabled={saving || !announcementTitle.trim() || !announcementContent.trim()}
+                  activeOpacity={0.7}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
+                      {editingAnnouncement ? 'Update' : 'Create'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>

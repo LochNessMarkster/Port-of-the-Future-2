@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
   useColorScheme,
   Dimensions,
-  ImageBackground
+  ImageBackground,
+  ImageSourcePropType
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +25,17 @@ interface Announcement {
   id: string;
   title: string;
   content: string;
+  image?: string | null;
+  date?: string | null;
+  time?: string | null;
   createdAt: string;
+}
+
+// Helper to resolve image sources (handles both local require() and remote URLs)
+function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source as ImageSourcePropType;
 }
 
 const { width, height } = Dimensions.get('window');
@@ -144,6 +155,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
+  announcementImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.sm,
+    resizeMode: 'cover',
+  },
   announcementTitle: {
     ...typography.h3,
     marginBottom: spacing.xs,
@@ -152,7 +170,18 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     marginBottom: spacing.xs,
   },
-  announcementDate: {
+  announcementMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  announcementMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  announcementMetaText: {
     ...typography.caption,
   },
   loadingContainer: {
@@ -408,21 +437,56 @@ export default function HomeScreen() {
             ) : (
               <React.Fragment>
                 {announcements.map((announcement, index) => {
-                  const formattedDate = formatDate(announcement.createdAt);
+                  const formattedCreatedAt = formatDate(announcement.createdAt);
+                  const hasImage = announcement.image && announcement.image.trim() !== '';
+                  const hasDate = announcement.date && announcement.date.trim() !== '';
+                  const hasTime = announcement.time && announcement.time.trim() !== '';
+                  
                   return (
                     <View 
                       key={index}
                       style={[styles.announcementCard, { backgroundColor: appColors.card }]}
                     >
+                      {hasImage && (
+                        <Image
+                          source={resolveImageSource(announcement.image)}
+                          style={styles.announcementImage}
+                        />
+                      )}
                       <Text style={[styles.announcementTitle, { color: appColors.text }]}>
                         {announcement.title}
                       </Text>
                       <Text style={[styles.announcementContent, { color: appColors.textSecondary }]}>
                         {announcement.content}
                       </Text>
-                      <Text style={[styles.announcementDate, { color: appColors.textSecondary }]}>
-                        {formattedDate}
-                      </Text>
+                      <View style={styles.announcementMetaRow}>
+                        {hasDate && (
+                          <View style={styles.announcementMeta}>
+                            <IconSymbol
+                              ios_icon_name="calendar"
+                              android_material_icon_name="event"
+                              size={14}
+                              color={appColors.textSecondary}
+                            />
+                            <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
+                              {announcement.date}
+                            </Text>
+                          </View>
+                        )}
+                        {hasTime && (
+                          <View style={styles.announcementMeta}>
+                            <IconSymbol
+                              ios_icon_name="clock"
+                              android_material_icon_name="access-time"
+                              size={14}
+                              color={appColors.textSecondary}
+                            />
+                            <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
+                              {announcement.time}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   );
                 })}
