@@ -22,14 +22,14 @@ import { Stack } from 'expo-router';
 
 interface Speaker {
   id: string;
+  firstName: string;
+  lastName: string;
   name: string;
   title: string;
   photo: string;
   topic: string;
   synopsis: string;
   bio: string;
-  // Note: The backend filters speakers by the "Published" checkbox in Airtable
-  // Only speakers with Published=true are returned by the API
 }
 
 const styles = StyleSheet.create({
@@ -201,10 +201,14 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
-      console.log('SpeakersScreen - Fetching speakers from /api/speakers (only Published=true speakers)');
+      console.log('SpeakersScreen - Fetching speakers from /api/speakers (sorted by last name)');
       const data = await apiGet<Speaker[]>('/api/speakers');
       setSpeakers(data);
-      console.log('SpeakersScreen - Loaded published speakers:', data.length);
+      console.log('SpeakersScreen - Loaded speakers:', data.length);
+      if (data.length > 0) {
+        console.log('SpeakersScreen - First speaker:', data[0].firstName, data[0].lastName);
+        console.log('SpeakersScreen - Last speaker:', data[data.length - 1].firstName, data[data.length - 1].lastName);
+      }
     } catch (error) {
       console.error('SpeakersScreen - Error loading speakers:', error);
       setSpeakers([]);
@@ -213,42 +217,26 @@ export default function SpeakersScreen() {
     }
   };
 
-  // Helper function to extract last name from full name
-  const getLastName = (fullName: string): string => {
-    const nameParts = fullName.trim().split(' ');
-    return nameParts[nameParts.length - 1] || '';
-  };
-
-  // Sort speakers alphabetically by last name and filter by search query
-  const sortedFilteredSpeakers = useMemo(() => {
-    let filtered = speakers;
-    
-    // Apply search filter
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      filtered = speakers.filter(speaker => {
-        const matchesName = speaker.name.toLowerCase().includes(query);
-        const matchesTitle = speaker.title.toLowerCase().includes(query);
-        const matchesTopic = speaker.topic.toLowerCase().includes(query);
-        const matchesBio = speaker.bio.toLowerCase().includes(query);
-        
-        return matchesName || matchesTitle || matchesTopic || matchesBio;
-      });
+  // Filter speakers by search query (backend already sorts by last name)
+  const filteredSpeakers = useMemo(() => {
+    if (searchQuery.trim() === '') {
+      return speakers;
     }
     
-    // Sort alphabetically by last name
-    const sorted = [...filtered].sort((a, b) => {
-      const lastNameA = getLastName(a.name).toLowerCase();
-      const lastNameB = getLastName(b.name).toLowerCase();
-      return lastNameA.localeCompare(lastNameB);
+    const query = searchQuery.toLowerCase();
+    const filtered = speakers.filter(speaker => {
+      const matchesFirstName = speaker.firstName.toLowerCase().includes(query);
+      const matchesLastName = speaker.lastName.toLowerCase().includes(query);
+      const matchesFullName = speaker.name.toLowerCase().includes(query);
+      const matchesTitle = speaker.title.toLowerCase().includes(query);
+      const matchesTopic = speaker.topic.toLowerCase().includes(query);
+      const matchesBio = speaker.bio.toLowerCase().includes(query);
+      
+      return matchesFirstName || matchesLastName || matchesFullName || matchesTitle || matchesTopic || matchesBio;
     });
     
-    console.log('SpeakersScreen - Sorted speakers alphabetically by last name:', sorted.length);
-    if (sorted.length > 0) {
-      console.log('SpeakersScreen - First speaker:', sorted[0].name, '(last name:', getLastName(sorted[0].name) + ')');
-      console.log('SpeakersScreen - Last speaker:', sorted[sorted.length - 1].name, '(last name:', getLastName(sorted[sorted.length - 1].name) + ')');
-    }
-    return sorted;
+    console.log('SpeakersScreen - Filtered speakers:', filtered.length);
+    return filtered;
   }, [speakers, searchQuery]);
 
   const clearSearch = () => {
@@ -308,7 +296,7 @@ export default function SpeakersScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
             </View>
-          ) : sortedFilteredSpeakers.length === 0 ? (
+          ) : filteredSpeakers.length === 0 ? (
             <View style={styles.emptyContainer}>
               <IconSymbol
                 ios_icon_name="person"
@@ -325,12 +313,12 @@ export default function SpeakersScreen() {
             </View>
           ) : (
             <View style={styles.speakerGrid}>
-              {sortedFilteredSpeakers.map((speaker, index) => (
+              {filteredSpeakers.map((speaker, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[styles.speakerCard, { backgroundColor: appColors.card }]}
                   onPress={() => {
-                    console.log('SpeakersScreen - Speaker card pressed:', speaker.name);
+                    console.log('SpeakersScreen - Speaker card pressed:', speaker.firstName, speaker.lastName);
                     setSelectedSpeaker(speaker);
                   }}
                   activeOpacity={0.7}
