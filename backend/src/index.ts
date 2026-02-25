@@ -32,6 +32,9 @@ export type App = typeof app;
 // Enable authentication with email/password support
 app.withAuth();
 
+// Enable storage for file uploads
+app.withStorage();
+
 // Initialize Airtable cache
 airtableCache.setLogger(app.logger);
 await airtableCache.initialize();

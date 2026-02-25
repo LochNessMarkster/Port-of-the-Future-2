@@ -85,6 +85,29 @@ export const speakerPresentations = pgTable(
 );
 
 /**
+ * Floor Plans - Track uploaded floor plan images
+ */
+export const floorPlans = pgTable(
+  'floor_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    imageUrl: text('image_url').notNull(),
+    description: text('description'),
+    uploadedBy: text('uploaded_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index('floor_plans_created_at_idx').on(table.createdAt),
+  ]
+);
+
+/**
  * Relations
  */
 export const userSchedulesRelations = relations(userSchedules, ({ one }) => ({
@@ -107,4 +130,11 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 
 export const speakerPresentationsRelations = relations(speakerPresentations, ({ one }) => ({
   // Note: speakerId references Airtable speaker table, not our user table
+}));
+
+export const floorPlansRelations = relations(floorPlans, ({ one }) => ({
+  uploader: one(user, {
+    fields: [floorPlans.uploadedBy],
+    references: [user.id],
+  }),
 }));
