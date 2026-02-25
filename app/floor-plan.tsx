@@ -9,7 +9,8 @@ import {
   Image,
   Platform,
   Dimensions,
-  ActivityIndicator
+  ActivityIndicator,
+  ImageSourcePropType
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
@@ -17,7 +18,7 @@ import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles
 import { IconSymbol } from '@/components/IconSymbol';
 import ImageZoom from 'react-native-image-pan-zoom';
 
-const { width, height } = Dimensions.get('window');
+const screenWidth = Dimensions.get('window').width;
 
 const styles = StyleSheet.create({
   container: {
@@ -116,7 +117,7 @@ export default function FloorPlanScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   
-  const [imageWidth, setImageWidth] = useState(width - (spacing.lg * 4));
+  const imageWidth = screenWidth - (spacing.lg * 4);
   const [imageHeight, setImageHeight] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -125,24 +126,37 @@ export default function FloorPlanScreen() {
   useEffect(() => {
     console.log('FloorPlanScreen - Loading floor plan with zoom capability');
     
-    // Get the image dimensions
-    Image.getSize(
-      Image.resolveAssetSource(floorPlanImage).uri,
-      (imgWidth, imgHeight) => {
-        const aspectRatio = imgWidth / imgHeight;
-        const calculatedHeight = imageWidth / aspectRatio;
-        setImageHeight(calculatedHeight);
-        setLoading(false);
-        console.log('FloorPlanScreen - Image dimensions calculated:', { imgWidth, imgHeight, calculatedHeight });
-      },
-      (error) => {
-        console.error('FloorPlanScreen - Error loading image dimensions:', error);
-        // Fallback to default aspect ratio
-        setImageHeight(imageWidth * 0.7);
-        setLoading(false);
-      }
-    );
+    // For local assets, we need to resolve the asset source first
+    const resolvedSource = Image.resolveAssetSource(floorPlanImage as ImageSourcePropType);
+    
+    if (resolvedSource && resolvedSource.uri) {
+      // Get the image dimensions using the resolved URI
+      Image.getSize(
+        resolvedSource.uri,
+        (imgWidth, imgHeight) => {
+          const aspectRatio = imgWidth / imgHeight;
+          const calculatedHeight = imageWidth / aspectRatio;
+          setImageHeight(calculatedHeight);
+          setLoading(false);
+          console.log('FloorPlanScreen - Image dimensions calculated:', { imgWidth, imgHeight, calculatedHeight });
+        },
+        (error) => {
+          console.error('FloorPlanScreen - Error loading image dimensions:', error);
+          // Fallback to default aspect ratio
+          setImageHeight(imageWidth * 0.7);
+          setLoading(false);
+        }
+      );
+    } else {
+      console.error('FloorPlanScreen - Could not resolve asset source');
+      // Fallback to default aspect ratio
+      setImageHeight(imageWidth * 0.7);
+      setLoading(false);
+    }
   }, [imageWidth]);
+
+  const hotelName = 'Hilton University Houston';
+  const ballroomName = 'Waldorf Astoria Ballroom';
 
   return (
     <React.Fragment>
@@ -207,7 +221,10 @@ export default function FloorPlanScreen() {
               </View>
             )}
             <Text style={[styles.floorPlanDescription, { color: appColors.textSecondary }]}>
-              Second Floor - Waldorf Astoria Hotel, Houston
+              {ballroomName}
+            </Text>
+            <Text style={[styles.floorPlanDescription, { color: appColors.textSecondary, marginTop: spacing.xs }]}>
+              {hotelName}
             </Text>
             <Text style={[styles.zoomHint, { color: appColors.textSecondary }]}>
               Pinch to zoom • Double tap to enlarge • Drag to pan
@@ -231,7 +248,7 @@ export default function FloorPlanScreen() {
                 Port of the Future Conference 2026
               </Text>
               <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
-                Waldorf Astoria Hotel
+                {hotelName}
               </Text>
               <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
                 Houston, Texas
@@ -255,7 +272,7 @@ export default function FloorPlanScreen() {
                 Key Locations
               </Text>
               <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
-                • Waldorf Astoria Exhibitors - Main exhibition area
+                • {ballroomName} - Main exhibition area
               </Text>
               <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
                 • Plenary Sessions - Tracks 3, 4, and 5
@@ -288,7 +305,7 @@ export default function FloorPlanScreen() {
                 Navigation Tips
               </Text>
               <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
-                Use this floor plan to locate session rooms, exhibitor booths, and amenities throughout the venue. All main sessions are held on the second floor of the Waldorf Astoria Hotel.
+                Use this floor plan to locate session rooms, exhibitor booths, and amenities throughout the venue. All main sessions are held on the second floor of the {hotelName}.
               </Text>
             </View>
           </View>
