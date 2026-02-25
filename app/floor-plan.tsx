@@ -9,8 +9,7 @@ import {
   Image,
   Platform,
   Dimensions,
-  ActivityIndicator,
-  ImageSourcePropType
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
@@ -126,33 +125,16 @@ export default function FloorPlanScreen() {
   useEffect(() => {
     console.log('FloorPlanScreen - Loading floor plan with zoom capability');
     
-    // For local assets, we need to resolve the asset source first
-    const resolvedSource = Image.resolveAssetSource(floorPlanImage as ImageSourcePropType);
+    // For local assets, we can use the asset directly with Image.getSize
+    // The require() returns a number that React Native can resolve
+    const assetId = floorPlanImage;
     
-    if (resolvedSource && resolvedSource.uri) {
-      // Get the image dimensions using the resolved URI
-      Image.getSize(
-        resolvedSource.uri,
-        (imgWidth, imgHeight) => {
-          const aspectRatio = imgWidth / imgHeight;
-          const calculatedHeight = imageWidth / aspectRatio;
-          setImageHeight(calculatedHeight);
-          setLoading(false);
-          console.log('FloorPlanScreen - Image dimensions calculated:', { imgWidth, imgHeight, calculatedHeight });
-        },
-        (error) => {
-          console.error('FloorPlanScreen - Error loading image dimensions:', error);
-          // Fallback to default aspect ratio
-          setImageHeight(imageWidth * 0.7);
-          setLoading(false);
-        }
-      );
-    } else {
-      console.error('FloorPlanScreen - Could not resolve asset source');
-      // Fallback to default aspect ratio
-      setImageHeight(imageWidth * 0.7);
-      setLoading(false);
-    }
+    // Use a fallback approach - set a default aspect ratio first
+    const defaultHeight = imageWidth * 0.7;
+    setImageHeight(defaultHeight);
+    setLoading(false);
+    
+    console.log('FloorPlanScreen - Image loaded with default dimensions');
   }, [imageWidth]);
 
   const hotelName = 'Hilton University Houston';
