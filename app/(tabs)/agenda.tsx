@@ -79,6 +79,17 @@ function mapSessionResponse(data: SessionBackendResponse): Session {
   };
 }
 
+// Track/Type filters by day
+const TRACK_FILTERS: { [key: string]: string[] } = {
+  '23': ['Pre-Conference', 'Special Event', 'Track 9 - Advances in Dredging Technology and Methods'],
+  '24': ['Break', 'Keynote & Plenary', 'Special Event', 'Track 1 - Ensuring America\'s Maritime Security', 'Track 2 - Developing Ports', 'Track 3 - Intermodal Connectivity'],
+  '25': ['Break', 'Special Event', 'Track 4 - Enhancing Ports\' Operational Efficiencies'],
+  '26': ['Track 5 - Port Infrastructure 4.0'],
+  '27': ['Track 6 - Decarbonization and Alternative Fuels'],
+  '28': ['Track 7 - Port Energy and Sustainability'],
+  '29': ['Track 8 - Port Security, Cybersecurity, & Emergency Management'],
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -124,6 +135,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  filterContainer: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  filterButtonText: {
+    ...typography.body,
+    flex: 1,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterModalContent: {
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    maxHeight: '70%',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+  },
+  filterModalTitle: {
+    ...typography.h2,
+  },
+  filterOption: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+  },
+  filterOptionText: {
+    ...typography.body,
+  },
+  filterClearButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  filterClearButtonText: {
     ...typography.body,
     fontWeight: '600',
   },
@@ -327,6 +398,8 @@ export default function AgendaScreen() {
   const [conflictModalVisible, setConflictModalVisible] = useState(false);
   const [conflictingSessions, setConflictingSessions] = useState<Session[]>([]);
   const [pendingBookmarkSession, setPendingBookmarkSession] = useState<Session | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   console.log('AgendaScreen - Rendered');
 
@@ -334,6 +407,12 @@ export default function AgendaScreen() {
     loadSessions();
     loadBookmarkedSessions();
   }, []);
+
+  // Reset filter when day changes
+  useEffect(() => {
+    console.log('AgendaScreen - Day changed, resetting filter');
+    setSelectedFilter(null);
+  }, [selectedDay]);
 
   const loadSessions = async () => {
     try {
@@ -564,7 +643,14 @@ export default function AgendaScreen() {
     setConflictingSessions([]);
   };
 
-  // Sort and filter sessions by selected day, time, and search query
+  // Get available filters for the selected day
+  const availableFilters = useMemo(() => {
+    const filters = TRACK_FILTERS[selectedDay] || [];
+    console.log('AgendaScreen - Available filters for day', selectedDay, ':', filters);
+    return filters;
+  }, [selectedDay]);
+
+  // Sort and filter sessions by selected day, time, search query, and filter
   const sortedFilteredSessions = useMemo(() => {
     const filtered = sessions.filter(session => {
       // Determine which day this session belongs to by checking the date field
@@ -579,6 +665,11 @@ export default function AgendaScreen() {
       const matchesDay = sessionDate === selectedDay;
       
       if (!matchesDay) return false;
+      
+      // Apply filter
+      if (selectedFilter && session.type !== selectedFilter) {
+        return false;
+      }
       
       // Apply search filter
       if (searchQuery.trim() === '') return true;
@@ -602,7 +693,7 @@ export default function AgendaScreen() {
     
     console.log('AgendaScreen - Sorted sessions for day', selectedDay, ':', sorted.length);
     return sorted;
-  }, [sessions, selectedDay, searchQuery]);
+  }, [sessions, selectedDay, searchQuery, selectedFilter]);
 
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -621,6 +712,30 @@ export default function AgendaScreen() {
     console.log('AgendaScreen - Clearing search');
     setSearchQuery('');
   };
+
+  const openFilterModal = () => {
+    console.log('AgendaScreen - Opening filter modal');
+    setFilterModalVisible(true);
+  };
+
+  const closeFilterModal = () => {
+    console.log('AgendaScreen - Closing filter modal');
+    setFilterModalVisible(false);
+  };
+
+  const selectFilter = (filter: string) => {
+    console.log('AgendaScreen - Selected filter:', filter);
+    setSelectedFilter(filter);
+    closeFilterModal();
+  };
+
+  const clearFilter = () => {
+    console.log('AgendaScreen - Clearing filter');
+    setSelectedFilter(null);
+    closeFilterModal();
+  };
+
+  const filterButtonText = selectedFilter || 'Filter by Type/Track';
 
   return (
     <React.Fragment>
@@ -725,6 +840,36 @@ export default function AgendaScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Filter Dropdown */}
+        {availableFilters.length > 0 ? (
+          <View style={styles.filterContainer}>
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                { 
+                  backgroundColor: appColors.card,
+                  borderColor: selectedFilter ? appColors.primary : appColors.border
+                }
+              ]}
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.filterButtonText,
+                { color: selectedFilter ? appColors.primary : appColors.text }
+              ]}>
+                {filterButtonText}
+              </Text>
+              <IconSymbol
+                ios_icon_name="chevron.down"
+                android_material_icon_name="arrow-drop-down"
+                size={24}
+                color={selectedFilter ? appColors.primary : appColors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -772,10 +917,10 @@ export default function AgendaScreen() {
                 color={appColors.textSecondary}
               />
               <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                {searchQuery ? 'No sessions found' : 'No sessions scheduled'}
+                {searchQuery || selectedFilter ? 'No sessions found' : 'No sessions scheduled'}
               </Text>
               <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                {searchQuery ? 'Try a different search term' : `No sessions found for March ${selectedDay}`}
+                {searchQuery || selectedFilter ? 'Try a different search or filter' : `No sessions found for March ${selectedDay}`}
               </Text>
             </View>
           ) : (
@@ -885,6 +1030,74 @@ export default function AgendaScreen() {
             })
           )}
         </ScrollView>
+
+        {/* Filter Modal */}
+        <Modal
+          visible={filterModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={closeFilterModal}
+        >
+          <Pressable 
+            style={styles.filterModalOverlay}
+            onPress={closeFilterModal}
+          >
+            <Pressable 
+              style={[styles.filterModalContent, { backgroundColor: appColors.card }]}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={[styles.filterModalHeader, { borderBottomColor: appColors.border }]}>
+                <Text style={[styles.filterModalTitle, { color: appColors.text }]}>
+                  Filter by Type/Track
+                </Text>
+                <TouchableOpacity onPress={closeFilterModal}>
+                  <IconSymbol
+                    ios_icon_name="xmark"
+                    android_material_icon_name="close"
+                    size={24}
+                    color={appColors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {availableFilters.map((filter, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.filterOption,
+                      { borderBottomColor: appColors.border }
+                    ]}
+                    onPress={() => selectFilter(filter)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { 
+                        color: selectedFilter === filter ? appColors.primary : appColors.text,
+                        fontWeight: selectedFilter === filter ? '600' : '400'
+                      }
+                    ]}>
+                      {filter}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {selectedFilter ? (
+                <TouchableOpacity
+                  style={[styles.filterClearButton, { backgroundColor: appColors.error }]}
+                  onPress={clearFilter}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterClearButtonText, { color: '#FFFFFF' }]}>
+                    Clear Filter
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Session Detail Modal */}
         <Modal
