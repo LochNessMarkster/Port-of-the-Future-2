@@ -86,6 +86,7 @@ export const TABLES = {
   PARTNERS: 'tblxn3Yie523MallN',
   ATTENDEES: 'tblqe1kPM95Cp4Srn',
   ANNOUNCEMENTS: 'tblGJQ3v4RMIXCP4W',
+  ACTIVITIES: 'tblLpuL7Xff2rpdbB',
 };
 
 /**
@@ -101,6 +102,7 @@ function getTableName(tableId: string): string {
     [TABLES.PARTNERS]: 'Partners',
     [TABLES.ATTENDEES]: 'Attendees',
     [TABLES.ANNOUNCEMENTS]: 'Announcements',
+    [TABLES.ACTIVITIES]: 'Activities',
   };
   return tableMap[tableId] || 'Unknown';
 }
@@ -558,4 +560,14 @@ export interface AttendeeFields {
   Phone?: string;
   'Registration Level'?: string;
   'Opt In Networking'?: string;
+}
+
+export interface ActivityFields {
+  Name?: string;
+  Description?: string;
+  Date?: string;
+  Time?: string;
+  Location?: string;
+  URL?: string;
+  Image?: Array<{ url: string; id: string; size: number; type: string }>;
 }
