@@ -27,6 +27,8 @@ export function registerSpeakersRoutes(app: App) {
               type: 'object',
               properties: {
                 id: { type: 'string' },
+                firstName: { type: 'string' },
+                lastName: { type: 'string' },
                 name: { type: 'string' },
                 title: { type: 'string' },
                 photo: { type: 'string' },
@@ -55,23 +57,32 @@ export function registerSpeakersRoutes(app: App) {
         const publishedRecords = data.records.filter((record: AirtableRecord<SpeakerFields>) => {
           const isPublished = record.fields.Published === true;
           if (!isPublished) {
+            const displayName = record.fields['First Name'] || record.fields['Speaker Name'] || 'Unknown';
             app.logger.debug(
-              { speakerId: record.id, speakerName: record.fields['Speaker Name'] },
+              { speakerId: record.id, speakerName: displayName },
               'Speaker excluded (Published = false)'
             );
           }
           return isPublished;
         });
 
-        const speakers = publishedRecords.map((record: AirtableRecord<SpeakerFields>) => ({
-          id: record.id,
-          name: record.fields['Speaker Name'] || '',
-          title: record.fields['Speaker Title'] || '',
-          photo: record.fields.Photo?.[0]?.url || '',
-          topic: record.fields['Speaking Topic'] || '',
-          synopsis: record.fields['Synopsis of Speaking topic'] || '',
-          bio: record.fields.Bio || '',
-        }));
+        const speakers = publishedRecords.map((record: AirtableRecord<SpeakerFields>) => {
+          const firstName = record.fields['First Name'] || '';
+          const lastName = record.fields['Last Name'] || '';
+          const fullName = `${firstName} ${lastName}`.trim();
+
+          return {
+            id: record.id,
+            firstName,
+            lastName,
+            name: fullName,
+            title: record.fields['Speaker Title'] || '',
+            photo: record.fields.Photo?.[0]?.url || '',
+            topic: record.fields['Speaking Topic'] || '',
+            synopsis: record.fields['Synopsis of Speaking topic'] || '',
+            bio: record.fields.Bio || '',
+          };
+        }).sort((a, b) => a.lastName.toLowerCase().localeCompare(b.lastName.toLowerCase()));
 
         app.logger.info(
           { totalFetched: data.records.length, publishedCount: speakers.length },
@@ -106,6 +117,8 @@ export function registerSpeakersRoutes(app: App) {
             type: 'object',
             properties: {
               id: { type: 'string' },
+              firstName: { type: 'string' },
+              lastName: { type: 'string' },
               name: { type: 'string' },
               title: { type: 'string' },
               photo: { type: 'string' },
@@ -137,8 +150,9 @@ export function registerSpeakersRoutes(app: App) {
         // Check if speaker is published
         const isPublished = record.fields.Published === true;
         if (!isPublished) {
+          const displayName = record.fields['First Name'] || record.fields['Speaker Name'] || 'Unknown';
           app.logger.warn(
-            { speakerId: id, speakerName: record.fields['Speaker Name'] },
+            { speakerId: id, speakerName: displayName },
             'Speaker not published (Published = false)'
           );
           return reply.status(404).send({
@@ -146,9 +160,15 @@ export function registerSpeakersRoutes(app: App) {
           });
         }
 
+        const firstName = record.fields['First Name'] || '';
+        const lastName = record.fields['Last Name'] || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+
         const result = {
           id: record.id,
-          name: record.fields['Speaker Name'] || '',
+          firstName,
+          lastName,
+          name: fullName,
           title: record.fields['Speaker Title'] || '',
           photo: record.fields.Photo?.[0]?.url || '',
           topic: record.fields['Speaking Topic'] || '',

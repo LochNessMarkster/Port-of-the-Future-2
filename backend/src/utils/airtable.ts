@@ -491,7 +491,9 @@ export interface SessionFields {
 }
 
 export interface SpeakerFields {
-  'Speaker Name': string;
+  'Speaker Name'?: string;
+  'First Name'?: string;
+  'Last Name'?: string;
   'Speaker Title': string;
   Photo: Array<{ url: string; id: string; size: number; type: string }>;
   'Speaking Topic': string;
