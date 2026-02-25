@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,14 +8,16 @@ import {
   ScrollView,
   Image,
   Platform,
-  Dimensions
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import ImageZoom from 'react-native-image-pan-zoom';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -61,18 +63,30 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  floorPlanImage: {
-    width: width - (spacing.lg * 4),
-    height: ((width - (spacing.lg * 4)) * 0.7),
-    borderRadius: borderRadius.md,
-    resizeMode: 'contain',
+  zoomContainer: {
     marginBottom: spacing.md,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
     alignSelf: 'center',
+  },
+  floorPlanImage: {
+    resizeMode: 'contain',
   },
   floorPlanDescription: {
     ...typography.body,
     lineHeight: 22,
     textAlign: 'center',
+  },
+  zoomHint: {
+    ...typography.bodySmall,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    fontStyle: 'italic',
+  },
+  loadingContainer: {
+    height: 300,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoCard: {
     borderRadius: borderRadius.md,
@@ -101,8 +115,34 @@ const styles = StyleSheet.create({
 export default function FloorPlanScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
+  
+  const [imageWidth, setImageWidth] = useState(width - (spacing.lg * 4));
+  const [imageHeight, setImageHeight] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  console.log('FloorPlanScreen - Displaying floor plan');
+  const floorPlanImage = require('@/assets/images/5540ed9b-4184-4608-b8ed-cffb84a8b029.jpeg');
+
+  useEffect(() => {
+    console.log('FloorPlanScreen - Loading floor plan with zoom capability');
+    
+    // Get the image dimensions
+    Image.getSize(
+      Image.resolveAssetSource(floorPlanImage).uri,
+      (imgWidth, imgHeight) => {
+        const aspectRatio = imgWidth / imgHeight;
+        const calculatedHeight = imageWidth / aspectRatio;
+        setImageHeight(calculatedHeight);
+        setLoading(false);
+        console.log('FloorPlanScreen - Image dimensions calculated:', { imgWidth, imgHeight, calculatedHeight });
+      },
+      (error) => {
+        console.error('FloorPlanScreen - Error loading image dimensions:', error);
+        // Fallback to default aspect ratio
+        setImageHeight(imageWidth * 0.7);
+        setLoading(false);
+      }
+    );
+  }, [imageWidth]);
 
   return (
     <React.Fragment>
@@ -136,14 +176,41 @@ export default function FloorPlanScreen() {
             </Text>
           </View>
 
-          {/* Floor Plan Image */}
+          {/* Floor Plan Image with Zoom */}
           <View style={[styles.floorPlanCard, { backgroundColor: appColors.card }]}>
-            <Image
-              source={require('@/assets/images/5540ed9b-4184-4608-b8ed-cffb84a8b029.jpeg')}
-              style={styles.floorPlanImage}
-            />
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={appColors.primary} />
+              </View>
+            ) : (
+              <View style={[styles.zoomContainer, { width: imageWidth, height: imageHeight }]}>
+                <ImageZoom
+                  cropWidth={imageWidth}
+                  cropHeight={imageHeight}
+                  imageWidth={imageWidth}
+                  imageHeight={imageHeight}
+                  minScale={1}
+                  maxScale={4}
+                  panToMove={true}
+                  pinchToZoom={true}
+                  enableDoubleClickZoom={true}
+                  doubleClickInterval={250}
+                  onMove={(position) => {
+                    console.log('FloorPlanScreen - User zooming/panning:', position);
+                  }}
+                >
+                  <Image
+                    source={floorPlanImage}
+                    style={[styles.floorPlanImage, { width: imageWidth, height: imageHeight }]}
+                  />
+                </ImageZoom>
+              </View>
+            )}
             <Text style={[styles.floorPlanDescription, { color: appColors.textSecondary }]}>
               Second Floor - Waldorf Astoria Hotel, Houston
+            </Text>
+            <Text style={[styles.zoomHint, { color: appColors.textSecondary }]}>
+              Pinch to zoom • Double tap to enlarge • Drag to pan
             </Text>
           </View>
 
