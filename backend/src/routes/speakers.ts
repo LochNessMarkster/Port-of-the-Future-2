@@ -57,9 +57,9 @@ export function registerSpeakersRoutes(app: App) {
         const publishedRecords = data.records.filter((record: AirtableRecord<SpeakerFields>) => {
           const isPublished = record.fields.Published === true;
           if (!isPublished) {
-            const displayName = record.fields['First Name'] || record.fields['Speaker Name'] || 'Unknown';
+            const speakerName = record.fields['Speaker Name'] || 'Unknown';
             app.logger.debug(
-              { speakerId: record.id, speakerName: displayName },
+              { speakerId: record.id, speakerName },
               'Speaker excluded (Published = false)'
             );
           }
@@ -67,7 +67,7 @@ export function registerSpeakersRoutes(app: App) {
         });
 
         const speakers = publishedRecords.map((record: AirtableRecord<SpeakerFields>) => {
-          const firstName = record.fields['First Name'] || '';
+          const firstName = record.fields['Speaker Name'] || '';
           const lastName = record.fields['Last Name'] || '';
           const fullName = `${firstName} ${lastName}`.trim();
 
@@ -150,9 +150,9 @@ export function registerSpeakersRoutes(app: App) {
         // Check if speaker is published
         const isPublished = record.fields.Published === true;
         if (!isPublished) {
-          const displayName = record.fields['First Name'] || record.fields['Speaker Name'] || 'Unknown';
+          const speakerName = record.fields['Speaker Name'] || 'Unknown';
           app.logger.warn(
-            { speakerId: id, speakerName: displayName },
+            { speakerId: id, speakerName },
             'Speaker not published (Published = false)'
           );
           return reply.status(404).send({
@@ -160,7 +160,7 @@ export function registerSpeakersRoutes(app: App) {
           });
         }
 
-        const firstName = record.fields['First Name'] || '';
+        const firstName = record.fields['Speaker Name'] || '';
         const lastName = record.fields['Last Name'] || '';
         const fullName = `${firstName} ${lastName}`.trim();
 
