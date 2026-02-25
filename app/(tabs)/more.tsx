@@ -123,6 +123,54 @@ export default function MoreScreen() {
             
             <TouchableOpacity
               style={[styles.menuItem, { backgroundColor: appColors.card }]}
+              onPress={() => handleNavigation('/floor-plan')}
+              activeOpacity={0.7}
+            >
+              <IconSymbol
+                ios_icon_name="map.fill"
+                android_material_icon_name="map"
+                size={24}
+                color="#4ECDC4"
+                style={styles.menuIcon}
+              />
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                Floor Plan / Map
+              </Text>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={appColors.textSecondary}
+                style={styles.chevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, { backgroundColor: appColors.card }]}
+              onPress={() => handleNavigation('/activities')}
+              activeOpacity={0.7}
+            >
+              <IconSymbol
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={24}
+                color="#FF6B6B"
+                style={styles.menuIcon}
+              />
+              <Text style={[styles.menuText, { color: appColors.text }]}>
+                Activities
+              </Text>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={appColors.textSecondary}
+                style={styles.chevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, { backgroundColor: appColors.card }]}
               onPress={() => handleNavigation('/ports')}
               activeOpacity={0.7}
             >

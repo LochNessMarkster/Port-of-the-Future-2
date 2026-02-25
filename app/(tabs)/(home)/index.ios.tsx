@@ -333,6 +333,36 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
+                onPress={() => handleNavigation('/activities')}
+              >
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={28}
+                  color="#FF6B6B"
+                />
+                <Text style={[styles.navLabel, { color: appColors.text }]}>Activities</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.navTile, { backgroundColor: appColors.card }]}
+                activeOpacity={0.7}
+                onPress={() => handleNavigation('/floor-plan')}
+              >
+                <IconSymbol
+                  ios_icon_name="map.fill"
+                  android_material_icon_name="map"
+                  size={28}
+                  color="#4ECDC4"
+                />
+                <Text style={[styles.navLabel, { color: appColors.text }]}>Floor Plan</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.gridRow}>
+              <TouchableOpacity 
+                style={[styles.navTile, { backgroundColor: appColors.card }]}
+                activeOpacity={0.7}
                 onPress={() => handleNavigation('/exhibitors')}
               >
                 <IconSymbol

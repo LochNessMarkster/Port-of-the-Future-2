@@ -208,6 +208,22 @@ function RootLayoutInner() {
                     headerBackTitle: 'Back'
                   }} 
                 />
+                <Stack.Screen 
+                  name="activities" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Activities',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
+                <Stack.Screen 
+                  name="floor-plan" 
+                  options={{ 
+                    headerShown: true, 
+                    title: 'Floor Plan',
+                    headerBackTitle: 'Back'
+                  }} 
+                />
                 {/* 404 handler */}
                 <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
               </Stack>
