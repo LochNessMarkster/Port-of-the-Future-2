@@ -6,7 +6,7 @@ import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert, Platform, View, StyleSheet } from "react-native";
+import { useColorScheme, Alert, Platform, View, StyleSheet, ActivityIndicator } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -33,7 +33,7 @@ function RootLayoutInner() {
   const colorScheme = useColorScheme();
   const networkState = useNetworkState();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   React.useEffect(() => {
     if (
@@ -105,12 +105,22 @@ function RootLayoutInner() {
 
   // Determine if we should show the tab bar
   // Show on all screens except auth screens
-  const shouldShowTabBar = user && !pathname.includes('/auth') && pathname !== '/auth-popup' && pathname !== '/auth-callback';
+  const shouldShowTabBar = user && !pathname.includes('/auth') && pathname !== '/auth-popup' && pathname !== '/auth-callback' && pathname !== '/register';
 
   // On iOS, don't show the FloatingTabBar (native tabs are used)
   const showFloatingTabBar = shouldShowTabBar && Platform.OS !== 'ios';
 
-  console.log('RootLayout - Pathname:', pathname, 'Show tab bar:', showFloatingTabBar, 'User:', !!user);
+  console.log('RootLayout - Pathname:', pathname, 'Show tab bar:', showFloatingTabBar, 'User:', !!user, 'AuthLoading:', authLoading);
+
+  // Show loading splash while auth is initializing to prevent redirect loops
+  if (authLoading) {
+    const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: appColors.background }}>
+        <ActivityIndicator size="large" color={appColors.primary} />
+      </View>
+    );
+  }
 
   return (
     <>
@@ -125,6 +135,12 @@ function RootLayoutInner() {
                 <Stack.Screen name="auth" options={{ headerShown: false }} />
                 <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
                 <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+                <Stack.Screen 
+                  name="register" 
+                  options={{ 
+                    headerShown: false,
+                  }} 
+                />
                 {/* Main app with tabs */}
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 {/* Additional screens with headers */}
