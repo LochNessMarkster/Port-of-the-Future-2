@@ -267,6 +267,10 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  sessionCardPast: {
+    opacity: 0.5,
+    transform: [{ scale: 0.97 }],
+  },
   sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -277,6 +281,9 @@ const styles = StyleSheet.create({
     ...typography.h3,
     flex: 1,
     marginRight: spacing.sm,
+  },
+  sessionTitlePast: {
+    textDecorationLine: 'line-through',
   },
   sessionMeta: {
     flexDirection: 'row',
@@ -304,6 +311,18 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: spacing.xs,
     marginLeft: spacing.xs,
+  },
+  pastBadge: {
+    ...typography.caption,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    marginLeft: spacing.xs,
+    backgroundColor: '#9E9E9E',
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   loadingContainer: {
     padding: spacing.xl,
@@ -581,6 +600,50 @@ export default function AgendaScreen() {
     } catch (err) {
       console.error('AgendaScreen - Error parsing end time:', timeStr, err);
       return parseTime(timeStr) + 60; // Default to 1 hour duration
+    }
+  };
+
+  // Check if a session has passed
+  const isSessionPast = (session: Session): boolean => {
+    try {
+      // Get current date and time
+      const now = new Date();
+      
+      // Parse session date (e.g., "March 24, 2026" or "3/24/2026")
+      let sessionYear = 2026;
+      let sessionMonth = 2; // March (0-indexed)
+      let sessionDay = 24;
+      
+      if (session.date) {
+        const dateStr = session.date.toLowerCase();
+        if (dateStr.includes('23')) {
+          sessionDay = 23;
+        } else if (dateStr.includes('24')) {
+          sessionDay = 24;
+        } else if (dateStr.includes('25')) {
+          sessionDay = 25;
+        }
+      }
+      
+      // Parse session end time
+      const sessionEndMinutes = parseEndTime(session.time);
+      const sessionEndHours = Math.floor(sessionEndMinutes / 60);
+      const sessionEndMins = sessionEndMinutes % 60;
+      
+      // Create session end date object
+      const sessionEndDate = new Date(sessionYear, sessionMonth, sessionDay, sessionEndHours, sessionEndMins);
+      
+      // Compare with current time
+      const hasPassed = now > sessionEndDate;
+      
+      if (hasPassed) {
+        console.log('AgendaScreen - Session has passed:', session.title, '- End time:', sessionEndDate);
+      }
+      
+      return hasPassed;
+    } catch (err) {
+      console.error('AgendaScreen - Error checking if session is past:', err);
+      return false;
     }
   };
 
@@ -999,6 +1062,7 @@ export default function AgendaScreen() {
               const isBookmarked = bookmarkedSessions.has(session.id);
               const isBookmarkLoading = bookmarkLoading === session.id;
               const trackColor = getTrackColor(session.type);
+              const isPast = isSessionPast(session);
               
               return (
                 <TouchableOpacity
@@ -1008,7 +1072,8 @@ export default function AgendaScreen() {
                     { 
                       backgroundColor: appColors.card,
                       borderLeftColor: trackColor
-                    }
+                    },
+                    isPast ? styles.sessionCardPast : null
                   ]}
                   onPress={() => {
                     console.log('AgendaScreen - Session card pressed:', session.title);
@@ -1017,7 +1082,11 @@ export default function AgendaScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.sessionHeader}>
-                    <Text style={[styles.sessionTitle, { color: appColors.text }]}>
+                    <Text style={[
+                      styles.sessionTitle, 
+                      { color: appColors.text },
+                      isPast ? styles.sessionTitlePast : null
+                    ]}>
                       {session.title}
                     </Text>
                     <TouchableOpacity
@@ -1102,6 +1171,11 @@ export default function AgendaScreen() {
                     ]}>
                       {session.type}
                     </Text>
+                    {isPast ? (
+                      <Text style={styles.pastBadge}>
+                        Ended
+                      </Text>
+                    ) : null}
                   </View>
                 </TouchableOpacity>
               );
