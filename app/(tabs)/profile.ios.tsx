@@ -5,23 +5,19 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Platform,
   ActivityIndicator,
   TouchableOpacity,
   TextInput,
   Modal,
   Pressable,
-  Image,
   Switch,
-  ImageSourcePropType,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors, spacing, typography, borderRadius } from "@/styles/commonStyles";
-import { apiGet, authenticatedPut, BACKEND_URL, getBearerToken } from "@/utils/api";
-import * as ImagePicker from 'expo-image-picker';
+import { apiGet, authenticatedPut } from "@/utils/api";
 
 interface UserProfile {
   id: string;
@@ -30,7 +26,6 @@ interface UserProfile {
   company: string | null;
   title: string | null;
   phone: string | null;
-  image: string | null;
   bio: string | null;
   linkedin: string | null;
   optInNetworking: boolean;
@@ -38,13 +33,6 @@ interface UserProfile {
   sharePhone: boolean;
   shareLinkedIn: boolean;
   emailVerified: boolean | null;
-}
-
-// Helper to resolve image sources (handles both local and remote images)
-function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
-  if (!source) return { uri: '' };
-  if (typeof source === 'string') return { uri: source };
-  return source as ImageSourcePropType;
 }
 
 export default function ProfileScreen() {
@@ -55,10 +43,6 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [imageRefreshKey, setImageRefreshKey] = useState(0);
-  const [errorModalVisible, setErrorModalVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -89,11 +73,8 @@ export default function ProfileScreen() {
         id: data.id,
         name: data.name,
         email: data.email,
-        hasImage: !!data.image,
-        imageUrl: data.image,
       });
       setProfile(data);
-      setImageRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('ProfileScreen - Failed to load profile:', error);
     } finally {
@@ -140,114 +121,12 @@ export default function ProfileScreen() {
       });
       
       console.log('ProfileScreen - Profile updated:', updatedProfile);
-      // Reload profile via GET to get fresh signed URL for image
-      // (PUT response returns raw storage key, not a signed URL)
       await loadProfile();
       closeEditModal();
     } catch (error) {
       console.error('ProfileScreen - Failed to save profile:', error);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const pickAndUploadPhoto = async () => {
-    try {
-      console.log('ProfileScreen - User tapped upload photo');
-      
-      // Request permissions
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (!permissionResult.granted) {
-        console.log('ProfileScreen - Photo permission denied');
-        return;
-      }
-
-      // Pick image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (result.canceled) {
-        console.log('ProfileScreen - Photo picker canceled');
-        return;
-      }
-
-      const imageUri = result.assets[0].uri;
-      console.log('ProfileScreen - Photo selected:', imageUri);
-
-      setUploadingPhoto(true);
-
-      // Create form data with proper file structure
-      const formData = new FormData();
-      const filename = imageUri.split('/').pop() || 'photo.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-      console.log('ProfileScreen - Creating file object:', { 
-        uri: imageUri, 
-        name: filename, 
-        type: type,
-        platform: Platform.OS 
-      });
-
-      // CRITICAL FIX: Platform-specific FormData handling
-      if (Platform.OS === 'web') {
-        // Web: Fetch the image as a blob and append it
-        console.log('ProfileScreen - Web platform: Fetching image as blob');
-        const response = await fetch(imageUri);
-        const blob = await response.blob();
-        console.log('ProfileScreen - Blob created:', { size: blob.size, type: blob.type });
-        formData.append('photo', blob, filename);
-      } else {
-        // Native (iOS/Android): Use the file object format
-        const fileUri = Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri;
-        console.log('ProfileScreen - Native platform: Using file URI:', fileUri);
-        
-        // @ts-expect-error - FormData accepts this format in React Native
-        formData.append('photo', {
-          uri: fileUri,
-          name: filename,
-          type: type,
-        });
-      }
-
-      // Upload photo
-      console.log('[API] Uploading to /api/profile/upload-photo');
-      const token = await getBearerToken();
-      
-      console.log('[API] Sending multipart request with bearer token');
-      const response = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // DO NOT set Content-Type - let fetch set it with the boundary
-        },
-        body: formData,
-      });
-
-      console.log('[API] Upload response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('ProfileScreen - Image upload failed:', response.status, errorText);
-        throw new Error(`Failed to upload photo: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('ProfileScreen - Photo uploaded successfully:', data);
-
-      // Reload profile to get updated image with fresh signed URL
-      await loadProfile();
-    } catch (error) {
-      console.error('ProfileScreen - Failed to upload photo:', error);
-      setErrorMessage('Failed to upload photo. Please try again.');
-      setErrorModalVisible(true);
-    } finally {
-      setUploadingPhoto(false);
     }
   };
 
@@ -287,8 +166,16 @@ export default function ProfileScreen() {
   const displayLinkedin = profile.linkedin || 'Not specified';
   const displayOptInNetworking = profile.optInNetworking ? 'Opted In' : 'Opted Out';
   
-  // Create image URL with cache busting
-  const profileImageUrl = profile.image ? `${profile.image}?t=${Date.now()}` : null;
+  // Get initials for placeholder
+  const getInitials = (name: string) => {
+    const nameParts = name.trim().split(' ');
+    if (nameParts.length >= 2) {
+      return `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+  
+  const initials = getInitials(displayName);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top']}>
@@ -296,39 +183,9 @@ export default function ProfileScreen() {
         {/* Profile Header */}
         <View style={styles.header}>
           <View style={styles.photoContainer}>
-            {profileImageUrl ? (
-              <Image 
-                key={imageRefreshKey} 
-                source={resolveImageSource(profileImageUrl)} 
-                style={styles.photo}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
-                <IconSymbol
-                  ios_icon_name="person.fill"
-                  android_material_icon_name="person"
-                  size={60}
-                  color={appColors.textSecondary}
-                />
-              </View>
-            )}
-            <TouchableOpacity
-              style={[styles.photoButton, { backgroundColor: appColors.primary }]}
-              onPress={pickAndUploadPhoto}
-              disabled={uploadingPhoto}
-            >
-              {uploadingPhoto ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <IconSymbol
-                  ios_icon_name="camera.fill"
-                  android_material_icon_name="camera"
-                  size={20}
-                  color="#FFFFFF"
-                />
-              )}
-            </TouchableOpacity>
+            <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
+              <Text style={[styles.initialsText, { color: appColors.primary }]}>{initials}</Text>
+            </View>
           </View>
 
           <Text style={[styles.name, { color: appColors.text }]}>{displayName}</Text>
@@ -423,40 +280,6 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-
-      {/* Error Modal */}
-      <Modal
-        visible={errorModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setErrorModalVisible(false)}
-      >
-        <Pressable
-          style={styles.errorModalOverlay}
-          onPress={() => setErrorModalVisible(false)}
-        >
-          <View style={[styles.errorModalContent, { backgroundColor: appColors.card }]}>
-            <IconSymbol
-              ios_icon_name="xmark.circle.fill"
-              android_material_icon_name="error"
-              size={48}
-              color="#FF3B30"
-            />
-            <Text style={[styles.errorModalTitle, { color: appColors.text }]}>
-              Error
-            </Text>
-            <Text style={[styles.errorModalMessage, { color: appColors.textSecondary }]}>
-              {errorMessage}
-            </Text>
-            <TouchableOpacity
-              style={[styles.errorModalButton, { backgroundColor: appColors.primary }]}
-              onPress={() => setErrorModalVisible(false)}
-            >
-              <Text style={styles.errorModalButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
 
       {/* Edit Modal */}
       <Modal
@@ -641,13 +464,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   photoContainer: {
-    position: 'relative',
     marginBottom: spacing.md,
-  },
-  photo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
   },
   photoPlaceholder: {
     width: 120,
@@ -656,20 +473,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  photoButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+  initialsText: {
+    fontSize: 48,
+    fontWeight: '700',
   },
   name: {
     ...typography.h2,
@@ -832,50 +638,6 @@ const styles = StyleSheet.create({
   subsectionLabel: {
     ...typography.bodySmall,
     marginBottom: spacing.sm,
-    fontWeight: '600',
-  },
-  errorModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  errorModalContent: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  errorModalTitle: {
-    ...typography.h3,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  errorModalMessage: {
-    ...typography.body,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: spacing.lg,
-  },
-  errorModalButton: {
-    height: 50,
-    borderRadius: borderRadius.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    minWidth: 120,
-  },
-  errorModalButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
     fontWeight: '600',
   },
 });
