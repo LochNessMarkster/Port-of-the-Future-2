@@ -17,8 +17,10 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { NotificationProvider, useNotifications } from "@/contexts/NotificationContext";
 import { colors } from "@/styles/commonStyles";
 import FloatingTabBar, { TabBarItem } from "@/components/FloatingTabBar";
+import { ToastNotification } from "@/components/ToastNotification";
 // Note: Error logging is auto-initialized via index.ts import
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -34,6 +36,7 @@ function RootLayoutInner() {
   const networkState = useNetworkState();
   const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
+  const { toastMessage } = useNotifications();
 
   React.useEffect(() => {
     if (
@@ -250,6 +253,8 @@ function RootLayoutInner() {
                   <FloatingTabBar tabs={tabs} />
                 </View>
               )}
+              {/* Toast notification for new messages */}
+              <ToastNotification message={toastMessage} />
             </View>
           </GestureHandlerRootView>
         </WidgetProvider>
@@ -300,7 +305,9 @@ export default function RootLayout() {
     <>
       <StatusBar style="auto" animated />
       <AuthProvider>
-        <RootLayoutInner />
+        <NotificationProvider>
+          <RootLayoutInner />
+        </NotificationProvider>
       </AuthProvider>
     </>
   );

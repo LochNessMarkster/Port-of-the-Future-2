@@ -20,6 +20,7 @@ import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet, authenticatedPost, authenticatedPut } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 interface Message {
   id: string;
@@ -226,6 +227,7 @@ export default function MessagesScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const { user } = useAuth();
+  const { refreshUnreadCount } = useNotifications();
   const params = useLocalSearchParams();
   const recipientId = params.recipientId as string | undefined;
   // recipientName can be passed from the networking screen to avoid an extra fetch
@@ -295,13 +297,18 @@ export default function MessagesScreen() {
           console.warn('[MessagesScreen] Failed to mark message as read:', message.id, readError);
         }
       }
+      
+      // Refresh unread count after marking messages as read
+      if (unreadMessages.length > 0) {
+        await refreshUnreadCount();
+      }
     } catch (error) {
       console.error('[MessagesScreen] Error loading conversation:', error);
       setMessages([]);
     } finally {
       setLoading(false);
     }
-  }, [user?.id, conversationPartnerName]);
+  }, [user?.id, conversationPartnerName, refreshUnreadCount]);
 
   useEffect(() => {
     if (selectedUserId) {
@@ -355,6 +362,9 @@ export default function MessagesScreen() {
       // Reload conversation to show the new message
       console.log('[MessagesScreen] Reloading conversation to show new message...');
       await loadConversation(selectedUserId);
+      
+      // Refresh unread count after sending a message
+      await refreshUnreadCount();
     } catch (error) {
       console.error('[MessagesScreen] Error sending message:', error);
       console.error('[MessagesScreen] Error details:', {

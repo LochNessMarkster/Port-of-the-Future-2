@@ -12,8 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { NotificationBadge } from '@/components/NotificationBadge';
 
 const styles = StyleSheet.create({
   container: {
@@ -62,6 +64,9 @@ const styles = StyleSheet.create({
   chevron: {
     marginLeft: spacing.sm,
   },
+  badgeContainer: {
+    position: 'relative',
+  },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -82,6 +87,7 @@ export default function MoreScreen() {
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { unreadMessageCount } = useNotifications();
 
   const handleNavigation = (route: string) => {
     console.log('MoreScreen - Navigating to:', route);
@@ -325,13 +331,16 @@ export default function MoreScreen() {
               onPress={() => handleNavigation('/messages')}
               activeOpacity={0.7}
             >
-              <IconSymbol
-                ios_icon_name="message"
-                android_material_icon_name="message"
-                size={24}
-                color={appColors.accent}
-                style={styles.menuIcon}
-              />
+              <View style={styles.badgeContainer}>
+                <IconSymbol
+                  ios_icon_name="message"
+                  android_material_icon_name="message"
+                  size={24}
+                  color={appColors.accent}
+                  style={styles.menuIcon}
+                />
+                <NotificationBadge count={unreadMessageCount} size="small" />
+              </View>
               <Text style={[styles.menuText, { color: appColors.text }]}>
                 Messages
               </Text>
