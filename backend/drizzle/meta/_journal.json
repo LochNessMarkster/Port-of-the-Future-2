@@ -36,6 +36,13 @@
       "when": 1772129862505,
       "tag": "20260226181742_sudden_silver_samurai",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772134028919,
+      "tag": "20260226192708_mushy_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

@@ -38,12 +38,8 @@ export const messages = pgTable(
   'messages',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    senderId: text('sender_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    recipientId: text('recipient_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    senderId: text('sender_id').notNull(),
+    recipientId: text('recipient_id').notNull(),
     content: text('content').notNull(),
     read: boolean('read').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -139,14 +135,8 @@ export const userSchedulesRelations = relations(userSchedules, ({ one }) => ({
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
-  sender: one(user, {
-    fields: [messages.senderId],
-    references: [user.id],
-  }),
-  recipient: one(user, {
-    fields: [messages.recipientId],
-    references: [user.id],
-  }),
+  // Note: senderId and recipientId can reference both registered users and Airtable attendee IDs
+  // Relations are optional since FK constraints were removed
 }));
 
 export const speakerPresentationsRelations = relations(speakerPresentations, ({ one }) => ({
