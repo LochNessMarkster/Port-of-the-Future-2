@@ -11,6 +11,8 @@ import {
   Modal,
   Pressable,
   Switch,
+  Image,
+  Platform,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@react-navigation/native";
@@ -18,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors, spacing, typography, borderRadius } from "@/styles/commonStyles";
 import { apiGet, authenticatedPut } from "@/utils/api";
+import * as ImagePicker from 'expo-image-picker';
 
 interface UserProfile {
   id: string;
@@ -33,6 +36,14 @@ interface UserProfile {
   sharePhone: boolean;
   shareLinkedIn: boolean;
   emailVerified: boolean | null;
+  airtableRecordId: string | null;
+  image: string | null;
+}
+
+// Helper to resolve image source for React Native Image component
+function resolveImageSource(uri: string | null | undefined) {
+  if (!uri) return null;
+  return { uri, cache: 'reload' as const };
 }
 
 export default function ProfileScreen() {
@@ -43,6 +54,10 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [imageRefreshKey, setImageRefreshKey] = useState(0);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -73,12 +88,136 @@ export default function ProfileScreen() {
         id: data.id,
         name: data.name,
         email: data.email,
+        airtableRecordId: data.airtableRecordId,
+        image: data.image,
       });
       setProfile(data);
+      setImageRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('ProfileScreen - Failed to load profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const pickAndUploadPhoto = async () => {
+    if (!profile?.airtableRecordId) {
+      setErrorMessage('Unable to upload photo: Airtable record ID not found. Please contact support.');
+      setErrorModalVisible(true);
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setErrorMessage('');
+    setErrorModalVisible(false);
+
+    try {
+      console.log('ProfileScreen - Requesting media library permissions');
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        setErrorMessage('Permission to access media library is required!');
+        setErrorModalVisible(true);
+        setUploadingPhoto(false);
+        return;
+      }
+
+      console.log('ProfileScreen - Launching image picker');
+      const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (pickerResult.canceled) {
+        console.log('ProfileScreen - User canceled image picker');
+        setUploadingPhoto(false);
+        return;
+      }
+
+      const imageUri = pickerResult.assets[0].uri;
+      const filename = imageUri.split('/').pop() || 'profile_photo.jpg';
+      const type = pickerResult.assets[0].type || 'image/jpeg';
+
+      console.log('ProfileScreen - Image selected:', { imageUri, filename, type });
+
+      // 1. Upload to Cloudinary
+      console.log('ProfileScreen - Uploading to Cloudinary');
+      const cloudinaryUrl = 'https://api.cloudinary.com/v1_1/dwfnlugp3/image/upload';
+      const cloudinaryFormData = new FormData();
+      cloudinaryFormData.append('upload_preset', 'POF-app');
+
+      if (Platform.OS === 'web') {
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        cloudinaryFormData.append('file', blob, filename);
+      } else {
+        cloudinaryFormData.append('file', {
+          uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
+          name: filename,
+          type: type,
+        } as any);
+      }
+
+      const cloudinaryResponse = await fetch(cloudinaryUrl, {
+        method: 'POST',
+        body: cloudinaryFormData,
+      });
+
+      if (!cloudinaryResponse.ok) {
+        const errorData = await cloudinaryResponse.json();
+        console.error('ProfileScreen - Cloudinary upload failed:', errorData);
+        throw new Error(`Cloudinary upload failed: ${errorData.error?.message || cloudinaryResponse.statusText}`);
+      }
+
+      const cloudinaryData = await cloudinaryResponse.json();
+      const secureUrl = cloudinaryData.secure_url;
+      console.log('ProfileScreen - Cloudinary upload successful:', secureUrl);
+
+      // 2. PATCH Airtable record with Cloudinary URL
+      console.log('ProfileScreen - Updating Airtable record');
+      const airtableUrl = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
+      const airtableApiKey = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
+
+      const airtableBody = {
+        records: [{
+          id: profile.airtableRecordId,
+          fields: {
+            Image: [{ url: secureUrl }]
+          }
+        }]
+      };
+
+      const airtableResponse = await fetch(airtableUrl, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${airtableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(airtableBody),
+      });
+
+      if (!airtableResponse.ok) {
+        const errorData = await airtableResponse.json();
+        console.error('ProfileScreen - Airtable update failed:', errorData);
+        throw new Error(`Airtable update failed: ${errorData.error?.message || airtableResponse.statusText}`);
+      }
+
+      console.log('ProfileScreen - Airtable update successful');
+
+      // 3. Update local state and refresh
+      setProfile(prev => prev ? { ...prev, image: secureUrl } : null);
+      setImageRefreshKey(prev => prev + 1);
+      
+      // Reload profile to ensure consistency
+      await loadProfile();
+
+    } catch (error: any) {
+      console.error('ProfileScreen - Photo upload error:', error);
+      setErrorMessage(`Upload failed: ${error.message || 'Unknown error'}`);
+      setErrorModalVisible(true);
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -176,6 +315,7 @@ export default function ProfileScreen() {
   };
   
   const initials = getInitials(displayName);
+  const profileImageSource = resolveImageSource(profile.image);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top']}>
@@ -183,10 +323,62 @@ export default function ProfileScreen() {
         {/* Profile Header */}
         <View style={styles.header}>
           <View style={styles.photoContainer}>
-            <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
-              <Text style={[styles.initialsText, { color: appColors.primary }]}>{initials}</Text>
-            </View>
+            <Pressable
+              onPress={pickAndUploadPhoto}
+              disabled={uploadingPhoto}
+              style={({ pressed }) => [
+                styles.photoTouchable,
+                { opacity: pressed ? 0.7 : 1 }
+              ]}
+            >
+              {uploadingPhoto ? (
+                <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
+                  <ActivityIndicator size="large" color={appColors.primary} />
+                </View>
+              ) : profileImageSource ? (
+                <Image
+                  key={imageRefreshKey}
+                  source={profileImageSource}
+                  style={styles.profilePhoto}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
+                  <Text style={[styles.initialsText, { color: appColors.primary }]}>{initials}</Text>
+                </View>
+              )}
+              <View style={[styles.cameraIconContainer, { backgroundColor: appColors.primary }]}>
+                <IconSymbol
+                  ios_icon_name="camera.fill"
+                  android_material_icon_name="camera"
+                  size={20}
+                  color="#FFFFFF"
+                />
+              </View>
+            </Pressable>
           </View>
+
+          <TouchableOpacity
+            onPress={pickAndUploadPhoto}
+            disabled={uploadingPhoto}
+            style={[styles.uploadButton, { backgroundColor: appColors.card }]}
+          >
+            {uploadingPhoto ? (
+              <ActivityIndicator size="small" color={appColors.primary} />
+            ) : (
+              <>
+                <IconSymbol
+                  ios_icon_name="photo"
+                  android_material_icon_name="photo"
+                  size={18}
+                  color={appColors.primary}
+                />
+                <Text style={[styles.uploadButtonText, { color: appColors.primary }]}>
+                  Upload Photo
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
 
           <Text style={[styles.name, { color: appColors.text }]}>{displayName}</Text>
           <Text style={[styles.email, { color: appColors.textSecondary }]}>{displayEmail}</Text>
@@ -439,6 +631,35 @@ export default function ProfileScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <View style={styles.errorModalOverlay}>
+          <View style={[styles.errorModalContent, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="exclamationmark.triangle.fill"
+              android_material_icon_name="error"
+              size={48}
+              color="#FF6B6B"
+            />
+            <Text style={[styles.errorModalTitle, { color: appColors.text }]}>Upload Failed</Text>
+            <Text style={[styles.errorModalMessage, { color: appColors.textSecondary }]}>
+              {errorMessage}
+            </Text>
+            <TouchableOpacity
+              style={[styles.errorModalButton, { backgroundColor: appColors.primary }]}
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Text style={styles.errorModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -464,7 +685,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   photoContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  photoTouchable: {
+    position: 'relative',
   },
   photoPlaceholder: {
     width: 120,
@@ -473,9 +697,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  profilePhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
   initialsText: {
     fontSize: 48,
     fontWeight: '700',
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  uploadButtonText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
   },
   name: {
     ...typography.h2,
@@ -639,5 +893,40 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     marginBottom: spacing.sm,
     fontWeight: '600',
+  },
+  errorModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorModalContent: {
+    width: '85%',
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  errorModalTitle: {
+    ...typography.h2,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  errorModalMessage: {
+    ...typography.body,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 22,
+  },
+  errorModalButton: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    minWidth: 120,
+  },
+  errorModalButtonText: {
+    color: '#FFFFFF',
+    ...typography.body,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
