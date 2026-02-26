@@ -38,7 +38,8 @@ interface UserProfile {
 // Helper to resolve image sources
 function resolveImageSource(uri: string | null | undefined) {
   if (uri) {
-    return { uri };
+    // Use cache: 'reload' to ensure signed URLs are not served from stale cache
+    return { uri, cache: 'reload' as const };
   }
   return require('@/assets/images/POF-ICON.png');
 }

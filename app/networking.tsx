@@ -36,7 +36,8 @@ interface Attendee {
 
 function resolveImageSource(source: string | null | undefined) {
   if (!source) return require('@/assets/images/POF-ICON.png');
-  return { uri: source };
+  // Use cache: 'reload' to ensure signed URLs are not served from stale cache
+  return { uri: source, cache: 'reload' as const };
 }
 
 const styles = StyleSheet.create({
@@ -371,6 +372,7 @@ export default function NetworkingScreen() {
               activeOpacity={0.7}
             >
               <Image
+                key={attendee.image || attendee.id}
                 source={resolveImageSource(attendee.image)}
                 style={styles.attendeeImage}
               />
@@ -432,6 +434,7 @@ export default function NetworkingScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeader}>
                 <Image
+                  key={selectedAttendee?.image || selectedAttendee?.id}
                   source={resolveImageSource(selectedAttendee?.image)}
                   style={styles.modalImage}
                 />

@@ -174,7 +174,7 @@ export default function ProfileScreen() {
       } as any);
 
       // Upload photo
-      console.log('ProfileScreen - Uploading photo to backend');
+      console.log('[API] Requesting /api/profile/upload-photo with multipart form data');
       const token = await getBearerToken();
       
       const response = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {

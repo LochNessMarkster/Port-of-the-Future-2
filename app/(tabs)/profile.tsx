@@ -244,7 +244,7 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <View style={styles.photoContainer}>
             {profile.image ? (
-              <Image source={{ uri: profile.image }} style={styles.photo} />
+              <Image key={profile.image} source={{ uri: profile.image, cache: 'reload' }} style={styles.photo} />
             ) : (
               <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
                 <IconSymbol

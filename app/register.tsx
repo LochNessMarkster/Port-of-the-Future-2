@@ -75,6 +75,7 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [showSuccessWithSettings, setShowSuccessWithSettings] = useState(false);
 
   console.log('RegisterScreen - Current step:', step);
 
@@ -263,8 +264,8 @@ export default function RegisterScreen() {
         }
       }
       
-      console.log('RegisterScreen - Navigating to home after successful registration');
-      router.replace("/(tabs)/(home)/");
+      console.log('RegisterScreen - Registration complete, showing success message with settings link');
+      setShowSuccessWithSettings(true);
     } catch (error: any) {
       console.error('RegisterScreen - Create account error:', error);
       let errorMsg = error.message || "Failed to create account. Please try again.";
@@ -279,6 +280,18 @@ export default function RegisterScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const navigateToHome = () => {
+    console.log('RegisterScreen - Navigating to home after successful registration');
+    setShowSuccessWithSettings(false);
+    router.replace("/(tabs)/(home)/");
+  };
+
+  const navigateToProfileSettings = () => {
+    console.log('RegisterScreen - Navigating to profile settings');
+    setShowSuccessWithSettings(false);
+    router.replace("/(tabs)/profile");
   };
 
   const inputBackgroundColor = colorScheme === 'dark' ? appColors.card : '#FFFFFF';
@@ -693,6 +706,66 @@ export default function RegisterScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Success with Settings Link Modal */}
+      <Modal
+        visible={showSuccessWithSettings}
+        transparent
+        animationType="fade"
+        onRequestClose={navigateToHome}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={navigateToHome}
+        >
+          <Pressable 
+            style={[styles.modalContent, { backgroundColor: appColors.card }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalIconContainer}>
+              <IconSymbol 
+                ios_icon_name="checkmark.circle.fill" 
+                android_material_icon_name="check-circle" 
+                size={48} 
+                color="#34C759" 
+              />
+            </View>
+            <Text style={[styles.modalTitle, { color: appColors.text }]}>
+              Welcome to Port of the Future 2026!
+            </Text>
+            <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
+              Your account has been created successfully. You&apos;re automatically opted in to the networking directory so other attendees can connect with you.
+            </Text>
+            <Text style={[styles.modalMessage, { color: appColors.textSecondary, marginTop: spacing.sm }]}>
+              You can manage your networking visibility and what contact information you share in your profile settings.
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: appColors.primary }]}
+              onPress={navigateToProfileSettings}
+            >
+              <IconSymbol 
+                ios_icon_name="gear" 
+                android_material_icon_name="settings" 
+                size={20} 
+                color="#FFFFFF" 
+              />
+              <Text style={[styles.modalButtonText, { marginLeft: spacing.sm }]}>
+                Edit Profile Settings
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalSecondaryButton, { borderColor: appColors.border }]}
+              onPress={navigateToHome}
+            >
+              <Text style={[styles.modalSecondaryButtonText, { color: appColors.text }]}>
+                Continue to Home
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -910,15 +983,29 @@ const styles = StyleSheet.create({
   },
   modalMessage: {
     ...typography.body,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
     textAlign: 'center',
     lineHeight: 22,
   },
   modalButton: {
+    flexDirection: 'row',
     height: 50,
     borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  modalSecondaryButton: {
+    height: 50,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    borderWidth: 1,
+  },
+  modalSecondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalButtonText: {
     color: '#FFFFFF',
