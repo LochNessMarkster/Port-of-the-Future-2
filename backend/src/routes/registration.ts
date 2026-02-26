@@ -169,6 +169,7 @@ export function registerRegistrationRoutes(app: App) {
                   emailVerified: { type: 'boolean' },
                 },
               },
+              token: { type: 'string' },
             },
           },
           400: {
