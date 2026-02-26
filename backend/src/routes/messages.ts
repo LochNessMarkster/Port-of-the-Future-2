@@ -1,6 +1,6 @@
 import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { eq, or, and } from 'drizzle-orm';
+import { eq, or, and, count } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import * as authSchema from '../db/auth-schema.js';
 
@@ -171,6 +171,52 @@ export function registerMessagesRoutes(app: App) {
           { err: error, currentUserId: session.user.id, otherUserId: userId },
           'Failed to fetch conversation'
         );
+        throw error;
+      }
+    }
+  );
+
+  /**
+   * GET /api/messages/unread-count - Get count of unread messages
+   */
+  app.fastify.get(
+    '/api/messages/unread-count',
+    {
+      schema: {
+        description: "Get count of unread messages for authenticated user",
+        tags: ['messages'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              count: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      app.logger.info({ userId: session.user.id }, 'Fetching unread message count');
+
+      try {
+        const result = await app.db
+          .select({ count: count() })
+          .from(schema.messages)
+          .where(
+            and(
+              eq(schema.messages.recipientId, session.user.id),
+              eq(schema.messages.read, false)
+            )
+          );
+
+        const unreadCount = result[0]?.count || 0;
+        app.logger.info({ userId: session.user.id, unreadCount }, 'Unread message count fetched');
+        return { count: unreadCount };
+      } catch (error) {
+        app.logger.error({ err: error, userId: session.user.id }, 'Failed to fetch unread message count');
         throw error;
       }
     }
