@@ -571,5 +571,6 @@ export interface ActivityFields {
   Time?: string;
   Location?: string;
   URL?: string;
+  MoreinfoURL?: string;
   Image?: Array<{ url: string; id: string; size: number; type: string }>;
 }
