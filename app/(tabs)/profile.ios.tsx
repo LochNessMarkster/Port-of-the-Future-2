@@ -49,6 +49,8 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [imageRefreshKey, setImageRefreshKey] = useState(0);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -177,24 +179,33 @@ export default function ProfileScreen() {
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      // CRITICAL FIX: Proper file object for React Native
-      // On iOS, remove file:// prefix. On Android, keep the URI as-is.
-      const fileUri = Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri;
-      
       console.log('ProfileScreen - Creating file object:', { 
-        uri: fileUri, 
+        uri: imageUri, 
         name: filename, 
         type: type,
         platform: Platform.OS 
       });
 
-      // CRITICAL FIX: Use 'photo' as field name (backend accepts both 'file' and 'photo')
-      // @ts-expect-error - FormData accepts this format in React Native
-      formData.append('photo', {
-        uri: fileUri,
-        name: filename,
-        type: type,
-      });
+      // CRITICAL FIX: Platform-specific FormData handling
+      if (Platform.OS === 'web') {
+        // Web: Fetch the image as a blob and append it
+        console.log('ProfileScreen - Web platform: Fetching image as blob');
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        console.log('ProfileScreen - Blob created:', { size: blob.size, type: blob.type });
+        formData.append('photo', blob, filename);
+      } else {
+        // Native (iOS/Android): Use the file object format
+        const fileUri = Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri;
+        console.log('ProfileScreen - Native platform: Using file URI:', fileUri);
+        
+        // @ts-expect-error - FormData accepts this format in React Native
+        formData.append('photo', {
+          uri: fileUri,
+          name: filename,
+          type: type,
+        });
+      }
 
       // Upload photo
       console.log('[API] Uploading to /api/profile/upload-photo');
@@ -225,7 +236,8 @@ export default function ProfileScreen() {
       await loadProfile();
     } catch (error) {
       console.error('ProfileScreen - Failed to upload photo:', error);
-      alert('Failed to upload photo. Please try again.');
+      setErrorMessage('Failed to upload photo. Please try again.');
+      setErrorModalVisible(true);
     } finally {
       setUploadingPhoto(false);
     }
@@ -399,6 +411,40 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Error Modal */}
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <Pressable
+          style={styles.errorModalOverlay}
+          onPress={() => setErrorModalVisible(false)}
+        >
+          <View style={[styles.errorModalContent, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="xmark.circle.fill"
+              android_material_icon_name="error"
+              size={48}
+              color="#FF3B30"
+            />
+            <Text style={[styles.errorModalTitle, { color: appColors.text }]}>
+              Error
+            </Text>
+            <Text style={[styles.errorModalMessage, { color: appColors.textSecondary }]}>
+              {errorMessage}
+            </Text>
+            <TouchableOpacity
+              style={[styles.errorModalButton, { backgroundColor: appColors.primary }]}
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Text style={styles.errorModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Edit Modal */}
       <Modal
@@ -774,6 +820,50 @@ const styles = StyleSheet.create({
   subsectionLabel: {
     ...typography.bodySmall,
     marginBottom: spacing.sm,
+    fontWeight: '600',
+  },
+  errorModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  errorModalContent: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  errorModalTitle: {
+    ...typography.h3,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  errorModalMessage: {
+    ...typography.body,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.lg,
+  },
+  errorModalButton: {
+    height: 50,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    minWidth: 120,
+  },
+  errorModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

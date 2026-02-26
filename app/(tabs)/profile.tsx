@@ -179,24 +179,33 @@ export default function ProfileScreen() {
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      // CRITICAL FIX: Proper file object for React Native
-      // On iOS, remove file:// prefix. On Android, keep the URI as-is.
-      const fileUri = Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri;
-      
       console.log('ProfileScreen - Creating file object:', { 
-        uri: fileUri, 
+        uri: imageUri, 
         name: filename, 
         type: type,
         platform: Platform.OS 
       });
 
-      // CRITICAL FIX: Use 'photo' as field name (backend accepts both 'file' and 'photo')
-      // @ts-expect-error - FormData accepts this format in React Native
-      formData.append('photo', {
-        uri: fileUri,
-        name: filename,
-        type: type,
-      });
+      // CRITICAL FIX: Platform-specific FormData handling
+      if (Platform.OS === 'web') {
+        // Web: Fetch the image as a blob and append it
+        console.log('ProfileScreen - Web platform: Fetching image as blob');
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        console.log('ProfileScreen - Blob created:', { size: blob.size, type: blob.type });
+        formData.append('photo', blob, filename);
+      } else {
+        // Native (iOS/Android): Use the file object format
+        const fileUri = Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri;
+        console.log('ProfileScreen - Native platform: Using file URI:', fileUri);
+        
+        // @ts-expect-error - FormData accepts this format in React Native
+        formData.append('photo', {
+          uri: fileUri,
+          name: filename,
+          type: type,
+        });
+      }
 
       // Upload photo
       console.log('[API] Uploading to /api/profile/upload-photo');
