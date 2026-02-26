@@ -303,7 +303,10 @@ export function registerRegistrationRoutes(app: App) {
         const sessionId = randomUUID();
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
+        let authToken = sessionToken;
+
         try {
+          // Create session in the Better Auth session table
           await app.db
             .insert(session)
             .values({
@@ -319,10 +322,10 @@ export function registerRegistrationRoutes(app: App) {
 
           app.logger.info(
             { userId: newUser.id, sessionId },
-            'Session created successfully'
+            'Better Auth session created successfully'
           );
 
-          // Set the session cookie using Set-Cookie header
+          // Set the session cookie using Set-Cookie header for web clients
           const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
           const secure = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
           const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; ${secure}`;
@@ -330,7 +333,7 @@ export function registerRegistrationRoutes(app: App) {
         } catch (sessionError) {
           app.logger.error(
             { err: sessionError, userId: newUser.id },
-            'Failed to create session, but user was created successfully'
+            'Failed to create Better Auth session, but user was created successfully'
           );
           // Continue even if session creation fails - user is still created
         }
@@ -350,6 +353,7 @@ export function registerRegistrationRoutes(app: App) {
             phone: newUser.phone,
             emailVerified: newUser.emailVerified,
           },
+          token: authToken,
         };
       } catch (error) {
         app.logger.error(
