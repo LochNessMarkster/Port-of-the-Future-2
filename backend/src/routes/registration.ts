@@ -141,6 +141,7 @@ export function registerRegistrationRoutes(app: App) {
                   emailVerified: { type: 'boolean' },
                 },
               },
+              token: { type: 'string' },
             },
           },
           201: {
@@ -228,7 +229,7 @@ export function registerRegistrationRoutes(app: App) {
           // Continue without Airtable data
         }
 
-        // If user already exists in DB, update their Airtable profile and return existing user
+        // If user already exists in DB, update their Airtable profile and return existing user with token
         if (existingUser.length > 0) {
           const existingUserData = existingUser[0];
           app.logger.info({ email: normalizedEmail }, 'User already exists in DB');
@@ -256,7 +257,36 @@ export function registerRegistrationRoutes(app: App) {
             }
           }
 
-          // Return existing user data so they can log in
+          // Create session for existing user
+          const sessionToken = generateSessionToken();
+          const sessionId = randomUUID();
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+          try {
+            await app.db
+              .insert(session)
+              .values({
+                id: sessionId,
+                token: sessionToken,
+                userId: existingUserData.id,
+                expiresAt,
+                ipAddress: request.ip || null,
+                userAgent: request.headers['user-agent'] || null,
+              });
+
+            app.logger.info({ userId: existingUserData.id, sessionId }, 'Session created for existing user');
+
+            // Set the session cookie using Set-Cookie header for web clients
+            const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+            const secure = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+            const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; ${secure}`;
+            reply.header('Set-Cookie', cookieValue);
+          } catch (sessionError) {
+            app.logger.error({ err: sessionError, userId: existingUserData.id }, 'Failed to create session for existing user');
+            // Continue with response even if session creation fails
+          }
+
+          // Return existing user data with token
           return reply.status(200).send({
             user: {
               id: existingUserData.id,
@@ -267,6 +297,7 @@ export function registerRegistrationRoutes(app: App) {
               phone: existingUserData.phone,
               emailVerified: existingUserData.emailVerified,
             },
+            token: sessionToken,
           });
         }
 
