@@ -108,13 +108,13 @@ export default function RegisterScreen() {
       }>('/api/registration/verify-code', { email, code });
 
       console.log('RegisterScreen - Code verified successfully');
-      console.log('RegisterScreen - User:', response.user);
-      console.log('RegisterScreen - Token received:', response.token ? 'Yes' : 'No');
+      console.log('RegisterScreen - User:', JSON.stringify(response.user));
+      console.log('RegisterScreen - Token received:', response.token ? `Yes (length: ${response.token.length})` : 'No');
+      console.log('RegisterScreen - Full response keys:', Object.keys(response));
 
       if (response.token) {
         // Backend returned a token - use setUserFromToken to directly authenticate
-        // without relying on authClient.getSession() which may not recognize the session
-        console.log('RegisterScreen - Using setUserFromToken for direct authentication');
+        console.log('RegisterScreen - Using setUserFromToken for direct authentication, token length:', response.token.length);
         await setUserFromToken(
           {
             id: response.user.id,
@@ -123,22 +123,29 @@ export default function RegisterScreen() {
           },
           response.token
         );
+        
+        // setUserFromToken already waits for state to commit before resolving
+        // Navigate to home tab which will then show the profile
+        console.log('RegisterScreen - Navigating to home after successful authentication');
+        router.replace("/(tabs)/(home)/");
       } else {
-        // No token in response - fall back to fetchUser which will try the profile endpoint
-        // with any stored bearer token, or fall back to Better Auth session check
-        console.log('RegisterScreen - No token in response, falling back to fetchUser');
-        // CRITICAL: Wait a moment for the cookie to be properly stored
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // No token in response body - the backend may have set a session cookie instead.
+        // fetchUser will try the cookie-based profile fetch as a fallback.
+        console.log('RegisterScreen - No token in response body, trying fetchUser with cookie fallback');
+        
+        // Wait a moment for the cookie to be properly stored by the browser
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // fetchUser will try: stored bearer token → Better Auth session → cookie-based profile
         await fetchUser();
+        
+        // Give React time to process the state update
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Navigate to home
+        console.log('RegisterScreen - Navigating to home after fetchUser');
+        router.replace("/(tabs)/(home)/");
       }
-      
-      showSuccess("Email verified! Welcome to Port of the Future 2026.");
-      
-      // Navigate to profile after showing success message
-      setTimeout(() => {
-        console.log('RegisterScreen - Navigating to profile');
-        router.replace("/(tabs)/profile");
-      }, 1500);
     } catch (error: any) {
       console.error('RegisterScreen - Verify code error:', error);
       const errorMsg = error.message || "Invalid or expired verification code. Please try again.";

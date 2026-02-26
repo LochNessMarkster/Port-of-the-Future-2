@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Fall back to Better Auth session check
+      // Fall back to Better Auth session check (handles cookie-based sessions on web)
       console.log("AuthContext - Trying Better Auth session...");
       const session = await authClient.getSession();
       console.log("AuthContext - Session result:", session ? "Session found" : "No session");
@@ -154,6 +154,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await setBearerToken(session.data.session.token);
         }
       } else {
+        // Last resort: try /api/profile with credentials (cookie-based auth for web)
+        // This handles the case where the registration set a cookie but no bearer token was returned
+        console.log("AuthContext - Trying cookie-based profile fetch as last resort...");
+        try {
+          const cookieProfileResponse = await fetch(`${BACKEND_URL}/api/profile`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+          });
+          if (cookieProfileResponse.ok) {
+            const profileData = await cookieProfileResponse.json();
+            console.log("AuthContext - Cookie-based profile fetch succeeded:", profileData.email);
+            setUser({
+              id: profileData.id,
+              email: profileData.email,
+              name: profileData.name,
+              image: profileData.image,
+            });
+            setLoading(false);
+            return;
+          }
+        } catch (cookieError) {
+          console.log("AuthContext - Cookie-based profile fetch failed:", cookieError);
+        }
         console.log("AuthContext - No user in session, clearing auth");
         setUser(null);
         await clearAuthTokens();
@@ -169,11 +193,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Directly set the authenticated user from a token returned by the registration flow.
    * This bypasses Better Auth's session check and directly stores the token + user.
+   * Returns a promise that resolves only after the user state has been committed.
    */
-  const setUserFromToken = async (userData: User, token: string) => {
-    console.log("AuthContext - Setting user from token:", userData.email);
+  const setUserFromToken = async (userData: User, token: string): Promise<void> => {
+    console.log("AuthContext - Setting user from token:", userData.email, "token length:", token.length);
+    // Store the token first so any subsequent API calls can use it
     await setBearerToken(token);
+    console.log("AuthContext - Bearer token stored, updating user state...");
+    // Set user state - React 18 batches these updates
     setUser(userData);
+    setLoading(false);
+    // Give React two ticks to flush state updates before the caller navigates
+    await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    console.log("AuthContext - User state committed for:", userData.email, "- ready to navigate");
   };
 
   const signInWithEmail = async (email: string, password: string) => {
@@ -233,7 +265,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         // Note: The redirect will reload the app or be handled by deep linking.
         // fetchUser will be called on mount or via event listener if needed.
-        // For simple flow, we might need to listen to URL events.
         // But better-auth expo client handles the redirect and session storage?
         // We typically need to wait or rely on fetchUser on next app load.
         // For now, call fetchUser just in case.
