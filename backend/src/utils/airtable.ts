@@ -5,8 +5,8 @@ const BASE_ID = 'appkKjciinTlnsbkd';
 // Primary API key for most tables
 const PRIMARY_API_KEY = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
-// Secondary API key for Attendees table
-const SECONDARY_API_KEY = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
+// Secondary API key for Attendees table (write-permission token)
+const SECONDARY_API_KEY = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
 
 // Base ID for Attendees table (if different)
 const ATTENDEES_BASE_ID = 'appkKjciinTlnsbkd';

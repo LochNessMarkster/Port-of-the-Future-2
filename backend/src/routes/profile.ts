@@ -3,6 +3,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import { user } from '../db/auth-schema.js';
+import { fetchAirtableAttendees, updateAirtableRecord, TABLES } from '../utils/airtable.js';
 
 export function registerProfileRoutes(app: App) {
   const requireAuth = app.requireAuth();
@@ -71,6 +72,40 @@ export function registerProfileRoutes(app: App) {
           { userId, photoKey: uploadedKey },
           'Profile photo uploaded successfully'
         );
+
+        // Update Airtable attendee record with image if available
+        try {
+          const userInfo = await app.db
+            .select()
+            .from(user)
+            .where(eq(user.id, userId))
+            .limit(1);
+
+          if (userInfo.length > 0 && userInfo[0].email) {
+            const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+              logger: app.logger,
+            });
+
+            const attendee = attendeesData.records.find(
+              (record) =>
+                record.fields['Email']?.toLowerCase() === userInfo[0].email.toLowerCase()
+            );
+
+            if (attendee) {
+              app.logger.info({ airtableRecordId: attendee.id }, 'Updating Airtable attendee with image');
+              await updateAirtableRecord(
+                TABLES.ATTENDEES,
+                attendee.id,
+                { Image: [{ url }] },
+                app.logger
+              );
+              app.logger.info({ airtableRecordId: attendee.id }, 'Airtable attendee image updated');
+            }
+          }
+        } catch (airtableError) {
+          app.logger.warn({ err: airtableError }, 'Failed to update Airtable with image, continuing');
+          // Continue even if Airtable update fails
+        }
 
         return { url };
       } catch (error) {
