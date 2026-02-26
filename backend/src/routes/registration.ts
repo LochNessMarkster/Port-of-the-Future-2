@@ -260,7 +260,7 @@ export function registerRegistrationRoutes(app: App) {
           // Create session for existing user
           const sessionToken = generateSessionToken();
           const sessionId = randomUUID();
-          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+          const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
 
           try {
             await app.db
@@ -277,7 +277,7 @@ export function registerRegistrationRoutes(app: App) {
             app.logger.info({ userId: existingUserData.id, sessionId }, 'Session created for existing user');
 
             // Set the session cookie using Set-Cookie header for web clients
-            const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+            const maxAge = 90 * 24 * 60 * 60; // 90 days in seconds
             const secure = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
             const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; ${secure}`;
             reply.header('Set-Cookie', cookieValue);
@@ -348,7 +348,7 @@ export function registerRegistrationRoutes(app: App) {
             await updateAirtableRecord(
               TABLES.ATTENDEES,
               airtableRecordId,
-              { 'Field 14': hashedPassword },
+              { Password: hashedPassword },
               app.logger
             );
             app.logger.info({ airtableRecordId }, 'Airtable attendee password updated');
@@ -361,7 +361,7 @@ export function registerRegistrationRoutes(app: App) {
         // Create session
         const sessionToken = generateSessionToken();
         const sessionId = randomUUID();
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
 
         await app.db
           .insert(session)
@@ -377,7 +377,7 @@ export function registerRegistrationRoutes(app: App) {
         app.logger.info({ userId, sessionId }, 'Session created');
 
         // Set the session cookie using Set-Cookie header for web clients
-        const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+        const maxAge = 90 * 24 * 60 * 60; // 90 days in seconds
         const secure = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
         const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; ${secure}`;
         reply.header('Set-Cookie', cookieValue);
@@ -516,7 +516,7 @@ export function registerRegistrationRoutes(app: App) {
             await updateAirtableRecord(
               TABLES.ATTENDEES,
               attendee.id,
-              { Photo: imageUrl },
+              { Image: [{ url: imageUrl }] },
               app.logger
             );
             app.logger.info({ airtableRecordId: attendee.id }, 'Airtable attendee image updated');
