@@ -259,9 +259,11 @@ export default function NetworkingScreen() {
     }
   };
 
-  const sendMessage = (attendeeId: string) => {
+  const sendMessage = (attendee: Attendee) => {
     setSelectedAttendee(null);
-    router.push(`/messages?recipientId=${attendeeId}`);
+    const encodedName = encodeURIComponent(attendee.name || '');
+    console.log('[NetworkingScreen] Opening messages with attendee:', attendee.id, attendee.name);
+    router.push(`/messages?recipientId=${attendee.id}&recipientName=${encodedName}`);
   };
 
   // Filter attendees by search query
@@ -531,7 +533,7 @@ export default function NetworkingScreen() {
 
               <TouchableOpacity
                 style={[styles.messageButton, { backgroundColor: appColors.primary }]}
-                onPress={() => selectedAttendee && sendMessage(selectedAttendee.id)}
+                onPress={() => selectedAttendee && sendMessage(selectedAttendee)}
                 activeOpacity={0.7}
               >
                 <IconSymbol
