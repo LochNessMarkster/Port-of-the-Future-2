@@ -188,8 +188,9 @@ export default function ProfileScreen() {
         platform: Platform.OS 
       });
 
+      // CRITICAL FIX: Use 'photo' as field name (backend accepts both 'file' and 'photo')
       // @ts-expect-error - FormData accepts this format in React Native
-      formData.append('file', {
+      formData.append('photo', {
         uri: fileUri,
         name: filename,
         type: type,
