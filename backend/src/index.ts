@@ -19,6 +19,7 @@ import { registerSpeakerPresentationsRoutes } from './routes/speaker-presentatio
 import { registerCacheRoutes } from './routes/cache.js';
 import { registerActivitiesRoutes } from './routes/activities.js';
 import { registerFloorPlanRoutes } from './routes/floor-plan.js';
+import { registerRegistrationRoutes } from './routes/registration.js';
 import { airtableCache } from './services/airtable-cache.js';
 
 const schema = { ...appSchema, ...authSchema };
@@ -57,6 +58,7 @@ registerSpeakerPresentationsRoutes(app);
 registerCacheRoutes(app);
 registerActivitiesRoutes(app);
 registerFloorPlanRoutes(app);
+registerRegistrationRoutes(app);
 
 await app.run();
 app.logger.info('Application running');
