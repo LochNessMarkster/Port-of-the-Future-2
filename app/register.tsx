@@ -18,9 +18,25 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-import { apiPost } from "@/utils/api";
+import { apiPost, BACKEND_URL, getBearerToken } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { IconSymbol } from "@/components/IconSymbol";
+import * as ImagePicker from 'expo-image-picker';
+
+/**
+ * Registration Screen
+ * 
+ * Flow:
+ * 1. User enters email → Check if email exists in Airtable (prepopulate data if found)
+ * 2. User enters password (twice for confirmation) and profile details
+ * 3. User can optionally upload a profile photo
+ * 4. On "Create Account":
+ *    - Backend creates Better Auth account with password
+ *    - Backend saves hashed password to Airtable Field 14
+ *    - If user already exists in Better Auth, backend updates their Airtable profile instead
+ *    - Profile photo is uploaded to object storage (if selected)
+ *    - User is authenticated and redirected to home screen
+ */
 
 type Step = "email" | "details";
 
@@ -57,6 +73,8 @@ export default function RegisterScreen() {
   const [attendeeData, setAttendeeData] = useState<AttendeeData | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   console.log('RegisterScreen - Current step:', step);
 
@@ -108,6 +126,35 @@ export default function RegisterScreen() {
       showError(errorMsg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const pickAndUploadPhoto = async () => {
+    console.log('RegisterScreen - User tapped to upload profile photo');
+    
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        showError("Permission to access photos is required");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        console.log('RegisterScreen - Image selected:', imageUri);
+        setProfileImage(imageUri);
+      }
+    } catch (error: any) {
+      console.error('RegisterScreen - Image picker error:', error);
+      showError("Failed to select image. Please try again.");
     }
   };
 
@@ -167,6 +214,47 @@ export default function RegisterScreen() {
         },
         response.token
       );
+
+      // Upload profile image if one was selected
+      if (profileImage) {
+        console.log('RegisterScreen - Uploading profile image');
+        setUploadingImage(true);
+        try {
+          const token = await getBearerToken();
+          const formData = new FormData();
+          
+          // Create file object for upload
+          const filename = profileImage.split('/').pop() || 'profile.jpg';
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : 'image/jpeg';
+          
+          formData.append('image', {
+            uri: profileImage,
+            name: filename,
+            type: type,
+          } as any);
+
+          const uploadResponse = await fetch(`${BACKEND_URL}/api/registration/upload-profile-image`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            console.error('RegisterScreen - Image upload failed:', uploadResponse.status);
+          } else {
+            const uploadData = await uploadResponse.json();
+            console.log('RegisterScreen - Image uploaded successfully:', uploadData.imageUrl);
+          }
+        } catch (uploadError) {
+          console.error('RegisterScreen - Image upload error:', uploadError);
+          // Don't block registration if image upload fails
+        } finally {
+          setUploadingImage(false);
+        }
+      }
       
       console.log('RegisterScreen - Navigating to home after successful registration');
       router.replace("/(tabs)/(home)/");
@@ -174,8 +262,10 @@ export default function RegisterScreen() {
       console.error('RegisterScreen - Create account error:', error);
       let errorMsg = error.message || "Failed to create account. Please try again.";
       
-      if (errorMsg.toLowerCase().includes("already exists") || errorMsg.toLowerCase().includes("duplicate")) {
-        errorMsg = "An account with this email already exists. Please sign in instead.";
+      // The backend now handles existing users gracefully (returns 200 with token).
+      // If we still get an "already exists" error, it means something unexpected happened.
+      if (errorMsg.toLowerCase().includes("already exists") || errorMsg.toLowerCase().includes("duplicate") || errorMsg.toLowerCase().includes("email already registered")) {
+        errorMsg = "This email is already registered. Please sign in using the Sign In screen, or contact support if you need help accessing your account.";
       }
       
       showError(errorMsg);
@@ -273,6 +363,32 @@ export default function RegisterScreen() {
                     </Text>
                   </View>
                 )}
+
+                {/* Profile Photo */}
+                <View style={styles.photoSection}>
+                  <Text style={[styles.label, { color: appColors.text }]}>Profile Photo (Optional)</Text>
+                  <TouchableOpacity
+                    style={[styles.photoButton, { borderColor: appColors.border }]}
+                    onPress={pickAndUploadPhoto}
+                    disabled={loading || uploadingImage}
+                  >
+                    {profileImage ? (
+                      <Image source={{ uri: profileImage }} style={styles.photoPreview} />
+                    ) : (
+                      <View style={styles.photoPlaceholder}>
+                        <IconSymbol 
+                          ios_icon_name="camera.fill" 
+                          android_material_icon_name="camera" 
+                          size={40} 
+                          color={appColors.textSecondary} 
+                        />
+                        <Text style={[styles.photoPlaceholderText, { color: appColors.textSecondary }]}>
+                          Tap to add photo
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
 
                 {/* Full Name */}
                 <Text style={[styles.label, { color: appColors.text }]}>Full Name *</Text>
@@ -449,12 +565,17 @@ export default function RegisterScreen() {
                 )}
 
                 <TouchableOpacity
-                  style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
+                  style={[styles.primaryButton, { backgroundColor: appColors.primary }, (loading || uploadingImage) && styles.buttonDisabled]}
                   onPress={handleCreateAccount}
-                  disabled={loading}
+                  disabled={loading || uploadingImage}
                 >
                   {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <View style={styles.buttonContent}>
+                      <ActivityIndicator color="#FFFFFF" />
+                      <Text style={[styles.primaryButtonText, { marginLeft: spacing.sm }]}>
+                        {uploadingImage ? 'Uploading photo...' : 'Creating account...'}
+                      </Text>
+                    </View>
                   ) : (
                     <Text style={styles.primaryButtonText}>Create Account</Text>
                   )}
@@ -629,6 +750,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
+  photoSection: {
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  photoButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoPreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  photoPlaceholderText: {
+    ...typography.bodySmall,
+    fontSize: 12,
+    textAlign: 'center',
+  },
   sectionTitle: {
     ...typography.h4,
     marginBottom: spacing.xs,
@@ -693,6 +843,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: spacing.lg,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   primaryButtonText: {
     color: "#FFFFFF",
