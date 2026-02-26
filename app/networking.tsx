@@ -245,12 +245,29 @@ export default function NetworkingScreen() {
       setAttendees(data);
       console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees in directory');
       
-      // Log opt-in status for debugging
+      // Log opt-in status and name/image debug info
       const optedInCount = data.filter(a => a.optInNetworking === 'YES').length;
       console.log('[NetworkingScreen] Opt-in breakdown:', {
         total: data.length,
         optedIn: optedInCount,
         notOptedIn: data.length - optedInCount
+      });
+      
+      // Debug: log attendees with missing names or images
+      data.forEach(a => {
+        if (!a.name && !a.firstName && !a.lastName) {
+          console.warn('[NetworkingScreen] Attendee missing all name fields:', a.id);
+        } else if (!a.name) {
+          console.log('[NetworkingScreen] Attendee has firstName/lastName but no name field:', {
+            id: a.id,
+            firstName: a.firstName,
+            lastName: a.lastName,
+            name: a.name,
+          });
+        }
+        if (a.image) {
+          console.log('[NetworkingScreen] Attendee has image URL:', { id: a.id, imageUrl: a.image.substring(0, 60) + '...' });
+        }
       });
     } catch (error) {
       console.error('[NetworkingScreen] Error loading attendees:', error);
@@ -273,9 +290,9 @@ export default function NetworkingScreen() {
     
     const query = searchQuery.toLowerCase();
     return attendees.filter(attendee => {
-      const matchesName = attendee.name.toLowerCase().includes(query);
-      const matchesFirstName = attendee.firstName.toLowerCase().includes(query);
-      const matchesLastName = attendee.lastName.toLowerCase().includes(query);
+      const matchesName = (attendee.name || '').toLowerCase().includes(query);
+      const matchesFirstName = (attendee.firstName || '').toLowerCase().includes(query);
+      const matchesLastName = (attendee.lastName || '').toLowerCase().includes(query);
       const matchesCompany = attendee.company?.toLowerCase().includes(query);
       const matchesTitle = attendee.title?.toLowerCase().includes(query);
       const matchesEmail = attendee.email?.toLowerCase().includes(query);
@@ -378,7 +395,7 @@ export default function NetworkingScreen() {
               />
               <View style={styles.attendeeInfo}>
                 <Text style={[styles.attendeeName, { color: appColors.text }]}>
-                  {attendee.name}
+                  {attendee.name || [attendee.firstName, attendee.lastName].filter(Boolean).join(' ') || 'Unknown Attendee'}
                 </Text>
                 {attendee.title && attendee.company && (
                   <Text style={[styles.attendeeTitle, { color: appColors.textSecondary }]}>
@@ -439,7 +456,7 @@ export default function NetworkingScreen() {
                   style={styles.modalImage}
                 />
                 <Text style={[styles.modalName, { color: appColors.text }]}>
-                  {selectedAttendee?.name}
+                  {selectedAttendee?.name || [selectedAttendee?.firstName, selectedAttendee?.lastName].filter(Boolean).join(' ') || 'Unknown Attendee'}
                 </Text>
                 {selectedAttendee?.title && selectedAttendee?.company && (
                   <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>

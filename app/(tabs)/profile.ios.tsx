@@ -48,6 +48,7 @@ export default function ProfileScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [imageRefreshKey, setImageRefreshKey] = useState(0);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -76,6 +77,7 @@ export default function ProfileScreen() {
       const data = await apiGet<UserProfile>('/api/profile');
       console.log('ProfileScreen - Profile loaded:', data);
       setProfile(data);
+      setImageRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('ProfileScreen - Failed to load profile:', error);
     } finally {
@@ -186,13 +188,15 @@ export default function ProfileScreen() {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('ProfileScreen - Image upload failed:', response.status, errorText);
         throw new Error('Failed to upload photo');
       }
 
       const data = await response.json();
-      console.log('ProfileScreen - Photo uploaded:', data.url);
+      console.log('ProfileScreen - Photo uploaded successfully:', data.url);
 
-      // Reload profile to get updated image
+      // Reload profile to get updated image with fresh signed URL
       await loadProfile();
     } catch (error) {
       console.error('ProfileScreen - Failed to upload photo:', error);
@@ -244,7 +248,11 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <View style={styles.photoContainer}>
             {profile.image ? (
-              <Image source={{ uri: profile.image }} style={styles.photo} />
+              <Image 
+                key={`${profile.image}-${imageRefreshKey}`} 
+                source={{ uri: `${profile.image}?t=${Date.now()}`, cache: 'reload' }} 
+                style={styles.photo} 
+              />
             ) : (
               <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
                 <IconSymbol

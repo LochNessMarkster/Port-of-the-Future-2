@@ -231,18 +231,19 @@ export default function RegisterScreen() {
           const token = await getBearerToken();
           const formData = new FormData();
           
-          // Create file object for upload
+          // Create file object for upload - CRITICAL: backend expects 'photo' field name
           const filename = profileImage.split('/').pop() || 'profile.jpg';
           const match = /\.(\w+)$/.exec(filename);
           const type = match ? `image/${match[1]}` : 'image/jpeg';
           
-          formData.append('image', {
+          formData.append('photo', {
             uri: profileImage,
             name: filename,
             type: type,
           } as any);
 
-          const uploadResponse = await fetch(`${BACKEND_URL}/api/registration/upload-profile-image`, {
+          console.log('[API] Uploading profile photo to /api/profile/upload-photo');
+          const uploadResponse = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -251,10 +252,11 @@ export default function RegisterScreen() {
           });
 
           if (!uploadResponse.ok) {
-            console.error('RegisterScreen - Image upload failed:', uploadResponse.status);
+            const errorText = await uploadResponse.text();
+            console.error('RegisterScreen - Image upload failed:', uploadResponse.status, errorText);
           } else {
             const uploadData = await uploadResponse.json();
-            console.log('RegisterScreen - Image uploaded successfully:', uploadData.imageUrl);
+            console.log('RegisterScreen - Image uploaded successfully:', uploadData.url);
           }
         } catch (uploadError) {
           console.error('RegisterScreen - Image upload error:', uploadError);

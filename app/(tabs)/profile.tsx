@@ -48,6 +48,7 @@ export default function ProfileScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [imageRefreshKey, setImageRefreshKey] = useState(0);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -74,8 +75,15 @@ export default function ProfileScreen() {
       setLoading(true);
       console.log('ProfileScreen - Loading profile');
       const data = await apiGet<UserProfile>('/api/profile');
-      console.log('ProfileScreen - Profile loaded:', data);
+      console.log('ProfileScreen - Profile loaded:', {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        hasImage: !!data.image,
+        imageUrl: data.image ? data.image.substring(0, 80) + '...' : null,
+      });
       setProfile(data);
+      setImageRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('ProfileScreen - Failed to load profile:', error);
     } finally {
@@ -122,7 +130,9 @@ export default function ProfileScreen() {
       });
       
       console.log('ProfileScreen - Profile updated:', updatedProfile);
-      setProfile(updatedProfile);
+      // Reload profile via GET to get fresh signed URL for image
+      // (PUT response returns raw storage key, not a signed URL)
+      await loadProfile();
       closeEditModal();
     } catch (error) {
       console.error('ProfileScreen - Failed to save profile:', error);
@@ -186,13 +196,15 @@ export default function ProfileScreen() {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('ProfileScreen - Image upload failed:', response.status, errorText);
         throw new Error('Failed to upload photo');
       }
 
       const data = await response.json();
-      console.log('ProfileScreen - Photo uploaded:', data.url);
+      console.log('ProfileScreen - Photo uploaded successfully:', data.url);
 
-      // Reload profile to get updated image
+      // Reload profile to get updated image with fresh signed URL
       await loadProfile();
     } catch (error) {
       console.error('ProfileScreen - Failed to upload photo:', error);
@@ -244,7 +256,11 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <View style={styles.photoContainer}>
             {profile.image ? (
-              <Image key={profile.image} source={{ uri: profile.image, cache: 'reload' }} style={styles.photo} />
+              <Image 
+                key={`${profile.image}-${imageRefreshKey}`} 
+                source={{ uri: `${profile.image}?t=${Date.now()}`, cache: 'reload' }} 
+                style={styles.photo} 
+              />
             ) : (
               <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
                 <IconSymbol

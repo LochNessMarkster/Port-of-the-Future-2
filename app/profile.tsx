@@ -190,9 +190,11 @@ export default function ProfileScreen() {
         sharePhone,
         shareLinkedIn,
       });
-      setProfile(updatedProfile);
+      // Reload profile via GET to get fresh signed URL for image
+      // (PUT response returns raw storage key, not a signed URL)
+      await loadProfile();
       await fetchUser(); // Refresh auth context
-      console.log('ProfileScreen - Profile updated');
+      console.log('ProfileScreen - Profile updated and reloaded with fresh signed URLs');
     } catch (error) {
       console.error('ProfileScreen - Error saving profile:', error);
     } finally {
