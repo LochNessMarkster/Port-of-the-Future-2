@@ -101,6 +101,32 @@ export function registerAttendeesRoutes(app: App) {
           const sharePhone = userPrefs?.sharePhone ?? true;
           const shareLinkedIn = userPrefs?.shareLinkedIn ?? true;
 
+          // Debug logging for name field
+          if (!name || name.length === 0) {
+            app.logger.warn(
+              {
+                attendeeId: record.id,
+                email,
+                firstName,
+                lastName,
+                hasFirstName: !!record.fields['First Name'],
+                hasLastName: !!record.fields['Last Name'],
+              },
+              'Attendee has empty name field'
+            );
+          } else {
+            app.logger.debug(
+              {
+                attendeeId: record.id,
+                email,
+                firstName,
+                lastName,
+                combinedName: name,
+              },
+              'Attendee name constructed'
+            );
+          }
+
           return {
             id: record.id,
             firstName,
@@ -126,14 +152,22 @@ export function registerAttendeesRoutes(app: App) {
               try {
                 const { url } = await app.storage.getSignedUrl(attendee.imageKey);
                 imageUrl = url;
-                app.logger.debug({ imageKey: attendee.imageKey }, 'Generated signed URL for profile image');
+                app.logger.debug(
+                  { attendeeId: attendee.id, email: attendee.email, imageKey: attendee.imageKey, hasUrl: !!url },
+                  'Generated signed URL for profile image'
+                );
               } catch (urlError) {
                 app.logger.warn(
-                  { err: urlError, imageKey: attendee.imageKey },
+                  { err: urlError, attendeeId: attendee.id, email: attendee.email, imageKey: attendee.imageKey },
                   'Failed to generate signed URL for image, returning null'
                 );
                 imageUrl = null;
               }
+            } else {
+              app.logger.debug(
+                { attendeeId: attendee.id, email: attendee.email, name: attendee.name },
+                'Attendee has no profile image'
+              );
             }
 
             const { imageKey, ...attendeeWithoutImageKey } = attendee;
@@ -216,14 +250,19 @@ export function registerAttendeesRoutes(app: App) {
           try {
             const { url } = await app.storage.getSignedUrl(user.image);
             imageUrl = url;
-            app.logger.debug({ imageKey: user.image }, 'Generated signed URL for profile image');
+            app.logger.debug(
+              { attendeeId: id, imageKey: user.image, hasUrl: !!url },
+              'Generated signed URL for profile image'
+            );
           } catch (urlError) {
             app.logger.warn(
-              { err: urlError, imageKey: user.image },
+              { err: urlError, attendeeId: id, imageKey: user.image },
               'Failed to generate signed URL for image, returning null'
             );
             imageUrl = null;
           }
+        } else {
+          app.logger.debug({ attendeeId: id }, 'User has no profile image stored');
         }
 
         const result = {
@@ -237,7 +276,10 @@ export function registerAttendeesRoutes(app: App) {
           emailVerified: user.emailVerified,
         };
 
-        app.logger.info({ attendeeId: id }, 'Attendee profile fetched');
+        app.logger.info(
+          { attendeeId: id, name: result.name, email: result.email, hasImage: !!imageUrl },
+          'Attendee profile fetched successfully'
+        );
         return result;
       } catch (error) {
         app.logger.error({ err: error, attendeeId: id }, 'Failed to fetch attendee profile');
