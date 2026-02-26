@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcrypt';
 import { user, account, session } from '../db/auth-schema.js';
-import { fetchAirtableAttendees, TABLES } from '../utils/airtable.js';
+import { fetchAirtableAttendees, updateAirtableRecord, TABLES } from '../utils/airtable.js';
 
 // Generate a session token
 function generateSessionToken(): string {
@@ -126,6 +126,23 @@ export function registerRegistrationRoutes(app: App) {
           required: ['email', 'password', 'name'],
         },
         response: {
+          200: {
+            type: 'object',
+            properties: {
+              user: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  email: { type: 'string' },
+                  name: { type: 'string' },
+                  company: { type: ['string', 'null'] },
+                  title: { type: ['string', 'null'] },
+                  phone: { type: ['string', 'null'] },
+                  emailVerified: { type: 'boolean' },
+                },
+              },
+            },
+          },
           201: {
             type: 'object',
             properties: {
@@ -145,12 +162,6 @@ export function registerRegistrationRoutes(app: App) {
             },
           },
           400: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-            },
-          },
-          409: {
             type: 'object',
             properties: {
               error: { type: 'string' },
@@ -190,15 +201,9 @@ export function registerRegistrationRoutes(app: App) {
           .where(eq(user.email, normalizedEmail))
           .limit(1);
 
-        if (existingUser.length > 0) {
-          app.logger.warn({ email: normalizedEmail }, 'User already exists');
-          return reply.status(409).send({
-            error: 'Email already registered',
-          });
-        }
-
         // Fetch attendee details from Airtable if available
         let airtableData: any = {};
+        let airtableRecordId: string | null = null;
         try {
           const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
             logger: app.logger,
@@ -210,6 +215,7 @@ export function registerRegistrationRoutes(app: App) {
           );
 
           if (attendee) {
+            airtableRecordId = attendee.id;
             airtableData = {
               company: attendee.fields['Company'],
               title: attendee.fields['Job Title'],
@@ -220,6 +226,48 @@ export function registerRegistrationRoutes(app: App) {
         } catch (airtableError) {
           app.logger.warn({ err: airtableError }, 'Failed to fetch Airtable data');
           // Continue without Airtable data
+        }
+
+        // If user already exists in DB, update their Airtable profile and return existing user
+        if (existingUser.length > 0) {
+          const existingUserData = existingUser[0];
+          app.logger.info({ email: normalizedEmail }, 'User already exists in DB');
+
+          // If attendee exists in Airtable, update their profile
+          if (airtableRecordId) {
+            try {
+              app.logger.info({ airtableRecordId }, 'Updating Airtable attendee profile');
+
+              const updateFields: any = {};
+              if (name && name !== existingUserData.name) updateFields['First Name'] = name.split(' ')[0];
+              if (name && name !== existingUserData.name) updateFields['Last Name'] = name.split(' ').slice(1).join(' ');
+              if (company || existingUserData.company) updateFields['Company'] = company || existingUserData.company;
+              if (title || existingUserData.title) updateFields['Job Title'] = title || existingUserData.title;
+              if (phone || existingUserData.phone) updateFields['Phone'] = phone || existingUserData.phone;
+              if (linkedin || existingUserData.linkedin) updateFields['LinkedIn'] = linkedin || existingUserData.linkedin;
+
+              if (Object.keys(updateFields).length > 0) {
+                await updateAirtableRecord(TABLES.ATTENDEES, airtableRecordId, updateFields, app.logger);
+                app.logger.info({ airtableRecordId }, 'Airtable attendee profile updated');
+              }
+            } catch (updateError) {
+              app.logger.warn({ err: updateError }, 'Failed to update Airtable profile, continuing');
+              // Continue even if Airtable update fails
+            }
+          }
+
+          // Return existing user data so they can log in
+          return reply.status(200).send({
+            user: {
+              id: existingUserData.id,
+              email: existingUserData.email,
+              name: existingUserData.name,
+              company: existingUserData.company,
+              title: existingUserData.title,
+              phone: existingUserData.phone,
+              emailVerified: existingUserData.emailVerified,
+            },
+          });
         }
 
         // Merge Airtable data with provided data (Airtable takes precedence)
@@ -261,6 +309,23 @@ export function registerRegistrationRoutes(app: App) {
           });
 
         app.logger.info({ userId, email: normalizedEmail }, 'User and account created');
+
+        // Update Airtable record with password if attendee exists
+        if (airtableRecordId) {
+          try {
+            app.logger.info({ airtableRecordId }, 'Updating Airtable attendee with password');
+            await updateAirtableRecord(
+              TABLES.ATTENDEES,
+              airtableRecordId,
+              { 'Field 14': hashedPassword },
+              app.logger
+            );
+            app.logger.info({ airtableRecordId }, 'Airtable attendee password updated');
+          } catch (airtableError) {
+            app.logger.warn({ err: airtableError }, 'Failed to save password to Airtable, continuing');
+            // Continue even if Airtable update fails
+          }
+        }
 
         // Create session
         const sessionToken = generateSessionToken();
@@ -304,6 +369,141 @@ export function registerRegistrationRoutes(app: App) {
         app.logger.error(
           { err: error, email: normalizedEmail },
           'Failed to create account'
+        );
+        throw error;
+      }
+    }
+  );
+
+  /**
+   * POST /api/registration/upload-profile-image - Upload profile image (requires authentication)
+   */
+  app.fastify.post(
+    '/api/registration/upload-profile-image',
+    {
+      schema: {
+        description: 'Upload profile image for authenticated user',
+        tags: ['registration'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              imageUrl: { type: 'string' },
+            },
+          },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const requireAuth = app.requireAuth();
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      const email = session.user.email;
+
+      app.logger.info({ userId, email }, 'Uploading profile image');
+
+      try {
+        // Get the file from multipart form data
+        const data = await request.file();
+        if (!data) {
+          app.logger.warn({ userId }, 'No image file provided');
+          return reply.status(400).send({
+            error: 'Image file is required',
+          });
+        }
+
+        const file = data;
+        const filename = file.filename;
+        const buffer = await file.toBuffer();
+
+        app.logger.info({ userId, filename, size: buffer.length }, 'Processing image file');
+
+        // Check file size (10MB limit)
+        const maxSize = 10 * 1024 * 1024;
+        if (buffer.length > maxSize) {
+          app.logger.warn({ userId, size: buffer.length }, 'Image file too large');
+          return reply.status(400).send({
+            error: 'Image file must be less than 10MB',
+          });
+        }
+
+        // Validate file type
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedMimes.includes(file.mimetype)) {
+          app.logger.warn({ userId, mimetype: file.mimetype }, 'Invalid image file type');
+          return reply.status(400).send({
+            error: 'Only JPEG, PNG, WebP, and GIF images are allowed',
+          });
+        }
+
+        // Upload to storage
+        const timestamp = Date.now();
+        const storagePath = `profile-photos/${userId}/${timestamp}-${filename}`;
+
+        const uploadedKey = await app.storage.upload(storagePath, buffer);
+
+        app.logger.info({ userId, storagePath }, 'Image uploaded to storage');
+
+        // Get signed URL for the image
+        const { url: imageUrl } = await app.storage.getSignedUrl(uploadedKey);
+
+        // Update user's image field in database
+        await app.db
+          .update(user)
+          .set({ image: uploadedKey })
+          .where(eq(user.id, userId));
+
+        app.logger.info({ userId }, 'User image field updated in database');
+
+        // Update Airtable attendee record with image URL if available
+        try {
+          const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+            logger: app.logger,
+          });
+
+          const attendee = attendeesData.records.find(
+            (record) =>
+              record.fields['Email']?.toLowerCase() === email.toLowerCase()
+          );
+
+          if (attendee) {
+            app.logger.info({ airtableRecordId: attendee.id }, 'Updating Airtable attendee with image');
+            await updateAirtableRecord(
+              TABLES.ATTENDEES,
+              attendee.id,
+              { Photo: imageUrl },
+              app.logger
+            );
+            app.logger.info({ airtableRecordId: attendee.id }, 'Airtable attendee image updated');
+          }
+        } catch (airtableError) {
+          app.logger.warn({ err: airtableError }, 'Failed to update Airtable with image, continuing');
+          // Continue even if Airtable update fails
+        }
+
+        app.logger.info({ userId }, 'Profile image upload completed successfully');
+
+        return {
+          imageUrl,
+        };
+      } catch (error) {
+        app.logger.error(
+          { err: error, userId },
+          'Failed to upload profile image'
         );
         throw error;
       }
