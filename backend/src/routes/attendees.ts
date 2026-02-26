@@ -113,15 +113,42 @@ export function registerAttendeesRoutes(app: App) {
             linkedin: shareLinkedIn ? (userPrefs?.linkedin || null) : null,
             registrationLevel: record.fields['Registration Level'] || null,
             optInNetworking: record.fields['Opt In Networking'] || null,
-            image: userPrefs?.image || null,
+            imageKey: userPrefs?.image || null,
           };
         });
 
+        // Convert storage keys to signed URLs for images
+        const resultWithSignedUrls = await Promise.all(
+          result.map(async (attendee) => {
+            let imageUrl: string | null = null;
+
+            if (attendee.imageKey) {
+              try {
+                const { url } = await app.storage.getSignedUrl(attendee.imageKey);
+                imageUrl = url;
+                app.logger.debug({ imageKey: attendee.imageKey }, 'Generated signed URL for profile image');
+              } catch (urlError) {
+                app.logger.warn(
+                  { err: urlError, imageKey: attendee.imageKey },
+                  'Failed to generate signed URL for image, returning null'
+                );
+                imageUrl = null;
+              }
+            }
+
+            const { imageKey, ...attendeeWithoutImageKey } = attendee;
+            return {
+              ...attendeeWithoutImageKey,
+              image: imageUrl,
+            };
+          })
+        );
+
         app.logger.info(
-          { totalFetched: data.records.length, optedInCount: result.length },
+          { totalFetched: data.records.length, optedInCount: resultWithSignedUrls.length },
           'Attendees fetched successfully'
         );
-        return result;
+        return resultWithSignedUrls;
       } catch (error) {
         app.logger.error({ err: error }, 'Failed to fetch attendees');
         throw error;
@@ -182,11 +209,28 @@ export function registerAttendeesRoutes(app: App) {
         }
 
         const user = attendee[0];
+
+        // Generate signed URL for image if it exists
+        let imageUrl: string | null = null;
+        if (user.image) {
+          try {
+            const { url } = await app.storage.getSignedUrl(user.image);
+            imageUrl = url;
+            app.logger.debug({ imageKey: user.image }, 'Generated signed URL for profile image');
+          } catch (urlError) {
+            app.logger.warn(
+              { err: urlError, imageKey: user.image },
+              'Failed to generate signed URL for image, returning null'
+            );
+            imageUrl = null;
+          }
+        }
+
         const result = {
           id: user.id,
           name: user.name || '',
           email: user.email,
-          image: user.image || null,
+          image: imageUrl,
           company: user.company || null,
           title: user.title || null,
           bio: user.bio || null,
