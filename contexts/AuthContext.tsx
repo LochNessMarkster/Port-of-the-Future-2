@@ -196,6 +196,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Returns a promise that resolves only after the user state has been committed.
    */
   const setUserFromToken = async (userData: User, token: string): Promise<void> => {
+    if (!token || typeof token !== 'string' || token.length === 0) {
+      console.error("AuthContext - setUserFromToken called with invalid token:", token);
+      throw new Error("Cannot authenticate: invalid or missing authentication token");
+    }
+    
     console.log("AuthContext - Setting user from token:", userData.email, "token length:", token.length);
     // Store the token first so any subsequent API calls can use it
     await setBearerToken(token);

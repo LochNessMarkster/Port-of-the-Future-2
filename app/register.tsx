@@ -202,8 +202,15 @@ export default function RegisterScreen() {
       });
 
       console.log('RegisterScreen - Account created successfully');
-      console.log('RegisterScreen - User:', JSON.stringify(response.user));
-      console.log('RegisterScreen - Token received:', response.token ? 'Yes' : 'No');
+      console.log('RegisterScreen - Full API response:', JSON.stringify(response, null, 2));
+
+      // Validate that we received both user and token
+      if (!response.user || !response.token || typeof response.token !== 'string' || response.token.length === 0) {
+        console.error('RegisterScreen - Invalid response from server. User:', !!response.user, 'Token:', !!response.token);
+        throw new Error('Invalid response from server: missing user or authentication token. Please try again or contact support.');
+      }
+
+      console.log('RegisterScreen - Token received successfully, length:', response.token.length);
 
       // Authenticate the user with the returned token
       await setUserFromToken(
