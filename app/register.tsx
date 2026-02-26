@@ -236,25 +236,35 @@ export default function RegisterScreen() {
           const match = /\.(\w+)$/.exec(filename);
           const type = match ? `image/${match[1]}` : 'image/jpeg';
           
-          // CRITICAL FIX: Use proper file object structure for React Native
-          const fileObject: any = {
-            uri: Platform.OS === 'android' ? profileImage : profileImage.replace('file://', ''),
+          // CRITICAL FIX: Proper file object for React Native
+          // On iOS, remove file:// prefix. On Android, keep the URI as-is.
+          const fileUri = Platform.OS === 'ios' ? profileImage.replace('file://', '') : profileImage;
+          
+          console.log('RegisterScreen - Creating file object:', { 
+            uri: fileUri, 
+            name: filename, 
+            type: type,
+            platform: Platform.OS 
+          });
+
+          // @ts-expect-error - FormData accepts this format in React Native
+          formData.append('file', {
+            uri: fileUri,
             name: filename,
             type: type,
-          };
-
-          console.log('RegisterScreen - Appending file to FormData:', { filename, type, uri: fileObject.uri });
-          formData.append('photo', fileObject);
+          });
 
           console.log('[API] Uploading profile photo to /api/profile/upload-photo');
           const uploadResponse = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
-              // DO NOT set Content-Type - let the browser/fetch set it with boundary
+              // DO NOT set Content-Type - let fetch set it with the boundary
             },
             body: formData,
           });
+
+          console.log('[API] Upload response status:', uploadResponse.status);
 
           if (!uploadResponse.ok) {
             const errorText = await uploadResponse.text();

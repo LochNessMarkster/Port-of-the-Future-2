@@ -135,7 +135,7 @@ export default function FloorPlanScreen() {
     setLoading(false);
     
     console.log('FloorPlanScreen - Image loaded with default dimensions');
-  }, [imageWidth]);
+  }, [imageWidth, floorPlanImage]);
 
   const hotelName = 'Hilton University Houston';
   const ballroomName = 'Waldorf Astoria Ballroom';

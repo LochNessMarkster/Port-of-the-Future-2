@@ -177,33 +177,44 @@ export default function ProfileScreen() {
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      // CRITICAL FIX: Use proper file object structure for React Native
-      const fileObject: any = {
-        uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
+      // CRITICAL FIX: Proper file object for React Native
+      // On iOS, remove file:// prefix. On Android, keep the URI as-is.
+      const fileUri = Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri;
+      
+      console.log('ProfileScreen - Creating file object:', { 
+        uri: fileUri, 
+        name: filename, 
+        type: type,
+        platform: Platform.OS 
+      });
+
+      // @ts-expect-error - FormData accepts this format in React Native
+      formData.append('file', {
+        uri: fileUri,
         name: filename,
         type: type,
-      };
-
-      console.log('ProfileScreen - Appending file to FormData:', { filename, type, uri: fileObject.uri });
-      formData.append('photo', fileObject);
+      });
 
       // Upload photo
-      console.log('[API] Requesting /api/profile/upload-photo with multipart form data');
+      console.log('[API] Uploading to /api/profile/upload-photo');
       const token = await getBearerToken();
       
+      console.log('[API] Sending multipart request with bearer token');
       const response = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          // DO NOT set Content-Type - let the browser/fetch set it with boundary
+          // DO NOT set Content-Type - let fetch set it with the boundary
         },
         body: formData,
       });
 
+      console.log('[API] Upload response status:', response.status);
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('ProfileScreen - Image upload failed:', response.status, errorText);
-        throw new Error('Failed to upload photo');
+        throw new Error(`Failed to upload photo: ${errorText}`);
       }
 
       const data = await response.json();
@@ -213,6 +224,7 @@ export default function ProfileScreen() {
       await loadProfile();
     } catch (error) {
       console.error('ProfileScreen - Failed to upload photo:', error);
+      alert('Failed to upload photo. Please try again.');
     } finally {
       setUploadingPhoto(false);
     }
