@@ -127,7 +127,6 @@ export default function FloorPlanScreen() {
     
     // For local assets, we can use the asset directly with Image.getSize
     // The require() returns a number that React Native can resolve
-    const assetId = floorPlanImage;
     
     // Use a fallback approach - set a default aspect ratio first
     const defaultHeight = imageWidth * 0.7;
@@ -135,7 +134,7 @@ export default function FloorPlanScreen() {
     setLoading(false);
     
     console.log('FloorPlanScreen - Image loaded with default dimensions');
-  }, [imageWidth, floorPlanImage]);
+  }, [imageWidth]);
 
   const hotelName = 'Hilton University Houston';
   const ballroomName = 'Waldorf Astoria Ballroom';
