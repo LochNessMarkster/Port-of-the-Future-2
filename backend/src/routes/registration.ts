@@ -1,17 +1,11 @@
 import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { resend } from '@specific-dev/framework';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { randomBytes } from 'crypto';
-import { emailVerifications } from '../db/schema.js';
-import { user, session } from '../db/auth-schema.js';
+import bcrypt from 'bcrypt';
+import { user, account, session } from '../db/auth-schema.js';
 import { fetchAirtableAttendees, TABLES } from '../utils/airtable.js';
-
-// Generate a random 6-digit verification code
-function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
 
 // Generate a session token
 function generateSessionToken(): string {
@@ -20,13 +14,13 @@ function generateSessionToken(): string {
 
 export function registerRegistrationRoutes(app: App) {
   /**
-   * POST /api/registration/request-verification - Request email verification
+   * POST /api/registration/check-email - Check if email exists in Airtable
    */
   app.fastify.post(
-    '/api/registration/request-verification',
+    '/api/registration/check-email',
     {
       schema: {
-        description: 'Request verification code for email',
+        description: 'Check if email exists in Airtable and return attendee data',
         tags: ['registration'],
         body: {
           type: 'object',
@@ -39,14 +33,19 @@ export function registerRegistrationRoutes(app: App) {
           200: {
             type: 'object',
             properties: {
-              message: { type: 'string' },
-              email: { type: 'string' },
-            },
-          },
-          404: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
+              exists: { type: 'boolean' },
+              attendeeData: {
+                type: 'object',
+                properties: {
+                  firstName: { type: 'string' },
+                  lastName: { type: 'string' },
+                  company: { type: 'string' },
+                  title: { type: 'string' },
+                  phone: { type: 'string' },
+                  linkedin: { type: 'string' },
+                  registrationLevel: { type: 'string' },
+                },
+              },
             },
           },
         },
@@ -56,10 +55,10 @@ export function registerRegistrationRoutes(app: App) {
       const { email } = request.body as { email: string };
       const normalizedEmail = email.toLowerCase();
 
-      app.logger.info({ email: normalizedEmail }, 'Request verification initiated');
+      app.logger.info({ email: normalizedEmail }, 'Checking email in Airtable');
 
       try {
-        // Fetch attendees from Airtable to verify email exists
+        // Fetch attendees from Airtable
         const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
           logger: app.logger,
         });
@@ -71,65 +70,33 @@ export function registerRegistrationRoutes(app: App) {
         );
 
         if (!attendee) {
-          app.logger.warn(
-            { email: normalizedEmail },
-            'Email not found in Airtable attendees'
-          );
-          return reply.status(404).send({
-            error: 'Email not found. Please use the email you registered with for the conference.',
-          });
+          app.logger.info({ email: normalizedEmail }, 'Email not found in Airtable');
+          return {
+            exists: false,
+          };
         }
 
-        // Generate verification code
-        const code = generateVerificationCode();
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+        const firstName = attendee.fields['First Name'] || '';
+        const lastName = attendee.fields['Last Name'] || '';
 
-        // Save verification code to database
-        await app.db
-          .insert(emailVerifications)
-          .values({
-            email: normalizedEmail,
-            code,
-            verified: false,
-            expiresAt,
-          });
-
-        // Send verification email
-        const { error: emailError } = await resend.emails.send({
-          from: 'Port of the Future 2026 <noreply@portofthefutureconference.com>',
-          to: normalizedEmail,
-          subject: 'Port of the Future 2026 - Verify Your Email',
-          html: `
-            <p>Welcome to Port of the Future 2026!</p>
-            <p>Your verification code is: <strong>${code}</strong></p>
-            <p>This code will expire in 15 minutes.</p>
-            <p>If you didn't request this code, please ignore this email.</p>
-            <p>See you at the conference!</p>
-            <p>Port of the Future Team</p>
-          `,
-        });
-
-        if (emailError) {
-          app.logger.error(
-            { err: emailError, email: normalizedEmail },
-            'Failed to send verification email'
-          );
-          throw emailError;
-        }
-
-        app.logger.info(
-          { email: normalizedEmail },
-          'Verification code sent successfully'
-        );
+        app.logger.info({ email: normalizedEmail }, 'Email found in Airtable');
 
         return {
-          message: 'Verification code sent to your email',
-          email: normalizedEmail,
+          exists: true,
+          attendeeData: {
+            firstName,
+            lastName,
+            company: attendee.fields['Company'] || '',
+            title: attendee.fields['Job Title'] || '',
+            phone: attendee.fields['Phone'] || '',
+            linkedin: attendee.fields['LinkedIn'] || '',
+            registrationLevel: attendee.fields['Registration Level'] || '',
+          },
         };
       } catch (error) {
         app.logger.error(
           { err: error, email: normalizedEmail },
-          'Failed to request verification'
+          'Failed to check email'
         );
         throw error;
       }
@@ -137,24 +104,29 @@ export function registerRegistrationRoutes(app: App) {
   );
 
   /**
-   * POST /api/registration/verify-code - Verify code and create/update user
+   * POST /api/registration/create-account - Create account with password
    */
   app.fastify.post(
-    '/api/registration/verify-code',
+    '/api/registration/create-account',
     {
       schema: {
-        description: 'Verify code and authenticate user',
+        description: 'Create user account with password',
         tags: ['registration'],
         body: {
           type: 'object',
           properties: {
             email: { type: 'string', format: 'email' },
-            code: { type: 'string' },
+            password: { type: 'string', minLength: 8 },
+            name: { type: 'string' },
+            company: { type: 'string' },
+            title: { type: 'string' },
+            phone: { type: 'string' },
+            linkedin: { type: 'string' },
           },
-          required: ['email', 'code'],
+          required: ['email', 'password', 'name'],
         },
         response: {
-          200: {
+          201: {
             type: 'object',
             properties: {
               user: {
@@ -178,80 +150,38 @@ export function registerRegistrationRoutes(app: App) {
               error: { type: 'string' },
             },
           },
+          409: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+            },
+          },
         },
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { email, code } = request.body as { email: string; code: string };
+      const { email, password, name, company, title, phone, linkedin } = request.body as {
+        email: string;
+        password: string;
+        name: string;
+        company?: string;
+        title?: string;
+        phone?: string;
+        linkedin?: string;
+      };
+
       const normalizedEmail = email.toLowerCase();
 
-      app.logger.info({ email: normalizedEmail }, 'Verify code initiated');
+      app.logger.info({ email: normalizedEmail }, 'Creating account');
 
       try {
-        // Check verification code
-        const verification = await app.db
-          .select()
-          .from(emailVerifications)
-          .where(
-            and(
-              eq(emailVerifications.email, normalizedEmail),
-              eq(emailVerifications.code, code)
-            )
-          )
-          .limit(1);
-
-        if (verification.length === 0) {
-          app.logger.warn(
-            { email: normalizedEmail },
-            'Invalid verification code'
-          );
+        // Validate password strength
+        if (password.length < 8) {
+          app.logger.warn({ email: normalizedEmail }, 'Password too weak');
           return reply.status(400).send({
-            error: 'Invalid or expired verification code',
+            error: 'Password must be at least 8 characters long',
           });
         }
-
-        const emailVerification = verification[0];
-
-        // Check if code has expired
-        if (new Date() > emailVerification.expiresAt) {
-          app.logger.warn(
-            { email: normalizedEmail },
-            'Verification code expired'
-          );
-          return reply.status(400).send({
-            error: 'Invalid or expired verification code',
-          });
-        }
-
-        // Mark as verified
-        await app.db
-          .update(emailVerifications)
-          .set({ verified: true })
-          .where(eq(emailVerifications.id, emailVerification.id));
-
-        // Fetch attendee details from Airtable
-        const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
-          logger: app.logger,
-        });
-
-        const attendee = attendeesData.records.find(
-          (record) =>
-            record.fields['Email']?.toLowerCase() === normalizedEmail
-        );
-
-        if (!attendee) {
-          app.logger.error(
-            { email: normalizedEmail },
-            'Attendee not found after verification'
-          );
-          return reply.status(400).send({
-            error: 'Attendee not found',
-          });
-        }
-
-        const firstName = attendee.fields['First Name'] || '';
-        const lastName = attendee.fields['Last Name'] || '';
-        const fullName = `${firstName} ${lastName}`.trim();
 
         // Check if user already exists
         const existingUser = await app.db
@@ -260,91 +190,105 @@ export function registerRegistrationRoutes(app: App) {
           .where(eq(user.email, normalizedEmail))
           .limit(1);
 
-        let newUser = existingUser[0];
-
-        if (!newUser) {
-          // Create new user
-          const userId = randomUUID();
-          const [created] = await app.db
-            .insert(user)
-            .values({
-              id: userId,
-              email: normalizedEmail,
-              name: fullName || normalizedEmail,
-              emailVerified: true,
-              company: attendee.fields['Company'] || null,
-              title: attendee.fields['Job Title'] || null,
-              phone: attendee.fields['Phone'] || null,
-              role: 'attendee',
-            })
-            .returning();
-
-          newUser = created;
-          app.logger.info({ userId: newUser.id, email: normalizedEmail }, 'User created successfully');
-        } else {
-          // Update existing user with Airtable data
-          const [updated] = await app.db
-            .update(user)
-            .set({
-              name: fullName || newUser.name,
-              emailVerified: true,
-              company: attendee.fields['Company'] || newUser.company,
-              title: attendee.fields['Job Title'] || newUser.title,
-              phone: attendee.fields['Phone'] || newUser.phone,
-            })
-            .where(eq(user.id, newUser.id))
-            .returning();
-
-          newUser = updated;
-          app.logger.info({ userId: newUser.id, email: normalizedEmail }, 'User updated successfully');
+        if (existingUser.length > 0) {
+          app.logger.warn({ email: normalizedEmail }, 'User already exists');
+          return reply.status(409).send({
+            error: 'Email already registered',
+          });
         }
 
-        // Create a Better Auth session for the user
+        // Fetch attendee details from Airtable if available
+        let airtableData: any = {};
+        try {
+          const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+            logger: app.logger,
+          });
+
+          const attendee = attendeesData.records.find(
+            (record) =>
+              record.fields['Email']?.toLowerCase() === normalizedEmail
+          );
+
+          if (attendee) {
+            airtableData = {
+              company: attendee.fields['Company'],
+              title: attendee.fields['Job Title'],
+              phone: attendee.fields['Phone'],
+              linkedin: attendee.fields['LinkedIn'],
+            };
+          }
+        } catch (airtableError) {
+          app.logger.warn({ err: airtableError }, 'Failed to fetch Airtable data');
+          // Continue without Airtable data
+        }
+
+        // Merge Airtable data with provided data (Airtable takes precedence)
+        const finalCompany = airtableData.company || company || null;
+        const finalTitle = airtableData.title || title || null;
+        const finalPhone = airtableData.phone || phone || null;
+        const finalLinkedin = airtableData.linkedin || linkedin || null;
+
+        // Create user record
+        const userId = randomUUID();
+        const [newUser] = await app.db
+          .insert(user)
+          .values({
+            id: userId,
+            email: normalizedEmail,
+            name,
+            emailVerified: true,
+            company: finalCompany,
+            title: finalTitle,
+            phone: finalPhone,
+            linkedin: finalLinkedin,
+            role: 'attendee',
+          })
+          .returning();
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create account record with hashed password
+        const accountId = randomUUID();
+        await app.db
+          .insert(account)
+          .values({
+            id: accountId,
+            userId,
+            accountId: normalizedEmail,
+            providerId: 'credential',
+            password: hashedPassword,
+          });
+
+        app.logger.info({ userId, email: normalizedEmail }, 'User and account created');
+
+        // Create session
         const sessionToken = generateSessionToken();
         const sessionId = randomUUID();
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-        let authToken = sessionToken;
+        await app.db
+          .insert(session)
+          .values({
+            id: sessionId,
+            token: sessionToken,
+            userId,
+            expiresAt,
+            ipAddress: request.ip || null,
+            userAgent: request.headers['user-agent'] || null,
+          });
 
-        try {
-          // Create session in the Better Auth session table
-          await app.db
-            .insert(session)
-            .values({
-              id: sessionId,
-              token: sessionToken,
-              userId: newUser.id,
-              expiresAt,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              ipAddress: request.ip || null,
-              userAgent: request.headers['user-agent'] || null,
-            });
+        app.logger.info({ userId, sessionId }, 'Session created');
 
-          app.logger.info(
-            { userId: newUser.id, sessionId },
-            'Better Auth session created successfully'
-          );
+        // Set the session cookie using Set-Cookie header for web clients
+        const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+        const secure = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+        const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; ${secure}`;
+        reply.header('Set-Cookie', cookieValue);
 
-          // Set the session cookie using Set-Cookie header for web clients
-          const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
-          const secure = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
-          const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; ${secure}`;
-          reply.header('Set-Cookie', cookieValue);
-        } catch (sessionError) {
-          app.logger.error(
-            { err: sessionError, userId: newUser.id },
-            'Failed to create Better Auth session, but user was created successfully'
-          );
-          // Continue even if session creation fails - user is still created
-        }
+        app.logger.info({ userId, email: normalizedEmail }, 'Account creation completed successfully');
 
-        app.logger.info(
-          { userId: newUser.id, email: normalizedEmail },
-          'User verified and authenticated successfully'
-        );
-
-        return {
+        return reply.status(201).send({
           user: {
             id: newUser.id,
             email: newUser.email,
@@ -354,12 +298,12 @@ export function registerRegistrationRoutes(app: App) {
             phone: newUser.phone,
             emailVerified: newUser.emailVerified,
           },
-          token: authToken,
-        };
+          token: sessionToken,
+        });
       } catch (error) {
         app.logger.error(
           { err: error, email: normalizedEmail },
-          'Failed to verify code'
+          'Failed to create account'
         );
         throw error;
       }
