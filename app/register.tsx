@@ -19,7 +19,6 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
 import { apiPost, apiPostWithCredentials } from "@/utils/api";
-import { setBearerToken } from "@/lib/auth";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Step = "email" | "code";
@@ -28,7 +27,7 @@ export default function RegisterScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { fetchUser } = useAuth();
+  const { fetchUser, setUserFromToken } = useAuth();
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -108,26 +107,36 @@ export default function RegisterScreen() {
         };
       }>('/api/registration/verify-code', { email, code });
 
-      console.log('RegisterScreen - Code verified, user:', response.user);
+      console.log('RegisterScreen - Code verified successfully');
+      console.log('RegisterScreen - User:', response.user);
+      console.log('RegisterScreen - Token received:', response.token ? 'Yes' : 'No');
 
-      // Save the session token if returned in the response body (for native bearer token auth)
       if (response.token) {
-        await setBearerToken(response.token);
-        console.log('RegisterScreen - Bearer token saved from response body');
+        // Backend returned a token - use setUserFromToken to directly authenticate
+        // without relying on authClient.getSession() which may not recognize the session
+        console.log('RegisterScreen - Using setUserFromToken for direct authentication');
+        await setUserFromToken(
+          {
+            id: response.user.id,
+            email: response.user.email,
+            name: response.user.name || response.user.email,
+          },
+          response.token
+        );
+      } else {
+        // No token in response - fall back to fetchUser which will try the profile endpoint
+        // with any stored bearer token, or fall back to Better Auth session check
+        console.log('RegisterScreen - No token in response, falling back to fetchUser');
+        // CRITICAL: Wait a moment for the cookie to be properly stored
+        await new Promise(resolve => setTimeout(resolve, 800));
+        await fetchUser();
       }
-
-      // Refresh auth context to pick up the new session.
-      // On web: authClient.getSession() reads the session cookie set by the backend.
-      // On native: the expoClient plugin handles session storage via SecureStore.
-      //            If the backend returns a token in the response body, it's saved above.
-      //            fetchUser() will then call authClient.getSession() to validate it.
-      console.log('RegisterScreen - Fetching user session after verification');
-      await fetchUser();
       
       showSuccess("Email verified! Welcome to Port of the Future 2026.");
       
-      // Navigate to profile after a short delay
+      // Navigate to profile after showing success message
       setTimeout(() => {
+        console.log('RegisterScreen - Navigating to profile');
         router.replace("/(tabs)/profile");
       }, 1500);
     } catch (error: any) {

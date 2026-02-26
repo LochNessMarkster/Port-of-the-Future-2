@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
+import { getBearerToken, BACKEND_URL } from "@/utils/api";
 
 interface User {
   id: string;
@@ -22,6 +23,7 @@ interface AuthContextType {
   signInWithGitHub: () => Promise<void>;
   signOut: () => Promise<void>;
   fetchUser: () => Promise<void>;
+  setUserFromToken: (user: User, token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -100,6 +102,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       console.log("AuthContext - Fetching user session...");
+
+      // First, check if we have a stored bearer token and try to use it
+      // to validate the session via the profile endpoint
+      const storedToken = await getBearerToken();
+
+      if (storedToken) {
+        console.log("AuthContext - Found stored bearer token, validating via /api/profile...");
+        try {
+          const profileResponse = await fetch(`${BACKEND_URL}/api/profile`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${storedToken}`,
+            },
+            credentials: "include",
+          });
+
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            console.log("AuthContext - Profile validated successfully:", profileData.email);
+            setUser({
+              id: profileData.id,
+              email: profileData.email,
+              name: profileData.name,
+              image: profileData.image,
+            });
+            setLoading(false);
+            return;
+          } else {
+            console.log("AuthContext - Bearer token invalid (status:", profileResponse.status, "), clearing...");
+            await clearAuthTokens();
+          }
+        } catch (profileError) {
+          console.error("AuthContext - Profile validation failed:", profileError);
+          await clearAuthTokens();
+        }
+      }
+
+      // Fall back to Better Auth session check
+      console.log("AuthContext - Trying Better Auth session...");
       const session = await authClient.getSession();
       console.log("AuthContext - Session result:", session ? "Session found" : "No session");
       
@@ -122,6 +164,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Directly set the authenticated user from a token returned by the registration flow.
+   * This bypasses Better Auth's session check and directly stores the token + user.
+   */
+  const setUserFromToken = async (userData: User, token: string) => {
+    console.log("AuthContext - Setting user from token:", userData.email);
+    await setBearerToken(token);
+    setUser(userData);
   };
 
   const signInWithEmail = async (email: string, password: string) => {
@@ -221,6 +273,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGitHub,
         signOut,
         fetchUser,
+        setUserFromToken,
       }}
     >
       {children}
