@@ -108,6 +108,27 @@ export const floorPlans = pgTable(
 );
 
 /**
+ * Email Verifications - Track verification codes for registration
+ */
+export const emailVerifications = pgTable(
+  'email_verifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    code: text('code').notNull(),
+    verified: boolean('verified').default(false).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('email_verifications_email_idx').on(table.email),
+    index('email_verifications_code_idx').on(table.code),
+  ]
+);
+
+/**
  * Relations
  */
 export const userSchedulesRelations = relations(userSchedules, ({ one }) => ({

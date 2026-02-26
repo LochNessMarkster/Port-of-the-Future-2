@@ -2,9 +2,83 @@ import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
+import { user } from '../db/auth-schema.js';
 
 export function registerProfileRoutes(app: App) {
   const requireAuth = app.requireAuth();
+
+  /**
+   * POST /api/profile/upload-photo - Upload user profile photo
+   */
+  app.fastify.post(
+    '/api/profile/upload-photo',
+    {
+      schema: {
+        description: 'Upload user profile photo',
+        tags: ['profile'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              url: { type: 'string' },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      app.logger.info({ userId }, 'Processing profile photo upload');
+
+      try {
+        const data = await request.file({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+        if (!data) {
+          app.logger.warn({ userId }, 'No photo file provided');
+          return reply.status(400).send({ error: 'No photo file provided' });
+        }
+
+        let buffer: Buffer;
+        try {
+          buffer = await data.toBuffer();
+        } catch (err) {
+          app.logger.error({ err, userId }, 'File upload size exceeded');
+          return reply.status(413).send({ error: 'File too large' });
+        }
+
+        // Upload to storage
+        const key = `profile-photos/${userId}/${Date.now()}-${data.filename}`;
+        const uploadedKey = await app.storage.upload(key, buffer);
+
+        // Get signed URL
+        const { url } = await app.storage.getSignedUrl(uploadedKey);
+
+        // Update user profile image
+        await app.db
+          .update(user)
+          .set({ image: uploadedKey })
+          .where(eq(user.id, userId));
+
+        app.logger.info(
+          { userId, photoKey: uploadedKey },
+          'Profile photo uploaded successfully'
+        );
+
+        return { url };
+      } catch (error) {
+        app.logger.error({ err: error, userId }, 'Failed to upload profile photo');
+        throw error;
+      }
+    }
+  );
 
   /**
    * GET /api/profile - Get current user profile
