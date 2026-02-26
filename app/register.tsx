@@ -231,22 +231,27 @@ export default function RegisterScreen() {
           const token = await getBearerToken();
           const formData = new FormData();
           
-          // Create file object for upload - CRITICAL: backend expects 'photo' field name
+          // Create file object for upload with proper structure for React Native
           const filename = profileImage.split('/').pop() || 'profile.jpg';
           const match = /\.(\w+)$/.exec(filename);
           const type = match ? `image/${match[1]}` : 'image/jpeg';
           
-          formData.append('photo', {
-            uri: profileImage,
+          // CRITICAL FIX: Use proper file object structure for React Native
+          const fileObject: any = {
+            uri: Platform.OS === 'android' ? profileImage : profileImage.replace('file://', ''),
             name: filename,
             type: type,
-          } as any);
+          };
+
+          console.log('RegisterScreen - Appending file to FormData:', { filename, type, uri: fileObject.uri });
+          formData.append('photo', fileObject);
 
           console.log('[API] Uploading profile photo to /api/profile/upload-photo');
           const uploadResponse = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
+              // DO NOT set Content-Type - let the browser/fetch set it with boundary
             },
             body: formData,
           });

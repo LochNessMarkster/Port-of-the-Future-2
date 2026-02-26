@@ -75,7 +75,13 @@ export default function ProfileScreen() {
       setLoading(true);
       console.log('ProfileScreen - Loading profile');
       const data = await apiGet<UserProfile>('/api/profile');
-      console.log('ProfileScreen - Profile loaded:', data);
+      console.log('ProfileScreen - Profile loaded:', {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        hasImage: !!data.image,
+        imageUrl: data.image ? data.image.substring(0, 80) + '...' : null,
+      });
       setProfile(data);
       setImageRefreshKey(prev => prev + 1);
     } catch (error) {
@@ -124,7 +130,9 @@ export default function ProfileScreen() {
       });
       
       console.log('ProfileScreen - Profile updated:', updatedProfile);
-      setProfile(updatedProfile);
+      // Reload profile via GET to get fresh signed URL for image
+      // (PUT response returns raw storage key, not a signed URL)
+      await loadProfile();
       closeEditModal();
     } catch (error) {
       console.error('ProfileScreen - Failed to save profile:', error);
@@ -163,17 +171,21 @@ export default function ProfileScreen() {
 
       setUploadingPhoto(true);
 
-      // Create form data
+      // Create form data with proper file structure
       const formData = new FormData();
       const filename = imageUri.split('/').pop() || 'photo.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      formData.append('photo', {
-        uri: imageUri,
+      // CRITICAL FIX: Use proper file object structure for React Native
+      const fileObject: any = {
+        uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
         name: filename,
-        type,
-      } as any);
+        type: type,
+      };
+
+      console.log('ProfileScreen - Appending file to FormData:', { filename, type, uri: fileObject.uri });
+      formData.append('photo', fileObject);
 
       // Upload photo
       console.log('[API] Requesting /api/profile/upload-photo with multipart form data');
@@ -183,6 +195,7 @@ export default function ProfileScreen() {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          // DO NOT set Content-Type - let the browser/fetch set it with boundary
         },
         body: formData,
       });
