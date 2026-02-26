@@ -3,13 +3,19 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { resend } from '@specific-dev/framework';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { randomBytes } from 'crypto';
 import { emailVerifications } from '../db/schema.js';
-import { user } from '../db/auth-schema.js';
+import { user, session } from '../db/auth-schema.js';
 import { fetchAirtableAttendees, TABLES } from '../utils/airtable.js';
 
 // Generate a random 6-digit verification code
 function generateVerificationCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Generate a session token
+function generateSessionToken(): string {
+  return randomBytes(32).toString('hex');
 }
 
 export function registerRegistrationRoutes(app: App) {
@@ -290,6 +296,43 @@ export function registerRegistrationRoutes(app: App) {
 
           newUser = updated;
           app.logger.info({ userId: newUser.id, email: normalizedEmail }, 'User updated successfully');
+        }
+
+        // Create a Better Auth session for the user
+        const sessionToken = generateSessionToken();
+        const sessionId = randomUUID();
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+        try {
+          await app.db
+            .insert(session)
+            .values({
+              id: sessionId,
+              token: sessionToken,
+              userId: newUser.id,
+              expiresAt,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              ipAddress: request.ip || null,
+              userAgent: request.headers['user-agent'] || null,
+            });
+
+          app.logger.info(
+            { userId: newUser.id, sessionId },
+            'Session created successfully'
+          );
+
+          // Set the session cookie using Set-Cookie header
+          const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+          const secure = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+          const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; ${secure}`;
+          reply.header('Set-Cookie', cookieValue);
+        } catch (sessionError) {
+          app.logger.error(
+            { err: sessionError, userId: newUser.id },
+            'Failed to create session, but user was created successfully'
+          );
+          // Continue even if session creation fails - user is still created
         }
 
         app.logger.info(
