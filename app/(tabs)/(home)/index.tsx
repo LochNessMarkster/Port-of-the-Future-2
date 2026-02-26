@@ -26,9 +26,10 @@ interface Announcement {
   id: string;
   title: string;
   content: string;
-  image?: string | null;
-  date?: string | null;
-  time?: string | null;
+  isAlert: boolean;
+  date: string;
+  time: string;
+  imageUrl: string | null;
   createdAt: string;
 }
 
@@ -176,6 +177,10 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  alertCard: {
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+  },
   announcementImage: {
     width: '100%',
     height: 150,
@@ -204,6 +209,17 @@ const styles = StyleSheet.create({
   },
   announcementMetaText: {
     ...typography.caption,
+  },
+  alertBadge: {
+    backgroundColor: '#FF3B30',
+    color: '#FFFFFF',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    fontWeight: '700',
+    fontSize: 12,
   },
   loadingContainer: {
     padding: spacing.xl,
@@ -237,7 +253,7 @@ export default function HomeScreen() {
       const { apiGet } = await import('@/utils/api');
       const data = await apiGet<Announcement[]>('/api/announcements');
       setAnnouncements(data || []);
-      console.log('HomeScreen - Loaded announcements:', data?.length || 0);
+      console.log('HomeScreen - Loaded announcements:', data?.length || 0, data);
     } catch (error) {
       console.error('HomeScreen - Error loading announcements:', error);
       setAnnouncements([]);
@@ -488,19 +504,22 @@ export default function HomeScreen() {
             ) : (
               <React.Fragment>
                 {announcements.map((announcement, index) => {
-                  const formattedCreatedAt = formatDate(announcement.createdAt);
-                  const hasImage = announcement.image && announcement.image.trim() !== '';
+                  const hasImage = announcement.imageUrl && announcement.imageUrl.trim() !== '';
                   const hasDate = announcement.date && announcement.date.trim() !== '';
                   const hasTime = announcement.time && announcement.time.trim() !== '';
                   
                   return (
                     <View 
                       key={index}
-                      style={[styles.announcementCard, { backgroundColor: appColors.card }]}
+                      style={[
+                        styles.announcementCard, 
+                        { backgroundColor: appColors.card },
+                        announcement.isAlert && styles.alertCard
+                      ]}
                     >
                       {hasImage && (
                         <Image
-                          source={resolveImageSource(announcement.image)}
+                          source={resolveImageSource(announcement.imageUrl)}
                           style={styles.announcementImage}
                         />
                       )}
@@ -510,34 +529,39 @@ export default function HomeScreen() {
                       <Text style={[styles.announcementContent, { color: appColors.textSecondary }]}>
                         {announcement.content}
                       </Text>
-                      <View style={styles.announcementMetaRow}>
-                        {hasDate && (
-                          <View style={styles.announcementMeta}>
-                            <IconSymbol
-                              ios_icon_name="calendar"
-                              android_material_icon_name="event"
-                              size={14}
-                              color={appColors.textSecondary}
-                            />
-                            <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
-                              {announcement.date}
-                            </Text>
-                          </View>
-                        )}
-                        {hasTime && (
-                          <View style={styles.announcementMeta}>
-                            <IconSymbol
-                              ios_icon_name="clock"
-                              android_material_icon_name="access-time"
-                              size={14}
-                              color={appColors.textSecondary}
-                            />
-                            <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
-                              {announcement.time}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+                      {(hasDate || hasTime) ? (
+                        <View style={styles.announcementMetaRow}>
+                          {hasDate ? (
+                            <View style={styles.announcementMeta}>
+                              <IconSymbol
+                                ios_icon_name="calendar"
+                                android_material_icon_name="event"
+                                size={14}
+                                color={appColors.textSecondary}
+                              />
+                              <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
+                                {announcement.date}
+                              </Text>
+                            </View>
+                          ) : null}
+                          {hasTime ? (
+                            <View style={styles.announcementMeta}>
+                              <IconSymbol
+                                ios_icon_name="clock"
+                                android_material_icon_name="access-time"
+                                size={14}
+                                color={appColors.textSecondary}
+                              />
+                              <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
+                                {announcement.time}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : null}
+                      {announcement.isAlert ? (
+                        <Text style={styles.alertBadge}>ALERT</Text>
+                      ) : null}
                     </View>
                   );
                 })}
