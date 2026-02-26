@@ -18,25 +18,45 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-import { apiPost, apiPostWithCredentials } from "@/utils/api";
+import { apiPost } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { IconSymbol } from "@/components/IconSymbol";
 
-type Step = "email" | "code";
+type Step = "email" | "details";
+
+interface AttendeeData {
+  firstName?: string;
+  lastName?: string;
+  company?: string;
+  title?: string;
+  phone?: string;
+  linkedin?: string;
+  registrationLevel?: string;
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { fetchUser, setUserFromToken } = useAuth();
+  const { setUserFromToken } = useAuth();
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [title, setTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [linkedin, setLinkedin] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [attendeeData, setAttendeeData] = useState<AttendeeData | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   console.log('RegisterScreen - Current step:', step);
 
@@ -50,8 +70,8 @@ export default function RegisterScreen() {
     setSuccessModalVisible(true);
   };
 
-  const handleRequestVerification = async () => {
-    console.log('RegisterScreen - User tapped Request Verification, email:', email);
+  const handleCheckEmail = async () => {
+    console.log('RegisterScreen - User tapped Continue, email:', email);
     
     if (!email || !email.includes('@')) {
       showError("Please enter a valid email address");
@@ -60,42 +80,60 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      console.log('[API] Requesting /api/registration/request-verification for:', email);
-      const response = await apiPost('/api/registration/request-verification', { email });
-      console.log('RegisterScreen - Verification code sent:', response);
+      console.log('[API] Checking email in Airtable:', email);
+      const response = await apiPost<{ exists: boolean; attendeeData?: AttendeeData }>('/api/registration/check-email', { email });
+      console.log('RegisterScreen - Email check result:', response);
       
-      showSuccess("Verification code sent! Please check your email.");
-      setStep("code");
-    } catch (error: any) {
-      console.error('RegisterScreen - Request verification error:', error);
-      const errorMsg = error.message || "Failed to send verification code. Please try again.";
-      
-      if (errorMsg.includes("404") || errorMsg.toLowerCase().includes("not found")) {
-        showError("Email not found. Please use the email address you registered with for the conference.");
+      if (response.exists && response.attendeeData) {
+        console.log('RegisterScreen - Email found in Airtable, prepopulating data');
+        setAttendeeData(response.attendeeData);
+        
+        // Prepopulate form fields with Airtable data
+        const fullName = `${response.attendeeData.firstName || ''} ${response.attendeeData.lastName || ''}`.trim();
+        if (fullName) setName(fullName);
+        if (response.attendeeData.company) setCompany(response.attendeeData.company);
+        if (response.attendeeData.title) setTitle(response.attendeeData.title);
+        if (response.attendeeData.phone) setPhone(response.attendeeData.phone);
+        if (response.attendeeData.linkedin) setLinkedin(response.attendeeData.linkedin);
+        
+        showSuccess("Email found! Your profile information has been prepopulated from your conference registration.");
       } else {
-        showError(errorMsg);
+        console.log('RegisterScreen - Email not found in Airtable, user will enter details manually');
       }
+      
+      setStep("details");
+    } catch (error: any) {
+      console.error('RegisterScreen - Check email error:', error);
+      const errorMsg = error.message || "Failed to check email. Please try again.";
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyCode = async () => {
-    console.log('RegisterScreen - User tapped Verify Code, email:', email, 'code:', code);
+  const handleCreateAccount = async () => {
+    console.log('RegisterScreen - User tapped Create Account');
     
-    if (!code || code.length !== 6) {
-      showError("Please enter the 6-digit verification code");
+    // Validation
+    if (!name.trim()) {
+      showError("Please enter your full name");
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      showError("Password must be at least 8 characters long");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showError("Passwords do not match");
       return;
     }
 
     setLoading(true);
     try {
-      console.log('[API] Requesting /api/registration/verify-code for:', email);
-
-      // Use apiPostWithCredentials so the session cookie set by the backend is stored
-      // on web (credentials: 'include' ensures the browser stores the Set-Cookie header).
-      const response = await apiPostWithCredentials<{
-        token?: string;
+      console.log('[API] Creating account for:', email);
+      const response = await apiPost<{
         user: {
           id: string;
           email: string;
@@ -105,64 +143,45 @@ export default function RegisterScreen() {
           phone: string | null;
           emailVerified: boolean;
         };
-      }>('/api/registration/verify-code', { email, code });
+        token: string;
+      }>('/api/registration/create-account', {
+        email,
+        password,
+        name: name.trim(),
+        company: company.trim() || undefined,
+        title: title.trim() || undefined,
+        phone: phone.trim() || undefined,
+        linkedin: linkedin.trim() || undefined,
+      });
 
-      console.log('RegisterScreen - Code verified successfully');
+      console.log('RegisterScreen - Account created successfully');
       console.log('RegisterScreen - User:', JSON.stringify(response.user));
-      console.log('RegisterScreen - Token received:', response.token ? `Yes (length: ${response.token.length})` : 'No');
-      console.log('RegisterScreen - Full response keys:', Object.keys(response));
+      console.log('RegisterScreen - Token received:', response.token ? 'Yes' : 'No');
 
-      if (response.token) {
-        // Backend returned a token - use setUserFromToken to directly authenticate
-        console.log('RegisterScreen - Using setUserFromToken for direct authentication, token length:', response.token.length);
-        await setUserFromToken(
-          {
-            id: response.user.id,
-            email: response.user.email,
-            name: response.user.name || response.user.email,
-          },
-          response.token
-        );
-        
-        // setUserFromToken already waits for state to commit before resolving
-        // Navigate to home tab which will then show the profile
-        console.log('RegisterScreen - Navigating to home after successful authentication');
-        router.replace("/(tabs)/(home)/");
-      } else {
-        // No token in response body - the backend may have set a session cookie instead.
-        // fetchUser will try the cookie-based profile fetch as a fallback.
-        console.log('RegisterScreen - No token in response body, trying fetchUser with cookie fallback');
-        
-        // Wait a moment for the cookie to be properly stored by the browser
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // fetchUser will try: stored bearer token → Better Auth session → cookie-based profile
-        await fetchUser();
-        
-        // Give React time to process the state update
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Navigate to home
-        console.log('RegisterScreen - Navigating to home after fetchUser');
-        router.replace("/(tabs)/(home)/");
-      }
+      // Authenticate the user with the returned token
+      await setUserFromToken(
+        {
+          id: response.user.id,
+          email: response.user.email,
+          name: response.user.name,
+        },
+        response.token
+      );
+      
+      console.log('RegisterScreen - Navigating to home after successful registration');
+      router.replace("/(tabs)/(home)/");
     } catch (error: any) {
-      console.error('RegisterScreen - Verify code error:', error);
-      const errorMsg = error.message || "Invalid or expired verification code. Please try again.";
-      if (errorMsg.includes("400") || errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("expired")) {
-        showError("Invalid or expired verification code. Please check the code and try again.");
-      } else {
-        showError(errorMsg);
+      console.error('RegisterScreen - Create account error:', error);
+      let errorMsg = error.message || "Failed to create account. Please try again.";
+      
+      if (errorMsg.toLowerCase().includes("already exists") || errorMsg.toLowerCase().includes("duplicate")) {
+        errorMsg = "An account with this email already exists. Please sign in instead.";
       }
+      
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleResendCode = async () => {
-    console.log('RegisterScreen - User tapped Resend Code');
-    setCode("");
-    await handleRequestVerification();
   };
 
   const inputBackgroundColor = colorScheme === 'dark' ? appColors.card : '#FFFFFF';
@@ -177,6 +196,7 @@ export default function RegisterScreen() {
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
             {/* Logo */}
@@ -189,7 +209,7 @@ export default function RegisterScreen() {
                 Port of the Future 2026
               </Text>
               <Text style={[styles.appSubtitle, { color: appColors.textSecondary }]}>
-                {step === "email" ? "Register with Your Email" : "Enter Verification Code"}
+                {step === "email" ? "Create Your Account" : "Complete Your Profile"}
               </Text>
             </View>
 
@@ -197,8 +217,8 @@ export default function RegisterScreen() {
             <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
               <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
                 {step === "email" 
-                  ? "Please enter the email address you used to register for the conference. We'll send you a verification code."
-                  : `We've sent a 6-digit verification code to ${email}. Please enter it below.`}
+                  ? "Enter your email address to get started. If you're already registered for the conference, we'll prepopulate your information."
+                  : "Create a password and complete your profile information."}
               </Text>
             </View>
 
@@ -224,57 +244,220 @@ export default function RegisterScreen() {
 
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
-                  onPress={handleRequestVerification}
+                  onPress={handleCheckEmail}
                   disabled={loading}
                 >
                   {loading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.primaryButtonText}>Send Verification Code</Text>
+                    <Text style={styles.primaryButtonText}>Continue</Text>
                   )}
                 </TouchableOpacity>
               </React.Fragment>
             )}
 
-            {/* Code Step */}
-            {step === "code" && (
+            {/* Details Step */}
+            {step === "details" && (
               <React.Fragment>
-                <Text style={[styles.label, { color: appColors.text }]}>Verification Code</Text>
+                {/* Show badge if data was prepopulated from Airtable */}
+                {attendeeData && (
+                  <View style={[styles.prepopulatedBadge, { backgroundColor: appColors.primary + '20', borderColor: appColors.primary }]}>
+                    <IconSymbol 
+                      ios_icon_name="checkmark.circle.fill" 
+                      android_material_icon_name="check-circle" 
+                      size={20} 
+                      color={appColors.primary} 
+                    />
+                    <Text style={[styles.prepopulatedText, { color: appColors.primary }]}>
+                      Profile data loaded from conference registration
+                    </Text>
+                  </View>
+                )}
+
+                {/* Full Name */}
+                <Text style={[styles.label, { color: appColors.text }]}>Full Name *</Text>
                 <TextInput
-                  style={[styles.input, styles.codeInput, { 
+                  style={[styles.input, { 
                     backgroundColor: inputBackgroundColor, 
                     borderColor: inputBorderColor,
                     color: appColors.text 
                   }]}
-                  placeholder="000000"
+                  placeholder="John Doe"
                   placeholderTextColor={appColors.textSecondary}
-                  value={code}
-                  onChangeText={(text) => setCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
-                  keyboardType="number-pad"
-                  maxLength={6}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
                   editable={!loading}
                 />
 
+                {/* Password */}
+                <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput, { 
+                      backgroundColor: inputBackgroundColor, 
+                      borderColor: inputBorderColor,
+                      color: appColors.text 
+                    }]}
+                    placeholder="Minimum 8 characters"
+                    placeholderTextColor={appColors.textSecondary}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!loading}
+                  />
+                  <TouchableOpacity 
+                    style={styles.eyeIcon}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <IconSymbol 
+                      ios_icon_name={showPassword ? "eye.slash.fill" : "eye.fill"} 
+                      android_material_icon_name={showPassword ? "visibility-off" : "visibility"} 
+                      size={24} 
+                      color={appColors.textSecondary} 
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Confirm Password */}
+                <Text style={[styles.label, { color: appColors.text }]}>Confirm Password *</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput, { 
+                      backgroundColor: inputBackgroundColor, 
+                      borderColor: inputBorderColor,
+                      color: appColors.text 
+                    }]}
+                    placeholder="Re-enter your password"
+                    placeholderTextColor={appColors.textSecondary}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!loading}
+                  />
+                  <TouchableOpacity 
+                    style={styles.eyeIcon}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <IconSymbol 
+                      ios_icon_name={showConfirmPassword ? "eye.slash.fill" : "eye.fill"} 
+                      android_material_icon_name={showConfirmPassword ? "visibility-off" : "visibility"} 
+                      size={24} 
+                      color={appColors.textSecondary} 
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Optional Fields Section */}
+                <View style={styles.optionalSection}>
+                  <Text style={[styles.sectionTitle, { color: appColors.text }]}>
+                    Optional Information
+                  </Text>
+                  <Text style={[styles.sectionSubtitle, { color: appColors.textSecondary }]}>
+                    Help other attendees connect with you
+                  </Text>
+                </View>
+
+                {/* Company */}
+                <Text style={[styles.label, { color: appColors.text }]}>Company</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="Your company name"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={company}
+                  onChangeText={setCompany}
+                  autoCapitalize="words"
+                  editable={!loading}
+                />
+
+                {/* Title */}
+                <Text style={[styles.label, { color: appColors.text }]}>Job Title</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="Your job title"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={title}
+                  onChangeText={setTitle}
+                  autoCapitalize="words"
+                  editable={!loading}
+                />
+
+                {/* Phone */}
+                <Text style={[styles.label, { color: appColors.text }]}>Phone Number</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="+1 (555) 123-4567"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  editable={!loading}
+                />
+
+                {/* LinkedIn */}
+                <Text style={[styles.label, { color: appColors.text }]}>LinkedIn Profile</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="https://linkedin.com/in/yourprofile"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={linkedin}
+                  onChangeText={setLinkedin}
+                  keyboardType="url"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+
+                {/* Password Strength Indicator */}
+                {password.length > 0 && (
+                  <View style={styles.passwordStrength}>
+                    <View style={styles.strengthBar}>
+                      <View 
+                        style={[
+                          styles.strengthFill,
+                          { 
+                            width: password.length < 8 ? '33%' : password.length < 12 ? '66%' : '100%',
+                            backgroundColor: password.length < 8 ? '#FF3B30' : password.length < 12 ? '#FF9500' : '#34C759'
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={[styles.strengthText, { color: appColors.textSecondary }]}>
+                      {password.length < 8 ? 'Weak' : password.length < 12 ? 'Good' : 'Strong'}
+                    </Text>
+                  </View>
+                )}
+
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
-                  onPress={handleVerifyCode}
+                  onPress={handleCreateAccount}
                   disabled={loading}
                 >
                   {loading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.primaryButtonText}>Verify Code</Text>
+                    <Text style={styles.primaryButtonText}>Create Account</Text>
                   )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={handleResendCode}
-                  disabled={loading}
-                >
-                  <Text style={[styles.secondaryButtonText, { color: appColors.primary }]}>
-                    Resend Code
-                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -282,7 +465,9 @@ export default function RegisterScreen() {
                   onPress={() => {
                     console.log('RegisterScreen - User tapped Change Email');
                     setStep("email");
-                    setCode("");
+                    setPassword("");
+                    setConfirmPassword("");
+                    setAttendeeData(null);
                   }}
                   disabled={loading}
                 >
@@ -321,6 +506,14 @@ export default function RegisterScreen() {
           onPress={() => setErrorModalVisible(false)}
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+            <View style={styles.modalIconContainer}>
+              <IconSymbol 
+                ios_icon_name="xmark.circle.fill" 
+                android_material_icon_name="error" 
+                size={48} 
+                color="#FF3B30" 
+              />
+            </View>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
               Registration Error
             </Text>
@@ -349,6 +542,14 @@ export default function RegisterScreen() {
           onPress={() => setSuccessModalVisible(false)}
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+            <View style={styles.modalIconContainer}>
+              <IconSymbol 
+                ios_icon_name="checkmark.circle.fill" 
+                android_material_icon_name="check-circle" 
+                size={48} 
+                color="#34C759" 
+              />
+            </View>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
               Success!
             </Text>
@@ -414,6 +615,32 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
   },
+  prepopulatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    marginBottom: spacing.lg,
+    gap: spacing.xs,
+  },
+  prepopulatedText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    flex: 1,
+  },
+  sectionTitle: {
+    ...typography.h4,
+    marginBottom: spacing.xs,
+  },
+  sectionSubtitle: {
+    ...typography.bodySmall,
+    marginBottom: spacing.md,
+  },
+  optionalSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
   label: {
     ...typography.bodySmall,
     fontWeight: '600',
@@ -428,11 +655,37 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 16,
   },
-  codeInput: {
-    fontSize: 24,
-    fontWeight: '600',
-    textAlign: 'center',
-    letterSpacing: 8,
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: spacing.sm,
+  },
+  passwordInput: {
+    paddingRight: 50,
+    marginBottom: 0,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: spacing.md,
+    top: 13,
+    padding: spacing.xs,
+  },
+  passwordStrength: {
+    marginBottom: spacing.md,
+  },
+  strengthBar: {
+    height: 4,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
+  },
+  strengthFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  strengthText: {
+    ...typography.bodySmall,
+    fontSize: 12,
   },
   primaryButton: {
     height: 50,
@@ -484,6 +737,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  modalIconContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   modalTitle: {
     ...typography.h3,

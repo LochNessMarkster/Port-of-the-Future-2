@@ -91,6 +91,21 @@ export const apiCall = async <T = any>(
     if (!response.ok) {
       const text = await response.text();
       console.error("[API] Error response:", response.status, text);
+      // Try to parse a user-friendly error message from the response body
+      try {
+        const errorJson = JSON.parse(text);
+        if (errorJson.error) {
+          throw new Error(errorJson.error);
+        } else if (errorJson.message) {
+          throw new Error(errorJson.message);
+        }
+      } catch (parseError) {
+        // If it's not JSON or doesn't have error/message, use the raw text
+        if (parseError instanceof SyntaxError) {
+          throw new Error(`API error: ${response.status} - ${text}`);
+        }
+        throw parseError;
+      }
       throw new Error(`API error: ${response.status} - ${text}`);
     }
 

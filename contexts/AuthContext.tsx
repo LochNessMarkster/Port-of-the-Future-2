@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
-import { getBearerToken, BACKEND_URL } from "@/utils/api";
+import { getBearerToken, BACKEND_URL, apiPost } from "@/utils/api";
 
 interface User {
   id: string;
@@ -210,16 +210,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      const result = await authClient.signIn.email({ email, password });
-      console.log("AuthContext - Sign in result:", result);
-      
-      if (!result || result.error) {
-        const errorMessage = result?.error?.message || "Invalid email or password";
-        console.error("AuthContext - Sign in failed:", errorMessage);
-        throw new Error(errorMessage);
-      }
-      
-      await fetchUser();
+      console.log("AuthContext - Signing in with email:", email);
+      const response = await apiPost<{
+        user: {
+          id: string;
+          email: string;
+          name: string;
+          company: string | null;
+          title: string | null;
+          phone: string | null;
+          emailVerified: boolean;
+        };
+        token: string;
+      }>('/api/auth/login', { email, password });
+
+      console.log("AuthContext - Login successful, setting user from token");
+      await setUserFromToken(
+        {
+          id: response.user.id,
+          email: response.user.email,
+          name: response.user.name,
+        },
+        response.token
+      );
     } catch (error: any) {
       console.error("AuthContext - Email sign in failed:", error);
       // Re-throw with a user-friendly message
