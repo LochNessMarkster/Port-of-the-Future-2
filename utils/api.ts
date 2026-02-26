@@ -1,3 +1,4 @@
+
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -42,13 +43,15 @@ export const getBearerToken = async (): Promise<string | null> => {
  * @param endpoint - API endpoint path (e.g., '/users', '/auth/login')
  * @param options - Fetch options (method, headers, body, etc.)
  * @param withCredentials - Whether to include cookies (credentials: 'include'). Default false.
+ * @param skipAutoAuth - Skip automatic bearer token injection (for authenticated* functions that handle it themselves)
  * @returns Parsed JSON response
  * @throws Error if backend is not configured or request fails
  */
 export const apiCall = async <T = any>(
   endpoint: string,
   options?: RequestInit,
-  withCredentials: boolean = false
+  withCredentials: boolean = false,
+  skipAutoAuth: boolean = false
 ): Promise<T> => {
   if (!isBackendConfigured()) {
     throw new Error("Backend URL not configured. Please rebuild the app.");
@@ -67,18 +70,23 @@ export const apiCall = async <T = any>(
       },
     };
 
-    console.log("[API] Fetch options:", fetchOptions);
+    console.log("[API] Fetch options:", JSON.stringify(fetchOptions, null, 2));
 
-    // Always send the token if we have it (needed for cross-domain/iframe support)
-    const token = await getBearerToken();
-    if (token) {
-      fetchOptions.headers = {
-        ...fetchOptions.headers,
-        Authorization: `Bearer ${token}`,
-      };
+    // Only add token automatically if skipAutoAuth is false
+    // (authenticated* functions will add it themselves to avoid duplication)
+    if (!skipAutoAuth) {
+      const token = await getBearerToken();
+      if (token) {
+        fetchOptions.headers = {
+          ...fetchOptions.headers,
+          Authorization: `Bearer ${token}`,
+        };
+        console.log("[API] Added bearer token to request");
+      }
     }
 
     const response = await fetch(url, fetchOptions);
+    console.log("[API] Response status:", response.status);
 
     if (!response.ok) {
       const text = await response.text();
@@ -87,7 +95,7 @@ export const apiCall = async <T = any>(
     }
 
     const data = await response.json();
-    console.log("[API] Success:", data);
+    console.log("[API] Success response:", data);
     return data;
   } catch (error) {
     console.error("[API] Request failed:", error);
@@ -186,16 +194,25 @@ export const authenticatedApiCall = async <T = any>(
   const token = await getBearerToken();
 
   if (!token) {
+    console.error("[API] No authentication token found");
     throw new Error("Authentication token not found. Please sign in.");
   }
 
-  return apiCall<T>(endpoint, {
-    ...options,
-    headers: {
-      ...options?.headers,
-      Authorization: `Bearer ${token}`,
+  console.log("[API] Using authenticated request with bearer token");
+
+  // Pass skipAutoAuth=true to prevent apiCall from adding the token again
+  return apiCall<T>(
+    endpoint, 
+    {
+      ...options,
+      headers: {
+        ...options?.headers,
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+    false, // withCredentials
+    true   // skipAutoAuth - we're adding the token ourselves
+  );
 };
 
 /**
@@ -212,6 +229,7 @@ export const authenticatedPost = async <T = any>(
   endpoint: string,
   data: any
 ): Promise<T> => {
+  console.log("[API] authenticatedPost called:", endpoint, data);
   return authenticatedApiCall<T>(endpoint, {
     method: "POST",
     body: JSON.stringify(data),

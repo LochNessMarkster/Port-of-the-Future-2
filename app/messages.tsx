@@ -314,6 +314,15 @@ export default function MessagesScreen() {
   const sendMessage = async () => {
     const trimmedMessage = messageText.trim();
     
+    console.log('[MessagesScreen] sendMessage called', {
+      hasMessage: !!trimmedMessage,
+      messageLength: trimmedMessage.length,
+      hasRecipient: !!selectedUserId,
+      recipientId: selectedUserId,
+      hasUser: !!user?.id,
+      userId: user?.id,
+    });
+    
     if (!trimmedMessage || !selectedUserId) {
       console.log('[MessagesScreen] Cannot send: empty message or no recipient');
       return;
@@ -327,21 +336,32 @@ export default function MessagesScreen() {
     }
 
     setSending(true);
-    console.log('[MessagesScreen] Sending message to:', selectedUserId);
+    console.log('[MessagesScreen] Attempting to send message:', {
+      recipientId: selectedUserId,
+      contentLength: trimmedMessage.length,
+      senderId: user.id,
+    });
     
     try {
-      await authenticatedPost('/api/messages', {
+      console.log('[MessagesScreen] Calling authenticatedPost /api/messages...');
+      const response = await authenticatedPost('/api/messages', {
         recipientId: selectedUserId,
         content: trimmedMessage,
       });
       
-      console.log('[MessagesScreen] Message sent successfully');
+      console.log('[MessagesScreen] Message sent successfully, response:', response);
       setMessageText('');
       
       // Reload conversation to show the new message
+      console.log('[MessagesScreen] Reloading conversation to show new message...');
       await loadConversation(selectedUserId);
     } catch (error) {
       console.error('[MessagesScreen] Error sending message:', error);
+      console.error('[MessagesScreen] Error details:', {
+        errorType: typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
       
       // Show user-friendly error message
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -349,6 +369,7 @@ export default function MessagesScreen() {
       setErrorModalVisible(true);
     } finally {
       setSending(false);
+      console.log('[MessagesScreen] sendMessage completed, sending:', sending);
     }
   };
 
@@ -371,6 +392,19 @@ export default function MessagesScreen() {
   };
 
   const canSendMessage = messageText.trim().length > 0 && !sending;
+
+  console.log('[MessagesScreen] Render state:', {
+    hasUser: !!user,
+    userId: user?.id,
+    selectedUserId,
+    conversationPartnerName,
+    messageCount: messages.length,
+    threadCount: threads.length,
+    loading,
+    sending,
+    canSendMessage,
+    messageTextLength: messageText.length,
+  });
 
   if (selectedUserId) {
     // Show conversation view with input at the top
@@ -397,7 +431,10 @@ export default function MessagesScreen() {
               placeholder="Type a message..."
               placeholderTextColor={appColors.textSecondary}
               value={messageText}
-              onChangeText={setMessageText}
+              onChangeText={(text) => {
+                console.log('[MessagesScreen] Message text changed, length:', text.length);
+                setMessageText(text);
+              }}
               multiline
               maxLength={500}
               editable={!sending}
@@ -408,7 +445,10 @@ export default function MessagesScreen() {
                 { backgroundColor: appColors.primary },
                 !canSendMessage && styles.sendButtonDisabled
               ]}
-              onPress={sendMessage}
+              onPress={() => {
+                console.log('[MessagesScreen] Send button pressed');
+                sendMessage();
+              }}
               disabled={!canSendMessage}
               activeOpacity={0.7}
             >
@@ -544,6 +584,7 @@ export default function MessagesScreen() {
                 key={thread.id}
                 style={[styles.threadCard, { backgroundColor: appColors.card }]}
                 onPress={() => {
+                  console.log('[MessagesScreen] Opening conversation with:', otherPersonId, otherPersonName);
                   setConversationPartnerName(otherPersonName || '');
                   setSelectedUserId(otherPersonId);
                 }}
