@@ -54,7 +54,7 @@ export function registerActivitiesRoutes(app: App) {
             date: record.fields.Date || '',
             time: record.fields.Time || '',
             location: record.fields.Location || '',
-            url: record.fields.URL || '',
+            url: record.fields.MoreinfoURL || record.fields.URL || '',
             image: record.fields.Image?.[0]?.url || '',
           }))
           .sort((a, b) => {
