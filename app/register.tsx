@@ -32,9 +32,9 @@ import * as ImagePicker from 'expo-image-picker';
  * 3. User can optionally upload a profile photo
  * 4. On "Create Account":
  *    - Backend creates Better Auth account with password
- *    - Backend saves hashed password to Airtable Field 14
+ *    - Backend saves hashed password to Airtable "Password" column
  *    - If user already exists in Better Auth, backend updates their Airtable profile instead
- *    - Profile photo is uploaded to object storage (if selected)
+ *    - Profile photo is uploaded to object storage and Airtable "Image" column (if selected)
  *    - User is authenticated and redirected to home screen
  */
 
@@ -229,6 +229,11 @@ export default function RegisterScreen() {
         setUploadingImage(true);
         try {
           const token = await getBearerToken();
+          if (!token) {
+            console.error('RegisterScreen - No bearer token available for image upload');
+            throw new Error('Authentication token not found');
+          }
+
           const formData = new FormData();
           
           // Create file object for upload with proper structure for React Native
@@ -248,7 +253,7 @@ export default function RegisterScreen() {
           });
 
           // @ts-expect-error - FormData accepts this format in React Native
-          formData.append('file', {
+          formData.append('image', {
             uri: fileUri,
             name: filename,
             type: type,
@@ -269,13 +274,16 @@ export default function RegisterScreen() {
           if (!uploadResponse.ok) {
             const errorText = await uploadResponse.text();
             console.error('RegisterScreen - Image upload failed:', uploadResponse.status, errorText);
+            // Don't throw - continue with registration even if image upload fails
+            showError('Account created successfully, but image upload failed. You can upload a photo later from your profile settings.');
           } else {
             const uploadData = await uploadResponse.json();
             console.log('RegisterScreen - Image uploaded successfully:', uploadData.url);
           }
-        } catch (uploadError) {
+        } catch (uploadError: any) {
           console.error('RegisterScreen - Image upload error:', uploadError);
           // Don't block registration if image upload fails
+          showError('Account created successfully, but image upload failed. You can upload a photo later from your profile settings.');
         } finally {
           setUploadingImage(false);
         }

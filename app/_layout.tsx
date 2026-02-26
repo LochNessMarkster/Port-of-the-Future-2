@@ -1,12 +1,12 @@
 
 import "react-native-reanimated";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useFonts } from "expo-font";
 import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert, Platform, View, StyleSheet, ActivityIndicator } from "react-native";
+import { useColorScheme, Modal, Pressable, Text, Platform, View, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -37,16 +37,14 @@ function RootLayoutInner() {
   const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
   const { toastMessage } = useNotifications();
+  const [offlineModalVisible, setOfflineModalVisible] = useState(false);
 
   React.useEffect(() => {
     if (
       !networkState.isConnected &&
       networkState.isInternetReachable === false
     ) {
-      Alert.alert(
-        "🔌 You are offline",
-        "You can keep using the app! Your changes will be saved locally and synced when you are back online."
-      );
+      setOfflineModalVisible(true);
     }
   }, [networkState.isConnected, networkState.isInternetReachable]);
 
@@ -255,6 +253,34 @@ function RootLayoutInner() {
               )}
               {/* Toast notification for new messages */}
               <ToastNotification message={toastMessage} />
+
+              {/* Offline Modal */}
+              <Modal
+                visible={offlineModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setOfflineModalVisible(false)}
+              >
+                <Pressable
+                  style={offlineModalStyles.overlay}
+                  onPress={() => setOfflineModalVisible(false)}
+                >
+                  <View style={[offlineModalStyles.content, { backgroundColor: colorScheme === 'dark' ? colors.dark.card : colors.light.card }]}>
+                    <Text style={[offlineModalStyles.title, { color: colorScheme === 'dark' ? colors.dark.text : colors.light.text }]}>
+                      🔌 You are offline
+                    </Text>
+                    <Text style={[offlineModalStyles.message, { color: colorScheme === 'dark' ? colors.dark.textSecondary : colors.light.textSecondary }]}>
+                      You can keep using the app! Your changes will be saved locally and synced when you are back online.
+                    </Text>
+                    <TouchableOpacity
+                      style={[offlineModalStyles.button, { backgroundColor: colorScheme === 'dark' ? colors.dark.primary : colors.light.primary }]}
+                      onPress={() => setOfflineModalVisible(false)}
+                    >
+                      <Text style={offlineModalStyles.buttonText}>OK</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Pressable>
+              </Modal>
             </View>
           </GestureHandlerRootView>
         </WidgetProvider>
@@ -283,6 +309,50 @@ const webTabBarStyles = StyleSheet.create({
         pointerEvents: 'box-none',
       },
     }),
+  },
+});
+
+const offlineModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  content: {
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  message: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  button: {
+    height: 50,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

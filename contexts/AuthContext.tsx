@@ -1,15 +1,22 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Platform } from "react-native";
-import * as Linking from "expo-linking";
-import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
-import { getBearerToken, BACKEND_URL, apiPost } from "@/utils/api";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Platform } from 'react-native';
+import { authClient } from '@/lib/auth';
+import { getBearerToken, setBearerToken, clearAuthTokens } from '@/utils/api';
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://uufwc6w3behkdb57y7ptup24r75vc4rq.app.specular.dev';
 
 interface User {
   id: string;
   email: string;
-  name?: string;
-  image?: string;
+  name: string;
+  image?: string | null;
+  company?: string | null;
+  title?: string | null;
+  phone?: string | null;
+  bio?: string | null;
+  linkedin?: string | null;
+  emailVerified?: boolean | null;
   role?: string;
 }
 
@@ -17,298 +24,208 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signInWithApple: () => Promise<void>;
-  signInWithGitHub: () => Promise<void>;
   signOut: () => Promise<void>;
   fetchUser: () => Promise<void>;
-  setUserFromToken: (user: User, token: string) => Promise<void>;
+  setUserFromToken: (userData: User, token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function openOAuthPopup(provider: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const popupUrl = `${window.location.origin}/auth-popup?provider=${provider}`;
-    const width = 500;
-    const height = 600;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-
-    const popup = window.open(
-      popupUrl,
-      "oauth-popup",
-      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
-    );
-
-    if (!popup) {
-      reject(new Error("Failed to open popup. Please allow popups."));
-      return;
-    }
-
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === "oauth-success" && event.data?.token) {
-        window.removeEventListener("message", handleMessage);
-        clearInterval(checkClosed);
-        resolve(event.data.token);
-      } else if (event.data?.type === "oauth-error") {
-        window.removeEventListener("message", handleMessage);
-        clearInterval(checkClosed);
-        reject(new Error(event.data.error || "OAuth failed"));
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-
-    const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosed);
-        window.removeEventListener("message", handleMessage);
-        reject(new Error("Authentication cancelled"));
-      }
-    }, 500);
-  });
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchUser();
-
-    // Listen for deep links (e.g. from social auth redirects)
-    const subscription = Linking.addEventListener("url", (event) => {
-      console.log("Deep link received, refreshing user session");
-      // Allow time for the client to process the token if needed
-      setTimeout(() => fetchUser(), 500);
-    });
-
-    // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
-    // This prevents 401 errors when the session token rotates
-    const intervalId = setInterval(() => {
-      console.log("Auto-refreshing user session to sync token...");
-      fetchUser();
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => {
-      subscription.remove();
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  const fetchUser = async () => {
+  /**
+   * Set user from token (used after registration/login)
+   * Stores the token and sets the user state
+   */
+  const setUserFromToken = async (userData: User, token: string): Promise<void> => {
+    console.log('AuthContext - setUserFromToken called with user:', userData.email);
+    console.log('AuthContext - Token length:', token?.length || 0);
+    
     try {
-      setLoading(true);
-      console.log("AuthContext - Fetching user session...");
+      // Store the bearer token
+      await setBearerToken(token);
+      console.log('AuthContext - Bearer token stored successfully');
+      
+      // Set user state
+      setUser(userData);
+      setLoading(false);
+      
+      // Small delay to ensure state propagates before navigation
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+      
+      console.log('AuthContext - User authenticated successfully:', userData.email);
+    } catch (error) {
+      console.error('AuthContext - Error in setUserFromToken:', error);
+      throw error;
+    }
+  };
 
-      // First, check if we have a stored bearer token and try to use it
-      // to validate the session via the profile endpoint
+  /**
+   * Fetch user profile from backend
+   * Tries multiple authentication methods in order:
+   * 1. Bearer token from SecureStore/localStorage
+   * 2. Better Auth session (cookie-based for web)
+   * 3. Direct cookie-based profile fetch (fallback for web after registration)
+   */
+  const fetchUser = async () => {
+    console.log('AuthContext - fetchUser called');
+    setLoading(true);
+    
+    try {
+      // Method 1: Try bearer token authentication (works for all platforms)
       const storedToken = await getBearerToken();
-
+      console.log('AuthContext - Stored token exists:', !!storedToken);
+      
       if (storedToken) {
-        console.log("AuthContext - Found stored bearer token, validating via /api/profile...");
+        console.log('AuthContext - Attempting to fetch profile with bearer token');
         try {
           const profileResponse = await fetch(`${BACKEND_URL}/api/profile`, {
-            method: "GET",
             headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${storedToken}`,
+              'Authorization': `Bearer ${storedToken}`,
             },
-            credentials: "include",
           });
-
+          
+          console.log('AuthContext - Profile fetch response status:', profileResponse.status);
+          
           if (profileResponse.ok) {
-            const profileData = await profileResponse.json();
-            console.log("AuthContext - Profile validated successfully:", profileData.email);
-            setUser({
-              id: profileData.id,
-              email: profileData.email,
-              name: profileData.name,
-              image: profileData.image,
-            });
+            const user = await profileResponse.json();
+            console.log('AuthContext - User profile fetched successfully via bearer token:', user.email);
+            setUser(user);
             setLoading(false);
             return;
           } else {
-            console.log("AuthContext - Bearer token invalid (status:", profileResponse.status, "), clearing...");
+            console.warn('AuthContext - Bearer token invalid or expired, clearing tokens');
             await clearAuthTokens();
           }
-        } catch (profileError) {
-          console.error("AuthContext - Profile validation failed:", profileError);
+        } catch (tokenError) {
+          console.error('AuthContext - Error fetching profile with bearer token:', tokenError);
           await clearAuthTokens();
         }
       }
 
-      // Fall back to Better Auth session check (handles cookie-based sessions on web)
-      console.log("AuthContext - Trying Better Auth session...");
-      const session = await authClient.getSession();
-      console.log("AuthContext - Session result:", session ? "Session found" : "No session");
-      
-      if (session?.data?.user) {
-        console.log("AuthContext - User found:", session.data.user.email);
-        setUser(session.data.user as User);
-        // Sync token to SecureStore for utils/api.ts
-        if (session.data.session?.token) {
-          console.log("AuthContext - Syncing bearer token to storage");
-          await setBearerToken(session.data.session.token);
+      // Method 2: Try Better Auth session (cookie-based, primarily for web)
+      console.log('AuthContext - Attempting Better Auth session check');
+      try {
+        const session = await authClient.getSession();
+        console.log('AuthContext - Better Auth session exists:', !!session?.data?.user);
+        
+        if (session?.data?.user) {
+          console.log('AuthContext - User authenticated via Better Auth session:', session.data.user.email);
+          setUser(session.data.user as User);
+          setLoading(false);
+          return;
         }
-      } else {
-        // Last resort: try /api/profile with credentials (cookie-based auth for web)
-        // This handles the case where the registration set a cookie but no bearer token was returned
-        console.log("AuthContext - Trying cookie-based profile fetch as last resort...");
+      } catch (sessionError) {
+        console.error('AuthContext - Error checking Better Auth session:', sessionError);
+      }
+
+      // Method 3: Last resort - try cookie-based profile fetch (for web after registration)
+      if (Platform.OS === 'web') {
+        console.log('AuthContext - Attempting cookie-based profile fetch (web fallback)');
         try {
           const cookieProfileResponse = await fetch(`${BACKEND_URL}/api/profile`, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
+            credentials: 'include',
           });
+          
+          console.log('AuthContext - Cookie profile fetch response status:', cookieProfileResponse.status);
+          
           if (cookieProfileResponse.ok) {
-            const profileData = await cookieProfileResponse.json();
-            console.log("AuthContext - Cookie-based profile fetch succeeded:", profileData.email);
-            setUser({
-              id: profileData.id,
-              email: profileData.email,
-              name: profileData.name,
-              image: profileData.image,
-            });
+            const user = await cookieProfileResponse.json();
+            console.log('AuthContext - User profile fetched successfully via cookies:', user.email);
+            setUser(user);
             setLoading(false);
             return;
           }
         } catch (cookieError) {
-          console.log("AuthContext - Cookie-based profile fetch failed:", cookieError);
+          console.error('AuthContext - Error fetching profile with cookies:', cookieError);
         }
-        console.log("AuthContext - No user in session, clearing auth");
-        setUser(null);
-        await clearAuthTokens();
       }
+
+      // No valid authentication found
+      console.log('AuthContext - No valid authentication found, clearing state');
+      clearAuth();
     } catch (error) {
-      console.error("AuthContext - Failed to fetch user:", error);
-      setUser(null);
+      console.error('AuthContext - Error in fetchUser:', error);
+      clearAuth();
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Directly set the authenticated user from a token returned by the registration flow.
-   * This bypasses Better Auth's session check and directly stores the token + user.
-   * Returns a promise that resolves only after the user state has been committed.
+   * Sign in with email and password
    */
-  const setUserFromToken = async (userData: User, token: string): Promise<void> => {
-    if (!token || typeof token !== 'string' || token.length === 0) {
-      console.error("AuthContext - setUserFromToken called with invalid token:", token);
-      throw new Error("Cannot authenticate: invalid or missing authentication token");
-    }
-    
-    console.log("AuthContext - Setting user from token:", userData.email, "token length:", token.length);
-    // Store the token first so any subsequent API calls can use it
-    await setBearerToken(token);
-    console.log("AuthContext - Bearer token stored, updating user state...");
-    // Set user state - React 18 batches these updates
-    setUser(userData);
-    setLoading(false);
-    // Give React two ticks to flush state updates before the caller navigates
-    await new Promise<void>((resolve) => setTimeout(resolve, 200));
-    console.log("AuthContext - User state committed for:", userData.email, "- ready to navigate");
-  };
-
   const signInWithEmail = async (email: string, password: string) => {
+    console.log('AuthContext - signInWithEmail called for:', email);
+    setLoading(true);
+    
     try {
-      console.log("AuthContext - Signing in with email:", email);
-      const response = await apiPost<{
-        user: {
-          id: string;
-          email: string;
-          name: string;
-          company: string | null;
-          title: string | null;
-          phone: string | null;
-          emailVerified: boolean;
-        };
-        token: string;
-      }>('/api/auth/login', { email, password });
-
-      console.log("AuthContext - Login successful, setting user from token");
-      await setUserFromToken(
-        {
-          id: response.user.id,
-          email: response.user.email,
-          name: response.user.name,
-        },
-        response.token
-      );
-    } catch (error: any) {
-      console.error("AuthContext - Email sign in failed:", error);
-      // Re-throw with a user-friendly message
-      throw new Error(error.message || "Invalid email or password. Please try again.");
-    }
-  };
-
-  const signUpWithEmail = async (email: string, password: string, name?: string) => {
-    try {
-      const result = await authClient.signUp.email({
+      const response = await authClient.signIn.email({
         email,
         password,
-        name,
       });
-      console.log("AuthContext - Sign up result:", result);
-      
-      if (!result || result.error) {
-        const errorMessage = result?.error?.message || "Failed to create account";
-        console.error("AuthContext - Sign up failed:", errorMessage);
-        throw new Error(errorMessage);
+
+      console.log('AuthContext - Sign in response:', response);
+
+      if (response.error) {
+        console.error('AuthContext - Sign in error:', response.error);
+        throw new Error(response.error.message || 'Failed to sign in');
       }
-      
+
+      console.log('AuthContext - Sign in successful, fetching user profile');
       await fetchUser();
     } catch (error: any) {
-      console.error("AuthContext - Email sign up failed:", error);
-      // Re-throw with a user-friendly message
-      throw new Error(error.message || "Failed to create account. Please try again.");
+      console.error('AuthContext - Sign in error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const signInWithSocial = async (provider: "google" | "apple" | "github") => {
+  /**
+   * Sign out
+   */
+  const signOut = async () => {
+    console.log('AuthContext - signOut called');
+    
     try {
-      if (Platform.OS === "web") {
-        const token = await openOAuthPopup(provider);
-        await setBearerToken(token);
-        await fetchUser();
-      } else {
-        // Native: Use expo-linking to generate a proper deep link
-        const callbackURL = Linking.createURL("/");
-        await authClient.signIn.social({
-          provider,
-          callbackURL,
-        });
-        // Note: The redirect will reload the app or be handled by deep linking.
-        // fetchUser will be called on mount or via event listener if needed.
-        // But better-auth expo client handles the redirect and session storage?
-        // We typically need to wait or rely on fetchUser on next app load.
-        // For now, call fetchUser just in case.
-        await fetchUser();
+      // Clear local state and tokens first (ensures user is logged out locally even if API fails)
+      clearAuth();
+      
+      // Then try to sign out from Better Auth
+      try {
+        await authClient.signOut();
+        console.log('AuthContext - Better Auth sign out successful');
+      } catch (signOutError) {
+        console.warn('AuthContext - Better Auth sign out failed (non-critical):', signOutError);
+        // Continue - user is already logged out locally
       }
     } catch (error) {
-      console.error(`${provider} sign in failed:`, error);
-      throw error;
+      console.error('AuthContext - Error in signOut:', error);
+      // Still clear local state even if there's an error
+      clearAuth();
     }
   };
 
-  const signInWithGoogle = () => signInWithSocial("google");
-  const signInWithApple = () => signInWithSocial("apple");
-  const signInWithGitHub = () => signInWithSocial("github");
-
-  const signOut = async () => {
-    try {
-      await authClient.signOut();
-    } catch (error) {
-      console.error("Sign out failed (API):", error);
-    } finally {
-       // Always clear local state
-       setUser(null);
-       await clearAuthTokens();
-    }
+  /**
+   * Clear authentication state
+   */
+  const clearAuth = () => {
+    console.log('AuthContext - Clearing authentication state');
+    setUser(null);
+    setLoading(false);
+    clearAuthTokens().catch((error) => {
+      console.error('AuthContext - Error clearing auth tokens:', error);
+    });
   };
+
+  // Fetch user on mount
+  useEffect(() => {
+    console.log('AuthContext - Initial mount, fetching user');
+    fetchUser();
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -316,10 +233,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         signInWithEmail,
-        signUpWithEmail,
-        signInWithGoogle,
-        signInWithApple,
-        signInWithGitHub,
         signOut,
         fetchUser,
         setUserFromToken,
@@ -333,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

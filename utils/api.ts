@@ -5,6 +5,45 @@ import * as SecureStore from "expo-secure-store";
 import { BEARER_TOKEN_KEY } from "@/lib/auth";
 
 /**
+ * Set bearer token in platform-specific storage
+ * Web: localStorage
+ * Native: SecureStore
+ */
+export const setBearerToken = async (token: string | null): Promise<void> => {
+  if (!token) {
+    console.log("[API] setBearerToken - Clearing token (null/undefined provided)");
+    await clearAuthTokens();
+    return;
+  }
+  console.log("[API] setBearerToken - Storing token, length:", token.length);
+  try {
+    if (Platform.OS === "web") {
+      localStorage.setItem(BEARER_TOKEN_KEY, token);
+    } else {
+      await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token);
+    }
+  } catch (error) {
+    console.error("[API] Error storing bearer token:", error);
+    throw error;
+  }
+};
+
+/**
+ * Clear all auth tokens from platform-specific storage
+ */
+export const clearAuthTokens = async (): Promise<void> => {
+  try {
+    if (Platform.OS === "web") {
+      localStorage.removeItem(BEARER_TOKEN_KEY);
+    } else {
+      await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY);
+    }
+  } catch (error) {
+    console.error("[API] Error clearing auth tokens:", error);
+  }
+};
+
+/**
  * Backend URL is configured in app.json under expo.extra.backendUrl
  * It is set automatically when the backend is deployed
  */
