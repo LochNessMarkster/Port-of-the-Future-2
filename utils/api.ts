@@ -41,12 +41,14 @@ export const getBearerToken = async (): Promise<string | null> => {
  *
  * @param endpoint - API endpoint path (e.g., '/users', '/auth/login')
  * @param options - Fetch options (method, headers, body, etc.)
+ * @param withCredentials - Whether to include cookies (credentials: 'include'). Default false.
  * @returns Parsed JSON response
  * @throws Error if backend is not configured or request fails
  */
 export const apiCall = async <T = any>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
+  withCredentials: boolean = false
 ): Promise<T> => {
   if (!isBackendConfigured()) {
     throw new Error("Backend URL not configured. Please rebuild the app.");
@@ -58,6 +60,7 @@ export const apiCall = async <T = any>(
   try {
     const fetchOptions: RequestInit = {
       ...options,
+      credentials: withCredentials ? "include" : (options?.credentials || "omit"),
       headers: {
         "Content-Type": "application/json",
         ...options?.headers,
@@ -110,6 +113,24 @@ export const apiPost = async <T = any>(
     method: "POST",
     body: JSON.stringify(data),
   });
+};
+
+/**
+ * POST request helper with credentials (cookies) included.
+ * Use this for endpoints that set session cookies (e.g. registration verify-code).
+ */
+export const apiPostWithCredentials = async <T = any>(
+  endpoint: string,
+  data: any
+): Promise<T> => {
+  return apiCall<T>(
+    endpoint,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    true // withCredentials = true
+  );
 };
 
 /**

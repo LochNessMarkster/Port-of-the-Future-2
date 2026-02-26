@@ -18,7 +18,7 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-import { apiPost } from "@/utils/api";
+import { apiPost, apiPostWithCredentials } from "@/utils/api";
 import { setBearerToken } from "@/lib/auth";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -92,16 +92,35 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       console.log('[API] Requesting /api/registration/verify-code for:', email);
-      const response = await apiPost<{ token?: string; user: { id: string; email: string; name: string; company: string | null; title: string | null; phone: string | null; emailVerified: boolean } }>('/api/registration/verify-code', { email, code });
+
+      // Use apiPostWithCredentials so the session cookie set by the backend is stored
+      // on web (credentials: 'include' ensures the browser stores the Set-Cookie header).
+      const response = await apiPostWithCredentials<{
+        token?: string;
+        user: {
+          id: string;
+          email: string;
+          name: string;
+          company: string | null;
+          title: string | null;
+          phone: string | null;
+          emailVerified: boolean;
+        };
+      }>('/api/registration/verify-code', { email, code });
+
       console.log('RegisterScreen - Code verified, user:', response.user);
-      
-      // Save the session token if returned
+
+      // Save the session token if returned in the response body (for native bearer token auth)
       if (response.token) {
         await setBearerToken(response.token);
-        console.log('RegisterScreen - Token saved');
+        console.log('RegisterScreen - Bearer token saved from response body');
       }
 
-      // Refresh auth context to pick up the new session
+      // Refresh auth context to pick up the new session.
+      // On web: authClient.getSession() reads the session cookie set by the backend.
+      // On native: the expoClient plugin handles session storage via SecureStore.
+      //            If the backend returns a token in the response body, it's saved above.
+      //            fetchUser() will then call authClient.getSession() to validate it.
       console.log('RegisterScreen - Fetching user session after verification');
       await fetchUser();
       
