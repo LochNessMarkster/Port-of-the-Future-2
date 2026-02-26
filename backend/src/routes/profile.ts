@@ -101,7 +101,12 @@ export function registerProfileRoutes(app: App) {
               phone: { type: ['string', 'null'] },
               image: { type: ['string', 'null'] },
               bio: { type: ['string', 'null'] },
-              emailVerified: { type: ['boolean', 'null'] },
+              linkedin: { type: ['string', 'null'] },
+              emailVerified: { type: 'boolean' },
+              optInNetworking: { type: 'boolean' },
+              shareEmail: { type: 'boolean' },
+              sharePhone: { type: 'boolean' },
+              shareLinkedIn: { type: 'boolean' },
             },
           },
         },
@@ -111,8 +116,56 @@ export function registerProfileRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return;
 
-      app.logger.info({ userId: session.user.id }, 'Fetching user profile');
-      return session.user;
+      const userId = session.user.id;
+      app.logger.info({ userId }, 'Fetching user profile');
+
+      try {
+        const userProfile = await app.db
+          .select()
+          .from(user)
+          .where(eq(user.id, userId))
+          .limit(1);
+
+        if (userProfile.length === 0) {
+          app.logger.warn({ userId }, 'User not found');
+          return reply.status(404).send({ error: 'User not found' });
+        }
+
+        const profile = userProfile[0];
+        let imageUrl = profile.image;
+
+        // Generate signed URL for image if it exists
+        if (imageUrl) {
+          try {
+            const { url } = await app.storage.getSignedUrl(imageUrl);
+            imageUrl = url;
+          } catch (err) {
+            app.logger.debug({ err, userId }, 'Could not generate signed URL for image');
+          }
+        }
+
+        app.logger.info({ userId }, 'User profile retrieved successfully');
+
+        return {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name,
+          company: profile.company,
+          title: profile.title,
+          phone: profile.phone,
+          image: imageUrl || null,
+          bio: profile.bio,
+          linkedin: profile.linkedin,
+          emailVerified: profile.emailVerified,
+          optInNetworking: profile.optInNetworking,
+          shareEmail: profile.shareEmail,
+          sharePhone: profile.sharePhone,
+          shareLinkedIn: profile.shareLinkedIn,
+        };
+      } catch (error) {
+        app.logger.error({ err: error, userId }, 'Failed to fetch user profile');
+        throw error;
+      }
     }
   );
 
@@ -136,6 +189,9 @@ export function registerProfileRoutes(app: App) {
             bio: { type: 'string' },
             linkedin: { type: 'string' },
             optInNetworking: { type: 'boolean' },
+            shareEmail: { type: 'boolean' },
+            sharePhone: { type: 'boolean' },
+            shareLinkedIn: { type: 'boolean' },
           },
         },
         response: {
@@ -152,7 +208,10 @@ export function registerProfileRoutes(app: App) {
               bio: { type: ['string', 'null'] },
               linkedin: { type: ['string', 'null'] },
               optInNetworking: { type: 'boolean' },
-              emailVerified: { type: ['boolean', 'null'] },
+              shareEmail: { type: 'boolean' },
+              sharePhone: { type: 'boolean' },
+              shareLinkedIn: { type: 'boolean' },
+              emailVerified: { type: 'boolean' },
             },
           },
         },
@@ -162,7 +221,8 @@ export function registerProfileRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return;
 
-      const { name, company, title, phone, image, bio, linkedin, optInNetworking } =
+      const userId = session.user.id;
+      const { name, company, title, phone, image, bio, linkedin, optInNetworking, shareEmail, sharePhone, shareLinkedIn } =
         request.body as {
           name?: string;
           company?: string;
@@ -172,10 +232,13 @@ export function registerProfileRoutes(app: App) {
           bio?: string;
           linkedin?: string;
           optInNetworking?: boolean;
+          shareEmail?: boolean;
+          sharePhone?: boolean;
+          shareLinkedIn?: boolean;
         };
 
       app.logger.info(
-        { userId: session.user.id, body: request.body },
+        { userId, body: request.body },
         'Updating user profile'
       );
 
@@ -189,31 +252,37 @@ export function registerProfileRoutes(app: App) {
         if (bio !== undefined) updateData.bio = bio;
         if (linkedin !== undefined) updateData.linkedin = linkedin;
         if (optInNetworking !== undefined) updateData.optInNetworking = optInNetworking;
+        if (shareEmail !== undefined) updateData.shareEmail = shareEmail;
+        if (sharePhone !== undefined) updateData.sharePhone = sharePhone;
+        if (shareLinkedIn !== undefined) updateData.shareLinkedIn = shareLinkedIn;
 
-        // Use Better Auth's client to update user
-        const response = await fetch('http://localhost/api/auth/update-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Cookie: request.headers.cookie || '',
-          },
-          body: JSON.stringify(updateData),
-        });
+        const [updated] = await app.db
+          .update(user)
+          .set(updateData)
+          .where(eq(user.id, userId))
+          .returning();
 
-        if (!response.ok) {
-          app.logger.error(
-            { userId: session.user.id, status: response.status },
-            'Failed to update user profile'
-          );
-          throw new Error('Failed to update profile');
-        }
+        app.logger.info({ userId }, 'User profile updated successfully');
 
-        const updatedUser = await response.json();
-        app.logger.info({ userId: session.user.id }, 'User profile updated');
-        return updatedUser;
+        return {
+          id: updated.id,
+          email: updated.email,
+          name: updated.name,
+          company: updated.company,
+          title: updated.title,
+          phone: updated.phone,
+          image: updated.image,
+          bio: updated.bio,
+          linkedin: updated.linkedin,
+          optInNetworking: updated.optInNetworking,
+          shareEmail: updated.shareEmail,
+          sharePhone: updated.sharePhone,
+          shareLinkedIn: updated.shareLinkedIn,
+          emailVerified: updated.emailVerified,
+        };
       } catch (error) {
         app.logger.error(
-          { err: error, userId: session.user.id },
+          { err: error, userId },
           'Failed to update user profile'
         );
         throw error;

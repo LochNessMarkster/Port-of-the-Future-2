@@ -1,6 +1,6 @@
 import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import * as authSchema from '../db/auth-schema.js';
 import {
   fetchAirtableAttendees,
@@ -31,13 +31,14 @@ export function registerAttendeesRoutes(app: App) {
                 firstName: { type: 'string' },
                 lastName: { type: 'string' },
                 name: { type: 'string' },
-                email: { type: 'string' },
+                email: { type: ['string', 'null'] },
                 company: { type: ['string', 'null'] },
                 title: { type: ['string', 'null'] },
                 phone: { type: ['string', 'null'] },
+                linkedin: { type: ['string', 'null'] },
                 registrationLevel: { type: ['string', 'null'] },
                 optInNetworking: { type: ['string', 'null'] },
-                image: { type: 'null' },
+                image: { type: ['string', 'null'] },
               },
             },
           },
@@ -70,23 +71,49 @@ export function registerAttendeesRoutes(app: App) {
           return isOptedIn;
         });
 
+        // Extract email addresses from Airtable records to look up user sharing preferences
+        const emailsToLookup = filteredRecords
+          .map((record: AirtableRecord<AttendeeFields>) => record.fields.Email?.toLowerCase() || null)
+          .filter((email) => email !== null);
+
+        // Fetch user sharing preferences from database
+        const userPreferences = emailsToLookup.length > 0
+          ? await app.db
+              .select()
+              .from(authSchema.user)
+              .where(inArray(authSchema.user.email, emailsToLookup))
+          : [];
+
+        // Create a map of email -> user preferences for quick lookup
+        const preferencesMap = new Map(userPreferences.map((u) => [u.email.toLowerCase(), u]));
+
         const result = filteredRecords.map((record: AirtableRecord<AttendeeFields>) => {
           const firstName = record.fields['First Name'] || '';
           const lastName = record.fields['Last Name'] || '';
           const name = `${firstName} ${lastName}`.trim() || '';
+          const email = record.fields.Email?.toLowerCase() || null;
+
+          // Get user preferences for this email
+          const userPrefs = email ? preferencesMap.get(email) : null;
+
+          // Default to all sharing enabled if no user record found
+          const shareEmail = userPrefs?.shareEmail ?? true;
+          const sharePhone = userPrefs?.sharePhone ?? true;
+          const shareLinkedIn = userPrefs?.shareLinkedIn ?? true;
 
           return {
             id: record.id,
             firstName,
             lastName,
             name,
-            email: record.fields.Email || '',
+            email: shareEmail ? (record.fields.Email || null) : null,
             company: record.fields.Company || null,
             title: record.fields['Job Title'] || null,
-            phone: record.fields.Phone || null,
+            phone: sharePhone ? (record.fields.Phone || null) : null,
+            linkedin: shareLinkedIn ? (userPrefs?.linkedin || null) : null,
             registrationLevel: record.fields['Registration Level'] || null,
             optInNetworking: record.fields['Opt In Networking'] || null,
-            image: null,
+            image: userPrefs?.image || null,
           };
         });
 
