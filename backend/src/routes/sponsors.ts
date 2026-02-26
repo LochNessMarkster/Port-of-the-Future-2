@@ -86,11 +86,18 @@ export function registerSponsorsRoutes(app: App) {
         // Merge sponsors and partners
         let allSponsors = [...sponsors, ...partners];
 
-        // Sort by tier order
+        // Sort by tier order, then alphabetically by name within each tier
         allSponsors = allSponsors.sort((a, b) => {
           const orderA = TIER_ORDER[a.tier as keyof typeof TIER_ORDER] || 999;
           const orderB = TIER_ORDER[b.tier as keyof typeof TIER_ORDER] || 999;
-          return orderA - orderB;
+
+          // First sort by tier
+          if (orderA !== orderB) {
+            return orderA - orderB;
+          }
+
+          // Then sort alphabetically by name (case-insensitive) within the same tier
+          return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
         });
 
         app.logger.info({ count: allSponsors.length, sponsors: sponsors.length, partners: partners.length }, 'Sponsors and partners fetched successfully');
