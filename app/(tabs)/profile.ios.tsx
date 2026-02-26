@@ -13,6 +13,7 @@ import {
   Pressable,
   Image,
   Switch,
+  ImageSourcePropType,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@react-navigation/native";
@@ -37,6 +38,13 @@ interface UserProfile {
   sharePhone: boolean;
   shareLinkedIn: boolean;
   emailVerified: boolean | null;
+}
+
+// Helper to resolve image sources (handles both local and remote images)
+function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source as ImageSourcePropType;
 }
 
 export default function ProfileScreen() {
@@ -82,7 +90,7 @@ export default function ProfileScreen() {
         name: data.name,
         email: data.email,
         hasImage: !!data.image,
-        imageUrl: data.image ? data.image.substring(0, 80) + '...' : null,
+        imageUrl: data.image,
       });
       setProfile(data);
       setImageRefreshKey(prev => prev + 1);
@@ -230,7 +238,7 @@ export default function ProfileScreen() {
       }
 
       const data = await response.json();
-      console.log('ProfileScreen - Photo uploaded successfully:', data.url);
+      console.log('ProfileScreen - Photo uploaded successfully:', data);
 
       // Reload profile to get updated image with fresh signed URL
       await loadProfile();
@@ -278,6 +286,9 @@ export default function ProfileScreen() {
   const displayBio = profile.bio || 'No bio added yet';
   const displayLinkedin = profile.linkedin || 'Not specified';
   const displayOptInNetworking = profile.optInNetworking ? 'Opted In' : 'Opted Out';
+  
+  // Create image URL with cache busting
+  const profileImageUrl = profile.image ? `${profile.image}?t=${Date.now()}` : null;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top']}>
@@ -285,11 +296,12 @@ export default function ProfileScreen() {
         {/* Profile Header */}
         <View style={styles.header}>
           <View style={styles.photoContainer}>
-            {profile.image ? (
+            {profileImageUrl ? (
               <Image 
-                key={`${profile.image}-${imageRefreshKey}`} 
-                source={{ uri: `${profile.image}?t=${Date.now()}`, cache: 'reload' }} 
-                style={styles.photo} 
+                key={imageRefreshKey} 
+                source={resolveImageSource(profileImageUrl)} 
+                style={styles.photo}
+                resizeMode="cover"
               />
             ) : (
               <View style={[styles.photoPlaceholder, { backgroundColor: appColors.card }]}>
