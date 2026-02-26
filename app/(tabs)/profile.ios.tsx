@@ -33,6 +33,9 @@ interface UserProfile {
   bio: string | null;
   linkedin: string | null;
   optInNetworking: boolean;
+  shareEmail: boolean;
+  sharePhone: boolean;
+  shareLinkedIn: boolean;
   emailVerified: boolean | null;
 }
 
@@ -53,7 +56,10 @@ export default function ProfileScreen() {
   const [editPhone, setEditPhone] = useState("");
   const [editBio, setEditBio] = useState("");
   const [editLinkedin, setEditLinkedin] = useState("");
-  const [editOptInNetworking, setEditOptInNetworking] = useState(false);
+  const [editOptInNetworking, setEditOptInNetworking] = useState(true);
+  const [editShareEmail, setEditShareEmail] = useState(true);
+  const [editSharePhone, setEditSharePhone] = useState(true);
+  const [editShareLinkedIn, setEditShareLinkedIn] = useState(true);
 
   const appColors = colors.dark;
 
@@ -85,7 +91,10 @@ export default function ProfileScreen() {
       setEditPhone(profile.phone || "");
       setEditBio(profile.bio || "");
       setEditLinkedin(profile.linkedin || "");
-      setEditOptInNetworking(profile.optInNetworking || false);
+      setEditOptInNetworking(profile.optInNetworking ?? true);
+      setEditShareEmail(profile.shareEmail ?? true);
+      setEditSharePhone(profile.sharePhone ?? true);
+      setEditShareLinkedIn(profile.shareLinkedIn ?? true);
       setEditModalVisible(true);
     }
   };
@@ -107,6 +116,9 @@ export default function ProfileScreen() {
         bio: editBio,
         linkedin: editLinkedin,
         optInNetworking: editOptInNetworking,
+        shareEmail: editShareEmail,
+        sharePhone: editSharePhone,
+        shareLinkedIn: editShareLinkedIn,
       });
       
       console.log('ProfileScreen - Profile updated:', updatedProfile);
@@ -165,7 +177,6 @@ export default function ProfileScreen() {
       console.log('ProfileScreen - Uploading photo to backend');
       const token = await getBearerToken();
       
-      // TODO: Backend Integration - POST /api/profile/upload-photo with multipart form data → { url }
       const response = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
         method: 'POST',
         headers: {
@@ -224,7 +235,7 @@ export default function ProfileScreen() {
   const displayPhone = profile.phone || 'Not specified';
   const displayBio = profile.bio || 'No bio added yet';
   const displayLinkedin = profile.linkedin || 'Not specified';
-  const displayOptInNetworking = profile.optInNetworking ? 'Yes' : 'No';
+  const displayOptInNetworking = profile.optInNetworking ? 'Opted In' : 'Opted Out';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top']}>
@@ -324,7 +335,7 @@ export default function ProfileScreen() {
             <View style={[styles.divider, { backgroundColor: appColors.border }]} />
 
             <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: appColors.textSecondary }]}>Networking</Text>
+              <Text style={[styles.infoLabel, { color: appColors.textSecondary }]}>Networking Status</Text>
               <Text style={[styles.infoValue, { color: appColors.text }]}>{displayOptInNetworking}</Text>
             </View>
           </View>
@@ -438,11 +449,15 @@ export default function ProfileScreen() {
               textAlignVertical="top"
             />
 
+            {/* Networking Opt-Out Section */}
+            <View style={[styles.sectionDivider, { backgroundColor: appColors.border }]} />
+            <Text style={[styles.sectionHeaderText, { color: appColors.text }]}>Networking Settings</Text>
+            
             <View style={styles.switchRow}>
               <View style={styles.switchTextContainer}>
-                <Text style={[styles.switchLabel, { color: appColors.text }]}>Opt-in to Networking</Text>
+                <Text style={[styles.switchLabel, { color: appColors.text }]}>Networking Directory</Text>
                 <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
-                  Allow other attendees to see your profile and send you messages
+                  Show your profile in the networking directory. You are opted in by default.
                 </Text>
               </View>
               <Switch
@@ -452,6 +467,60 @@ export default function ProfileScreen() {
                 thumbColor="#FFFFFF"
               />
             </View>
+
+            {/* Contact Sharing Preferences */}
+            {editOptInNetworking ? (
+              <View style={styles.contactSharingSection}>
+                <Text style={[styles.subsectionLabel, { color: appColors.textSecondary }]}>
+                  Choose what contact information to share:
+                </Text>
+
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextContainer}>
+                    <Text style={[styles.switchLabel, { color: appColors.text }]}>Share Email</Text>
+                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
+                      Allow others to see your email address
+                    </Text>
+                  </View>
+                  <Switch
+                    value={editShareEmail}
+                    onValueChange={setEditShareEmail}
+                    trackColor={{ false: appColors.border, true: appColors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextContainer}>
+                    <Text style={[styles.switchLabel, { color: appColors.text }]}>Share Phone</Text>
+                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
+                      Allow others to see your phone number
+                    </Text>
+                  </View>
+                  <Switch
+                    value={editSharePhone}
+                    onValueChange={setEditSharePhone}
+                    trackColor={{ false: appColors.border, true: appColors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextContainer}>
+                    <Text style={[styles.switchLabel, { color: appColors.text }]}>Share LinkedIn</Text>
+                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
+                      Allow others to see your LinkedIn profile
+                    </Text>
+                  </View>
+                  <Switch
+                    value={editShareLinkedIn}
+                    onValueChange={setEditShareLinkedIn}
+                    trackColor={{ false: appColors.border, true: appColors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              </View>
+            ) : null}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -636,6 +705,14 @@ const styles = StyleSheet.create({
     height: 100,
     paddingTop: spacing.md,
   },
+  sectionDivider: {
+    height: 1,
+    marginVertical: spacing.lg,
+  },
+  sectionHeaderText: {
+    ...typography.h3,
+    marginBottom: spacing.md,
+  },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -655,5 +732,14 @@ const styles = StyleSheet.create({
   switchDescription: {
     ...typography.bodySmall,
     lineHeight: 18,
+  },
+  contactSharingSection: {
+    marginTop: spacing.sm,
+    paddingLeft: spacing.md,
+  },
+  subsectionLabel: {
+    ...typography.bodySmall,
+    marginBottom: spacing.sm,
+    fontWeight: '600',
   },
 });

@@ -24,10 +24,11 @@ interface Attendee {
   firstName: string;
   lastName: string;
   name: string;
-  email: string;
+  email: string | null;
   company: string | null;
   title: string | null;
   phone: string | null;
+  linkedin: string | null;
   registrationLevel: string | null;
   optInNetworking: 'YES' | 'NO' | null;
   image: string | null;
@@ -215,6 +216,11 @@ const styles = StyleSheet.create({
     right: spacing.md,
     zIndex: 1,
   },
+  privacyNote: {
+    ...typography.bodySmall,
+    fontStyle: 'italic',
+    marginTop: spacing.xs,
+  },
 });
 
 export default function NetworkingScreen() {
@@ -233,10 +239,10 @@ export default function NetworkingScreen() {
   const loadAttendees = async () => {
     try {
       setLoading(true);
-      console.log('[NetworkingScreen] Fetching attendees who opted in to networking...');
+      console.log('[NetworkingScreen] Fetching attendees in networking directory...');
       const data = await apiGet<Attendee[]>('/api/attendees');
       setAttendees(data);
-      console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees opted in');
+      console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees in directory');
       
       // Log opt-in status for debugging
       const optedInCount = data.filter(a => a.optInNetworking === 'YES').length;
@@ -269,7 +275,7 @@ export default function NetworkingScreen() {
       const matchesLastName = attendee.lastName.toLowerCase().includes(query);
       const matchesCompany = attendee.company?.toLowerCase().includes(query);
       const matchesTitle = attendee.title?.toLowerCase().includes(query);
-      const matchesEmail = attendee.email.toLowerCase().includes(query);
+      const matchesEmail = attendee.email?.toLowerCase().includes(query);
       
       return matchesName || matchesFirstName || matchesLastName || matchesCompany || matchesTitle || matchesEmail;
     });
@@ -292,7 +298,7 @@ export default function NetworkingScreen() {
             color={appColors.primary}
           />
           <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
-            Only attendees who opted in to networking are shown. Update your profile to opt in.
+            All attendees are automatically opted in to networking. You can opt out or control what contact info you share in your profile settings.
           </Text>
         </View>
       )}
@@ -351,7 +357,7 @@ export default function NetworkingScreen() {
               {searchQuery ? 'No attendees found' : 'No attendees available for networking yet'}
             </Text>
             <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-              {searchQuery ? 'Try a different search term' : 'Only attendees who opted in to networking are shown here'}
+              {searchQuery ? 'Try a different search term' : 'Attendees who have opted out of networking will not appear here'}
             </Text>
           </View>
         ) : (
@@ -443,7 +449,7 @@ export default function NetworkingScreen() {
                   Contact Information
                 </Text>
                 
-                {selectedAttendee?.email && (
+                {selectedAttendee?.email ? (
                   <View style={styles.modalInfoRow}>
                     <IconSymbol
                       ios_icon_name="envelope"
@@ -456,9 +462,9 @@ export default function NetworkingScreen() {
                       {selectedAttendee.email}
                     </Text>
                   </View>
-                )}
+                ) : null}
 
-                {selectedAttendee?.phone && (
+                {selectedAttendee?.phone ? (
                   <View style={styles.modalInfoRow}>
                     <IconSymbol
                       ios_icon_name="phone"
@@ -471,7 +477,22 @@ export default function NetworkingScreen() {
                       {selectedAttendee.phone}
                     </Text>
                   </View>
-                )}
+                ) : null}
+
+                {selectedAttendee?.linkedin ? (
+                  <View style={styles.modalInfoRow}>
+                    <IconSymbol
+                      ios_icon_name="link"
+                      android_material_icon_name="link"
+                      size={20}
+                      color={appColors.textSecondary}
+                      style={styles.modalInfoIcon}
+                    />
+                    <Text style={[styles.modalInfoText, { color: appColors.text }]} numberOfLines={1}>
+                      {selectedAttendee.linkedin}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {selectedAttendee?.company && (
                   <View style={styles.modalInfoRow}>
@@ -502,6 +523,10 @@ export default function NetworkingScreen() {
                     </Text>
                   </View>
                 )}
+
+                <Text style={[styles.privacyNote, { color: appColors.textSecondary }]}>
+                  Contact information shown is based on the attendee&apos;s sharing preferences.
+                </Text>
               </View>
 
               <TouchableOpacity

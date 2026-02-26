@@ -29,6 +29,9 @@ interface UserProfile {
   bio: string | null;
   linkedin: string | null;
   optInNetworking: boolean;
+  shareEmail: boolean;
+  sharePhone: boolean;
+  shareLinkedIn: boolean;
   emailVerified: boolean | null;
 }
 
@@ -136,7 +139,10 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [bio, setBio] = useState('');
-  const [optInNetworking, setOptInNetworking] = useState(false);
+  const [optInNetworking, setOptInNetworking] = useState(true);
+  const [shareEmail, setShareEmail] = useState(true);
+  const [sharePhone, setSharePhone] = useState(true);
+  const [shareLinkedIn, setShareLinkedIn] = useState(true);
 
   useEffect(() => {
     loadProfile();
@@ -155,7 +161,10 @@ export default function ProfileScreen() {
       setPhone(data.phone || '');
       setLinkedin(data.linkedin || '');
       setBio(data.bio || '');
-      setOptInNetworking(data.optInNetworking || false);
+      setOptInNetworking(data.optInNetworking ?? true);
+      setShareEmail(data.shareEmail ?? true);
+      setSharePhone(data.sharePhone ?? true);
+      setShareLinkedIn(data.shareLinkedIn ?? true);
       
       console.log('ProfileScreen - Loaded profile');
     } catch (error) {
@@ -176,6 +185,9 @@ export default function ProfileScreen() {
         linkedin: linkedin || null,
         bio: bio || null,
         optInNetworking,
+        shareEmail,
+        sharePhone,
+        shareLinkedIn,
       });
       setProfile(updatedProfile);
       await fetchUser(); // Refresh auth context
@@ -308,12 +320,12 @@ export default function ProfileScreen() {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: appColors.text }]}>
-            Privacy Settings
+            Networking Settings
           </Text>
 
           <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
             <Text style={[styles.switchLabel, { color: appColors.text }]}>
-              Allow other attendees to see my profile and send me messages
+              Show my profile in the networking directory (you are opted in by default)
             </Text>
             <Switch
               value={optInNetworking}
@@ -322,6 +334,50 @@ export default function ProfileScreen() {
               thumbColor="#FFFFFF"
             />
           </View>
+
+          {optInNetworking && (
+            <>
+              <Text style={[styles.label, { color: appColors.text, marginTop: spacing.md }]}>
+                Contact Information to Share
+              </Text>
+
+              <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
+                <Text style={[styles.switchLabel, { color: appColors.text }]}>
+                  Share my email address
+                </Text>
+                <Switch
+                  value={shareEmail}
+                  onValueChange={setShareEmail}
+                  trackColor={{ false: appColors.border, true: appColors.primary }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
+                <Text style={[styles.switchLabel, { color: appColors.text }]}>
+                  Share my phone number
+                </Text>
+                <Switch
+                  value={sharePhone}
+                  onValueChange={setSharePhone}
+                  trackColor={{ false: appColors.border, true: appColors.primary }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
+                <Text style={[styles.switchLabel, { color: appColors.text }]}>
+                  Share my LinkedIn profile
+                </Text>
+                <Switch
+                  value={shareLinkedIn}
+                  onValueChange={setShareLinkedIn}
+                  trackColor={{ false: appColors.border, true: appColors.primary }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+            </>
+          )}
         </View>
 
         <TouchableOpacity
