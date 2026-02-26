@@ -388,7 +388,7 @@ export async function deleteAirtableRecord(
 }
 
 /**
- * Fetch attendees from Airtable (uses separate base and API key)
+ * Fetch attendees from Airtable (uses PRIMARY_API_KEY for read access)
  */
 export async function fetchAirtableAttendees(
   tableId: string,
@@ -399,14 +399,16 @@ export async function fetchAirtableAttendees(
   if (options?.offset) params.offset = options.offset;
   if (options?.fields) params.fields = options.fields;
 
-  const client = getAttendeesClient();
+  // Use PRIMARY_API_KEY for reading attendee data (has read access to all tables)
+  const client = getAirtableClient();
 
   if (options?.logger) {
     options.logger.debug(
       {
-        baseId: ATTENDEES_BASE_ID,
+        baseId: BASE_ID,
         tableId,
-        endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
+        endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+        apiKeyUsed: 'PRIMARY_API_KEY',
       },
       'Fetching attendees from Airtable'
     );
@@ -438,14 +440,14 @@ export async function fetchAirtableAttendees(
       if (options?.logger) {
         options.logger.warn(
           {
-            baseId: ATTENDEES_BASE_ID,
+            baseId: BASE_ID,
             tableId,
             status,
             errorType,
             errorMessage,
-            endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
-            apiKeyConfigured: !!SECONDARY_API_KEY,
-            apiKeyMasked: getMaskedApiKey(SECONDARY_API_KEY),
+            endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+            apiKeyConfigured: !!PRIMARY_API_KEY,
+            apiKeyMasked: getMaskedApiKey(PRIMARY_API_KEY),
             nodeEnv: process.env.NODE_ENV,
           },
           logMsg
@@ -464,12 +466,12 @@ export async function fetchAirtableAttendees(
     if (options?.logger) {
       options.logger.error(
         {
-          baseId: ATTENDEES_BASE_ID,
+          baseId: BASE_ID,
           tableId,
           status,
           errorType,
           errorMessage,
-          endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
+          endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
         },
         'Airtable API error while fetching attendees'
       );

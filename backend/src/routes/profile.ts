@@ -41,10 +41,21 @@ export function registerProfileRoutes(app: App) {
       app.logger.info({ userId }, 'Processing profile photo upload');
 
       try {
-        const data = await request.file({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+        // Try to get file with either 'file' or 'photo' field name
+        let data = await request.file({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+        if (!data) {
+          // Try to get any file with 'photo' field name
+          const files = await request.files();
+          for await (const file of files) {
+            if (file.fieldname === 'photo' || file.fieldname === 'file') {
+              data = file;
+              break;
+            }
+          }
+        }
         if (!data) {
           app.logger.warn({ userId }, 'No photo file provided');
-          return reply.status(400).send({ error: 'No photo file provided' });
+          return reply.status(400).send({ error: 'No photo file provided (expected field name: file or photo)' });
         }
 
         let buffer: Buffer;
