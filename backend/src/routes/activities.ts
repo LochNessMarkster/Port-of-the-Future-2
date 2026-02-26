@@ -58,10 +58,9 @@ export function registerActivitiesRoutes(app: App) {
               Date: record.fields.Date,
               Time: record.fields.Time,
               Location: record.fields.Location,
-              URL: record.fields.URL,
-              MoreinfoURL: record.fields.MoreinfoURL,
-              ImageArray: record.fields.Image,
-              ImageUrl: record.fields.Image?.[0]?.url,
+              url: record.fields.url,
+              imageArray: record.fields.image,
+              imageUrl: record.fields.image?.[0]?.url,
             },
             'Activity record field values'
           );
@@ -75,8 +74,8 @@ export function registerActivitiesRoutes(app: App) {
             date: record.fields.Date || '',
             time: record.fields.Time || '',
             location: record.fields.Location || '',
-            url: record.fields.MoreinfoURL || record.fields.URL || '',
-            image: record.fields.Image?.[0]?.url || '',
+            url: record.fields.url || '',
+            image: record.fields.image?.[0]?.url || '',
           }))
           .sort((a, b) => {
             // Sort by date first
