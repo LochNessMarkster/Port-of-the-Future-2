@@ -15,8 +15,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet, authenticatedPut } from '@/utils/api';
+import { apiGet, authenticatedPut, authenticatedPost } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { ToastNotification } from '@/components/ToastNotification';
 
 interface UserProfile {
   id: string;
@@ -132,6 +133,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form fields
   const [name, setName] = useState('');
@@ -178,7 +180,8 @@ export default function ProfileScreen() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const updatedProfile = await authenticatedPut<UserProfile>('/api/profile', {
+      // Update local database profile
+      await authenticatedPut<UserProfile>('/api/profile', {
         name,
         company: company || null,
         title: title || null,
@@ -190,13 +193,47 @@ export default function ProfileScreen() {
         sharePhone,
         shareLinkedIn,
       });
+      console.log('[ProfileScreen] Local profile updated');
+
+      // Extract first and last name from full name for Airtable
+      const nameParts = name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+      // Update Airtable record
+      console.log('[ProfileScreen] Updating Airtable with:', { firstName, lastName, company, title, phone });
+      try {
+        const airtableResponse = await authenticatedPost<{ success: boolean; message?: string; error?: string }>(
+          '/api/profile/update-airtable',
+          {
+            firstName,
+            lastName,
+            company: company || '',
+            title: title || '',
+            phone: phone || '',
+          }
+        );
+
+        if (airtableResponse.success) {
+          console.log('[ProfileScreen] Airtable updated successfully');
+          setToastMessage('Profile saved successfully!');
+        } else {
+          console.warn('[ProfileScreen] Airtable update failed:', airtableResponse.error);
+          setToastMessage('Profile saved, but Airtable sync failed');
+        }
+      } catch (airtableError) {
+        console.error('[ProfileScreen] Airtable update error:', airtableError);
+        setToastMessage('Profile saved, but Airtable sync failed');
+      }
+
       // Reload profile via GET to get fresh signed URL for image
       // (PUT response returns raw storage key, not a signed URL)
       await loadProfile();
       await fetchUser(); // Refresh auth context
-      console.log('ProfileScreen - Profile updated and reloaded with fresh signed URLs');
+      console.log('[ProfileScreen] Profile updated and reloaded with fresh signed URLs');
     } catch (error) {
-      console.error('ProfileScreen - Error saving profile:', error);
+      console.error('[ProfileScreen] Error saving profile:', error);
+      setToastMessage('Failed to save profile. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -214,6 +251,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
+      <ToastNotification message={toastMessage} onHide={() => setToastMessage(null)} />
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.scrollContent}

@@ -14,11 +14,12 @@ import {
 } from "react-native";
 import { colors, spacing, typography, borderRadius } from "@/styles/commonStyles";
 import React, { useEffect, useState } from "react";
-import { apiGet, authenticatedPut } from "@/utils/api";
+import { apiGet, authenticatedPut, authenticatedPost } from "@/utils/api";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { ToastNotification } from "@/components/ToastNotification";
 
 interface UserProfile {
   id: string;
@@ -211,7 +212,9 @@ const styles = StyleSheet.create({
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { signOut } = useAuth();
 
   const [editName, setEditName] = useState("");
@@ -240,6 +243,7 @@ export default function ProfileScreen() {
       setProfile(data);
     } catch (error) {
       console.error('[ProfileScreen] Error loading profile:', error);
+      setToastMessage('Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -269,8 +273,10 @@ export default function ProfileScreen() {
 
   const saveProfile = async () => {
     console.log('[ProfileScreen] Saving profile');
-    setLoading(true);
+    setSaving(true);
+    
     try {
+      // Update local database profile
       await authenticatedPut<UserProfile>('/api/profile', {
         name: editName,
         company: editCompany,
@@ -283,13 +289,45 @@ export default function ProfileScreen() {
         sharePhone: editSharePhone,
         shareLinkedIn: editShareLinkedIn,
       });
-      console.log('[ProfileScreen] Profile updated, reloading');
+      console.log('[ProfileScreen] Local profile updated');
+
+      // Extract first and last name from full name
+      const nameParts = editName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+      // Update Airtable record
+      console.log('[ProfileScreen] Updating Airtable with:', { firstName, lastName, company: editCompany, title: editTitle, phone: editPhone });
+      
+      try {
+        const airtableResponse = await authenticatedPost<{ success: boolean; message?: string; error?: string }>('/api/profile/update-airtable', {
+          firstName,
+          lastName,
+          company: editCompany,
+          title: editTitle,
+          phone: editPhone,
+        });
+
+        if (airtableResponse.success) {
+          console.log('[ProfileScreen] Airtable updated successfully');
+          setToastMessage('Profile saved successfully!');
+        } else {
+          console.warn('[ProfileScreen] Airtable update failed:', airtableResponse.error);
+          setToastMessage('Profile saved locally, but Airtable update failed');
+        }
+      } catch (airtableError) {
+        console.error('[ProfileScreen] Airtable update error:', airtableError);
+        setToastMessage('Profile saved locally, but Airtable update failed');
+      }
+
+      // Reload profile to get fresh data
       await loadProfile();
       closeEditModal();
     } catch (error) {
       console.error('[ProfileScreen] Error saving profile:', error);
+      setToastMessage('Failed to save profile. Please try again.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -331,6 +369,8 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <ToastNotification message={toastMessage} onHide={() => setToastMessage(null)} />
+      
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
@@ -607,9 +647,9 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: colors.light.primary }]}
               onPress={saveProfile}
-              disabled={loading}
+              disabled={saving}
             >
-              {loading ? (
+              {saving ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.saveButtonText}>Save Changes</Text>
