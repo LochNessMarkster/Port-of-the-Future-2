@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface Announcement {
   id: string;
@@ -139,6 +140,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
   },
+  badgeContainer: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.xl,
@@ -216,6 +238,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const { user } = useAuth();
+  const { unreadMessageCount } = useNotifications();
   const router = useRouter();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -267,8 +290,10 @@ export default function HomeScreen() {
   const welcomeText = `Welcome, ${userName}!`;
   const dateText = 'March 24-25, 2026';
   const locationText = 'Houston, Texas';
+  const showBadge = unreadMessageCount > 0;
+  const badgeCountText = unreadMessageCount > 99 ? '99+' : String(unreadMessageCount);
 
-  console.log('HomeScreen iOS - Rendering with user:', userName, 'announcements:', announcements.length);
+  console.log('HomeScreen iOS - Rendering with user:', userName, 'announcements:', announcements.length, 'unread messages:', unreadMessageCount);
 
   return (
     <React.Fragment>
@@ -432,6 +457,11 @@ export default function HomeScreen() {
                   color={appColors.secondary}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Networking</Text>
+                {showBadge && (
+                  <View style={styles.badgeContainer}>
+                    <Text style={styles.badgeText}>{badgeCountText}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
 
