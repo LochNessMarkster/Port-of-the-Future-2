@@ -273,19 +273,44 @@ export default function NetworkingScreen() {
   };
 
   const filteredAttendees = useMemo(() => {
-    if (searchQuery.trim() === '') return attendees;
+    let result = attendees;
     
-    const query = searchQuery.toLowerCase();
-    return attendees.filter(attendee => {
-      const matchesName = (attendee.name || '').toLowerCase().includes(query);
-      const matchesFirstName = (attendee.firstName || '').toLowerCase().includes(query);
-      const matchesLastName = (attendee.lastName || '').toLowerCase().includes(query);
-      const matchesCompany = attendee.company?.toLowerCase().includes(query);
-      const matchesTitle = attendee.title?.toLowerCase().includes(query);
-      const matchesEmail = attendee.email?.toLowerCase().includes(query);
+    // Apply search filter if query exists
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      result = attendees.filter(attendee => {
+        const matchesName = (attendee.name || '').toLowerCase().includes(query);
+        const matchesFirstName = (attendee.firstName || '').toLowerCase().includes(query);
+        const matchesLastName = (attendee.lastName || '').toLowerCase().includes(query);
+        const matchesCompany = attendee.company?.toLowerCase().includes(query);
+        const matchesTitle = attendee.title?.toLowerCase().includes(query);
+        const matchesEmail = attendee.email?.toLowerCase().includes(query);
+        
+        return matchesName || matchesFirstName || matchesLastName || matchesCompany || matchesTitle || matchesEmail;
+      });
+    }
+    
+    // Sort alphabetically by Last Name (A to Z)
+    const sorted = [...result].sort((a, b) => {
+      const lastNameA = (a.lastName || '').toLowerCase();
+      const lastNameB = (b.lastName || '').toLowerCase();
       
-      return matchesName || matchesFirstName || matchesLastName || matchesCompany || matchesTitle || matchesEmail;
+      // Handle empty last names - put them at the end
+      if (!lastNameA && !lastNameB) return 0;
+      if (!lastNameA) return 1;
+      if (!lastNameB) return -1;
+      
+      return lastNameA.localeCompare(lastNameB);
     });
+    
+    console.log('[NetworkingScreen] Filtered and sorted attendees:', {
+      total: attendees.length,
+      filtered: result.length,
+      sorted: sorted.length,
+      searchQuery: searchQuery || 'none'
+    });
+    
+    return sorted;
   }, [attendees, searchQuery]);
 
   const clearSearch = () => {
