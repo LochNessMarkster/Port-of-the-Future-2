@@ -54,6 +54,27 @@ export const messages = pgTable(
 );
 
 /**
+ * Password Reset Codes - Track password reset requests
+ */
+export const passwordResetCodes = pgTable(
+  'password_reset_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    code: text('code').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    used: boolean('used').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('password_reset_codes_email_idx').on(table.email),
+    index('password_reset_codes_code_idx').on(table.code),
+  ]
+);
+
+/**
  * Speaker Presentations - Track uploaded presentations by speakers
  */
 export const speakerPresentations = pgTable(
