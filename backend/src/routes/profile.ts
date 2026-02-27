@@ -426,17 +426,24 @@ export function registerProfileRoutes(app: App) {
         const recordId = attendee.id;
         app.logger.info({ userId, userEmail, airtableRecordId: recordId }, 'Found Airtable record for user');
 
+        // Build fields object with only the provided values
+        const fieldsToUpdate: Record<string, any> = {};
+        if (firstName !== undefined) fieldsToUpdate['First Name'] = firstName;
+        if (lastName !== undefined) fieldsToUpdate['Last Name'] = lastName;
+        if (company !== undefined) fieldsToUpdate['Company'] = company;
+        if (title !== undefined) fieldsToUpdate['Title'] = title;
+        if (phone !== undefined) fieldsToUpdate['Phone'] = phone;
+
+        app.logger.info(
+          { userId, userEmail, airtableRecordId: recordId, fieldsToUpdate },
+          'Updating Airtable record with fields'
+        );
+
         // Update the Airtable record
         const updatedRecord = await updateAirtableRecord(
           TABLES.ATTENDEES,
           recordId,
-          {
-            'First Name': firstName,
-            'Last Name': lastName,
-            Company: company,
-            'Job Title': title,
-            Phone: phone,
-          } as any,
+          fieldsToUpdate as any,
           app.logger
         );
 
@@ -449,14 +456,25 @@ export function registerProfileRoutes(app: App) {
           success: true,
           message: 'Profile updated in Airtable',
         };
-      } catch (error) {
+      } catch (error: any) {
+        const airtableErrorMessage = error?.response?.data?.error?.message ||
+                                     error?.message ||
+                                     'Failed to update profile in Airtable';
+
         app.logger.error(
-          { err: error, userId, userEmail },
+          {
+            err: error,
+            userId,
+            userEmail,
+            airtableErrorMessage,
+            airtableErrorType: error?.response?.data?.error?.type,
+          },
           'Failed to update user profile in Airtable'
         );
+
         return reply.status(400).send({
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to update profile in Airtable',
+          error: airtableErrorMessage,
         });
       }
     }
