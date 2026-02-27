@@ -472,7 +472,7 @@ export default function ProfileScreen() {
     }
 
     const imageUri = result.assets[0].uri;
-    console.log('ProfileScreen - Image selected:', imageUri);
+    console.log('ProfileScreen - Image selected, URI:', imageUri);
 
     setUploading(true);
 
@@ -493,19 +493,27 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Upload to Cloudinary
+      // Upload to Cloudinary with correctly formatted FormData
       console.log('🔵 Starting Cloudinary upload...');
       const cloudinaryFormData = new FormData();
+      
+      // CRITICAL FIX: Format the file object correctly with uri, type, and name
       cloudinaryFormData.append('file', {
         uri: imageUri,
         type: 'image/jpeg',
-        name: 'profile.jpg',
+        name: 'photo.jpg',
       } as any);
+      
       cloudinaryFormData.append('upload_preset', 'POF-app');
+
+      console.log('🔵 Uploading to Cloudinary with uri:', imageUri);
 
       const cloudinaryResponse = await fetch('https://api.cloudinary.com/v1_1/dwfnlugp3/image/upload', {
         method: 'POST',
         body: cloudinaryFormData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       const cloudinaryData = await cloudinaryResponse.json();
@@ -526,7 +534,7 @@ export default function ProfileScreen() {
       }
 
       const publicImageUrl = cloudinaryData.secure_url;
-      console.log('ProfileScreen - Image uploaded to Cloudinary:', publicImageUrl);
+      console.log('ProfileScreen - ✅ Image uploaded to Cloudinary:', publicImageUrl);
 
       // Update Airtable record
       console.log('🟢 Starting Airtable PATCH...');
