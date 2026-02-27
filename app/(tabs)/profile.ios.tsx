@@ -497,23 +497,25 @@ export default function ProfileScreen() {
       console.log('🔵 Starting Cloudinary upload...');
       const cloudinaryFormData = new FormData();
       
-      // CRITICAL FIX: Format the file object correctly with uri, type, and name
+      // CRITICAL: Format the file object correctly with uri, type, and name
       cloudinaryFormData.append('file', {
         uri: imageUri,
         type: 'image/jpeg',
         name: 'photo.jpg',
       } as any);
       
+      // CRITICAL: Include upload_preset for unsigned upload
       cloudinaryFormData.append('upload_preset', 'POF-app');
 
       console.log('🔵 Uploading to Cloudinary with uri:', imageUri);
+      console.log('🔵 Upload preset: POF-app');
 
+      // CRITICAL FIX: Do NOT set Content-Type header manually
+      // Let fetch set it automatically with the correct boundary parameter
       const cloudinaryResponse = await fetch('https://api.cloudinary.com/v1_1/dwfnlugp3/image/upload', {
         method: 'POST',
         body: cloudinaryFormData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        // NO Content-Type header - fetch will set it automatically for FormData
       });
 
       const cloudinaryData = await cloudinaryResponse.json();
