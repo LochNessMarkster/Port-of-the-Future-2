@@ -312,20 +312,23 @@ export default function ProfileScreen() {
           console.log('[ProfileScreen] Airtable updated successfully');
           setToastMessage('Profile saved successfully!');
         } else {
-          console.warn('[ProfileScreen] Airtable update failed:', airtableResponse.error);
-          setToastMessage('Profile saved locally, but Airtable update failed');
+          const errorMsg = airtableResponse.error || 'Unknown error';
+          console.warn('[ProfileScreen] Airtable update failed:', errorMsg);
+          setToastMessage(`Airtable sync failed: ${errorMsg}`);
         }
-      } catch (airtableError) {
+      } catch (airtableError: any) {
         console.error('[ProfileScreen] Airtable update error:', airtableError);
-        setToastMessage('Profile saved locally, but Airtable update failed');
+        const errorMsg = airtableError?.message || airtableError?.error || 'Unknown error';
+        setToastMessage(`Airtable sync failed: ${errorMsg}`);
       }
 
       // Reload profile to get fresh data
       await loadProfile();
       closeEditModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('[ProfileScreen] Error saving profile:', error);
-      setToastMessage('Failed to save profile. Please try again.');
+      const errorMsg = error?.message || 'Unknown error';
+      setToastMessage(`Failed to save profile: ${errorMsg}`);
     } finally {
       setSaving(false);
     }

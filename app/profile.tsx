@@ -218,12 +218,14 @@ export default function ProfileScreen() {
           console.log('[ProfileScreen] Airtable updated successfully');
           setToastMessage('Profile saved successfully!');
         } else {
-          console.warn('[ProfileScreen] Airtable update failed:', airtableResponse.error);
-          setToastMessage('Profile saved, but Airtable sync failed');
+          const errorMsg = airtableResponse.error || 'Unknown error';
+          console.warn('[ProfileScreen] Airtable update failed:', errorMsg);
+          setToastMessage(`Airtable sync failed: ${errorMsg}`);
         }
-      } catch (airtableError) {
+      } catch (airtableError: any) {
         console.error('[ProfileScreen] Airtable update error:', airtableError);
-        setToastMessage('Profile saved, but Airtable sync failed');
+        const errorMsg = airtableError?.message || airtableError?.error || 'Unknown error';
+        setToastMessage(`Airtable sync failed: ${errorMsg}`);
       }
 
       // Reload profile via GET to get fresh signed URL for image
@@ -231,9 +233,10 @@ export default function ProfileScreen() {
       await loadProfile();
       await fetchUser(); // Refresh auth context
       console.log('[ProfileScreen] Profile updated and reloaded with fresh signed URLs');
-    } catch (error) {
+    } catch (error: any) {
       console.error('[ProfileScreen] Error saving profile:', error);
-      setToastMessage('Failed to save profile. Please try again.');
+      const errorMsg = error?.message || 'Unknown error';
+      setToastMessage(`Failed to save profile: ${errorMsg}`);
     } finally {
       setSaving(false);
     }
