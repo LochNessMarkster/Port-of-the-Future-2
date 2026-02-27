@@ -18,8 +18,6 @@ const TIER_ORDER = {
 };
 
 export function registerSponsorsRoutes(app: App) {
-  const requireAuth = app.requireAuth();
-
   /**
    * GET /api/sponsors - Get all sponsors grouped by tier
    */
@@ -48,8 +46,6 @@ export function registerSponsorsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const session = await requireAuth(request, reply);
-      if (!session) return;
 
       app.logger.info('Fetching all sponsors and partners from Airtable');
       try {
@@ -141,8 +137,6 @@ export function registerSponsorsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const session = await requireAuth(request, reply);
-      if (!session) return;
 
       const { id } = request.params as { id: string };
       app.logger.info({ sponsorId: id }, 'Fetching sponsor details');

@@ -9,8 +9,6 @@ import {
 } from '../utils/airtable.js';
 
 export function registerSpeakersRoutes(app: App) {
-  const requireAuth = app.requireAuth();
-
   /**
    * GET /api/speakers - Get all speakers
    */
@@ -42,8 +40,6 @@ export function registerSpeakersRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const session = await requireAuth(request, reply);
-      if (!session) return;
 
       app.logger.info('Fetching all speakers from Airtable');
       try {
@@ -131,8 +127,6 @@ export function registerSpeakersRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const session = await requireAuth(request, reply);
-      if (!session) return;
 
       const { id } = request.params as { id: string };
       app.logger.info({ speakerId: id }, 'Fetching speaker details');
