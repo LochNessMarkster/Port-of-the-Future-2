@@ -389,18 +389,21 @@ export async function deleteAirtableRecord(
 
 /**
  * Fetch attendees from Airtable (uses PRIMARY_API_KEY for read access)
+ * Implements pagination to fetch ALL records beyond the 100-record limit
  */
 export async function fetchAirtableAttendees(
   tableId: string,
   options?: { pageSize?: number; offset?: string; fields?: string[]; logger?: any }
 ): Promise<AirtableListResponse<AttendeeFields>> {
-  const params: any = {};
-  if (options?.pageSize) params.pageSize = options.pageSize;
-  if (options?.offset) params.offset = options.offset;
-  if (options?.fields) params.fields = options.fields;
+  const pageSize = options?.pageSize || 100;
+  const fields = options?.fields;
 
   // Use PRIMARY_API_KEY for reading attendee data (has read access to all tables)
   const client = getAirtableClient();
+
+  const allRecords: AirtableRecord<AttendeeFields>[] = [];
+  let currentOffset = options?.offset;
+  let pageCount = 0;
 
   if (options?.logger) {
     options.logger.debug(
@@ -409,25 +412,64 @@ export async function fetchAirtableAttendees(
         tableId,
         endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
         apiKeyUsed: 'PRIMARY_API_KEY',
+        pageSize,
       },
-      'Fetching attendees from Airtable'
+      'Starting pagination to fetch all attendees from Airtable'
     );
   }
 
   try {
-    const response = await client.get<AirtableListResponse<AttendeeFields>>(
-      `/${tableId}`,
-      { params }
-    );
+    // Do-while loop to fetch all pages
+    do {
+      const params: any = { pageSize };
+      if (currentOffset) params.offset = currentOffset;
+      if (fields) params.fields = fields;
+
+      pageCount++;
+
+      const response = await client.get<AirtableListResponse<AttendeeFields>>(
+        `/${tableId}`,
+        { params }
+      );
+
+      allRecords.push(...response.data.records);
+
+      if (options?.logger) {
+        options.logger.info(
+          {
+            tableId,
+            page: pageCount,
+            pageRecords: response.data.records.length,
+            totalSoFar: allRecords.length,
+            hasNextPage: !!response.data.offset,
+          },
+          'Fetched page of attendees from Airtable'
+        );
+      }
+
+      currentOffset = response.data.offset;
+    } while (currentOffset);
+
+    // Sort by Last Name alphabetically (A to Z)
+    allRecords.sort((a, b) => {
+      const lastNameA = (a.fields['Last Name'] || '').toLowerCase();
+      const lastNameB = (b.fields['Last Name'] || '').toLowerCase();
+      return lastNameA.localeCompare(lastNameB);
+    });
 
     if (options?.logger) {
       options.logger.info(
-        { tableId, recordCount: response.data.records.length },
-        'Successfully fetched attendees from Airtable'
+        {
+          tableId,
+          totalPages: pageCount,
+          totalRecords: allRecords.length,
+          sortedBy: 'Last Name (A-Z)',
+        },
+        'Successfully fetched and sorted all attendees from Airtable'
       );
     }
 
-    return response.data;
+    return { records: allRecords };
   } catch (error: any) {
     const status = error.response?.status;
     const errorMessage = error.response?.data?.error?.message || error.message;
@@ -472,6 +514,8 @@ export async function fetchAirtableAttendees(
           errorType,
           errorMessage,
           endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+          pagesAttempted: pageCount,
+          recordsFetchedBeforeError: allRecords.length,
         },
         'Airtable API error while fetching attendees'
       );
