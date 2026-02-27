@@ -35,6 +35,11 @@ interface AirtableMessage {
   createdTime: string;
 }
 
+interface AirtableResponse {
+  records: AirtableMessage[];
+  offset?: string;
+}
+
 interface Message {
   id: string;
   from: string;
@@ -226,26 +231,49 @@ export default function MessagesScreen() {
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Fetch all messages from Airtable
+  // Fetch ALL messages from Airtable with pagination
   const fetchMessages = async (): Promise<Message[]> => {
     try {
-      console.log('[MessagesScreen] Fetching messages from Airtable...');
-      const response = await fetch(AIRTABLE_BASE_URL, {
-        headers: {
-          'Authorization': `Bearer ${AIRTABLE_TOKEN}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[MessagesScreen] Airtable fetch error:', response.status, errorText);
-        throw new Error(`Failed to fetch messages: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const records = data.records as AirtableMessage[];
+      console.log('[MessagesScreen] Fetching ALL messages from Airtable with pagination...');
       
-      const parsedMessages = records.map((record) => ({
+      let allRecords: AirtableMessage[] = [];
+      let offset: string | undefined = undefined;
+      let pageCount = 0;
+
+      // Keep fetching until there's no offset (all pages retrieved)
+      do {
+        pageCount++;
+        const url = offset 
+          ? `${AIRTABLE_BASE_URL}?offset=${offset}` 
+          : AIRTABLE_BASE_URL;
+        
+        console.log(`[MessagesScreen] Fetching page ${pageCount}${offset ? ` with offset: ${offset}` : ''}`);
+
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_TOKEN}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[MessagesScreen] Airtable fetch error (page ${pageCount}):`, response.status, errorText);
+          throw new Error(`Failed to fetch messages: ${response.status}`);
+        }
+
+        const data: AirtableResponse = await response.json();
+        
+        console.log(`[MessagesScreen] Page ${pageCount} fetched ${data.records.length} records`);
+        allRecords = allRecords.concat(data.records);
+        
+        // Check if there's another page
+        offset = data.offset;
+        
+      } while (offset);
+
+      console.log(`[MessagesScreen] ✅ Pagination complete! Fetched ${allRecords.length} total messages across ${pageCount} pages`);
+      
+      const parsedMessages = allRecords.map((record) => ({
         id: record.id,
         from: record.fields.From || '',
         to: record.fields.To || '',
@@ -254,7 +282,6 @@ export default function MessagesScreen() {
         read: record.fields.Read || false,
       }));
 
-      console.log('[MessagesScreen] Fetched messages:', parsedMessages.length);
       return parsedMessages;
     } catch (error) {
       console.error('[MessagesScreen] Error fetching messages:', error);

@@ -52,6 +52,7 @@ interface AirtableRecord {
 
 interface AirtableResponse {
   records: AirtableRecord[];
+  offset?: string;
 }
 
 // Helper to resolve image source for React Native Image component
@@ -120,62 +121,83 @@ export default function ProfileScreen() {
   }, []);
 
   /**
-   * Fetch all Airtable records and match user email to find their record ID
+   * Fetch ALL Airtable records with pagination and match user email to find their record ID
    */
   const fetchAndMatchAirtableRecord = async (userEmail: string): Promise<string | null> => {
-    console.log("Starting Airtable fetch...");
+    console.log("Starting Airtable fetch with pagination...");
     
     try {
-      console.log('ProfileScreen - Fetching Airtable records to match user email:', userEmail);
+      console.log('ProfileScreen - Fetching ALL Airtable records to match user email:', userEmail);
       
-      const airtableUrl = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
+      const airtableBaseUrl = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
       const airtableApiKey = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
 
-      const response = await fetch(airtableUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${airtableApiKey}`,
-        },
-      });
+      let allRecords: AirtableRecord[] = [];
+      let offset: string | undefined = undefined;
+      let pageCount = 0;
 
-      const rawResponseBody = await response.text();
-      console.log('Airtable API status:', response.status);
+      // Keep fetching until there's no offset (all pages retrieved)
+      do {
+        pageCount++;
+        const url = offset 
+          ? `${airtableBaseUrl}?offset=${offset}` 
+          : airtableBaseUrl;
+        
+        console.log(`ProfileScreen - Fetching page ${pageCount}${offset ? ` with offset: ${offset}` : ''}`);
 
-      // Parse the response
-      let data: AirtableResponse;
-      try {
-        data = JSON.parse(rawResponseBody);
-      } catch (parseError) {
-        console.error('ProfileScreen - Failed to parse Airtable response:', parseError);
-        setErrorMessage(`API Error: Failed to parse response - ${parseError}`);
-        setErrorModalVisible(true);
-        return null;
-      }
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${airtableApiKey}`,
+          },
+        });
 
-      if (!response.ok) {
-        console.error('ProfileScreen - Airtable fetch failed:', data);
-        const errorMsg = (data as any).error?.message || response.statusText;
-        setErrorMessage(`API Error: ${response.status} - ${errorMsg}`);
-        setErrorModalVisible(true);
-        return null;
-      }
+        const rawResponseBody = await response.text();
+        console.log(`ProfileScreen - Page ${pageCount} API status:`, response.status);
 
-      if (!data.records || !Array.isArray(data.records)) {
-        console.error('ProfileScreen - Invalid Airtable response structure:', data);
-        setErrorMessage('API Error: Invalid response structure - no records array');
-        setErrorModalVisible(true);
-        return null;
-      }
+        // Parse the response
+        let data: AirtableResponse;
+        try {
+          data = JSON.parse(rawResponseBody);
+        } catch (parseError) {
+          console.error('ProfileScreen - Failed to parse Airtable response:', parseError);
+          setErrorMessage(`API Error: Failed to parse response - ${parseError}`);
+          setErrorModalVisible(true);
+          return null;
+        }
 
-      console.log('ProfileScreen - Fetched', data.records.length, 'Airtable records');
+        if (!response.ok) {
+          console.error('ProfileScreen - Airtable fetch failed:', data);
+          const errorMsg = (data as any).error?.message || response.statusText;
+          setErrorMessage(`API Error: ${response.status} - ${errorMsg}`);
+          setErrorModalVisible(true);
+          return null;
+        }
+
+        if (!data.records || !Array.isArray(data.records)) {
+          console.error('ProfileScreen - Invalid Airtable response structure:', data);
+          setErrorMessage('API Error: Invalid response structure - no records array');
+          setErrorModalVisible(true);
+          return null;
+        }
+
+        console.log(`ProfileScreen - Page ${pageCount} fetched ${data.records.length} records`);
+        allRecords = allRecords.concat(data.records);
+        
+        // Check if there's another page
+        offset = data.offset;
+        
+      } while (offset);
+
+      console.log(`ProfileScreen - ✅ Pagination complete! Fetched ${allRecords.length} total records across ${pageCount} pages`);
 
       // Normalize user email for comparison
       const normalizedUserEmail = normalizeEmail(userEmail);
       console.log('ProfileScreen - Normalized user email:', `"${normalizedUserEmail}"`);
 
       // Loop through ALL records to find a match
-      for (let i = 0; i < data.records.length; i++) {
-        const record = data.records[i];
+      for (let i = 0; i < allRecords.length; i++) {
+        const record = allRecords[i];
         
         // Check both "Email" and "email" field names (case variations)
         const recordEmail = record.fields.Email || record.fields.email;
@@ -183,15 +205,8 @@ export default function ProfileScreen() {
         if (recordEmail) {
           const normalizedRecordEmail = normalizeEmail(recordEmail);
           
-          console.log(`ProfileScreen - Checking record ${i + 1}/${data.records.length}:`, {
-            recordId: record.id,
-            rawEmail: `"${recordEmail}"`,
-            normalizedEmail: `"${normalizedRecordEmail}"`,
-            match: normalizedUserEmail === normalizedRecordEmail
-          });
-
           if (normalizedUserEmail === normalizedRecordEmail) {
-            console.log('ProfileScreen - ✅ MATCH FOUND! Airtable record ID:', record.id);
+            console.log('ProfileScreen - ✅ MATCH FOUND! Airtable record ID:', record.id, `(record ${i + 1}/${allRecords.length})`);
             
             // Store the record ID locally for future use
             if (Platform.OS === 'web') {
@@ -206,7 +221,7 @@ export default function ProfileScreen() {
       }
 
       // No match found
-      console.error('ProfileScreen - ❌ No matching Airtable record found for email:', userEmail);
+      console.error('ProfileScreen - ❌ No matching Airtable record found for email:', userEmail, `(searched ${allRecords.length} records)`);
       
       return null;
     } catch (error: any) {
