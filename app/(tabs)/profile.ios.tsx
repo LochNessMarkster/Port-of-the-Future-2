@@ -253,6 +253,38 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontSize: 12,
   },
+  errorModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  errorModalContent: {
+    borderRadius: borderRadius.md,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 400,
+  },
+  errorModalTitle: {
+    ...typography.h3,
+    marginBottom: spacing.md,
+    color: '#EF4444',
+  },
+  errorModalMessage: {
+    ...typography.body,
+    marginBottom: spacing.lg,
+  },
+  errorModalButton: {
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+  },
+  errorModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 
 function resolveImageSource(uri: string | null | undefined) {
@@ -309,6 +341,8 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const { signOut } = useAuth();
 
   // Edit form state
@@ -403,18 +437,24 @@ export default function ProfileScreen() {
     }
   };
 
+  const showError = (message: string) => {
+    const errorText = message;
+    setErrorMessage(errorText);
+    setErrorModalVisible(true);
+  };
+
   const pickAndUploadPhoto = async () => {
     console.log('ProfileScreen - User tapped edit photo button');
     
     if (!profile) {
-      alert('Profile not loaded. Please try again.');
+      showError('Profile not loaded. Please try again.');
       return;
     }
 
     // Request permissions
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      alert('Sorry, we need camera roll permissions to upload a photo.');
+      showError('Camera roll permissions are required to upload a photo.');
       return;
     }
 
@@ -449,12 +489,12 @@ export default function ProfileScreen() {
 
       if (!airtableRecordId) {
         console.error('ProfileScreen - No Airtable record ID found after fetch attempt');
-        alert('Unable to upload photo: Your profile is not linked to an Airtable record. Please make sure you registered with the same email address used for the conference.');
+        showError('Your profile is not linked to an Airtable record. Please make sure you registered with the same email address used for the conference.');
         return;
       }
 
       // Upload to Cloudinary
-      console.log('ProfileScreen - Uploading to Cloudinary');
+      console.log('🔵 Starting Cloudinary upload...');
       const cloudinaryFormData = new FormData();
       cloudinaryFormData.append('file', {
         uri: imageUri,
@@ -468,45 +508,70 @@ export default function ProfileScreen() {
         body: cloudinaryFormData,
       });
 
+      const cloudinaryData = await cloudinaryResponse.json();
+      console.log('🔵 Cloudinary response status:', cloudinaryResponse.status);
+      console.log('🔵 Cloudinary response body:', JSON.stringify(cloudinaryData, null, 2));
+
       if (!cloudinaryResponse.ok) {
-        throw new Error('Failed to upload image to Cloudinary');
+        const errorMsg = cloudinaryData.error?.message || `Cloudinary upload failed with status ${cloudinaryResponse.status}`;
+        console.error('ProfileScreen - Cloudinary error:', errorMsg);
+        showError(`Cloudinary upload failed: ${errorMsg}`);
+        return;
       }
 
-      const cloudinaryData = await cloudinaryResponse.json();
+      if (!cloudinaryData.secure_url) {
+        console.error('ProfileScreen - No secure_url in Cloudinary response');
+        showError('Cloudinary upload succeeded but no image URL was returned.');
+        return;
+      }
+
       const publicImageUrl = cloudinaryData.secure_url;
       console.log('ProfileScreen - Image uploaded to Cloudinary:', publicImageUrl);
 
       // Update Airtable record
-      console.log('ProfileScreen - Updating Airtable record:', airtableRecordId);
+      console.log('🟢 Starting Airtable PATCH...');
+      console.log('🟢 Airtable record ID being used:', airtableRecordId);
+      
+      const airtableBody = {
+        records: [{
+          id: airtableRecordId,
+          fields: {
+            "Image": [{ url: publicImageUrl }]
+          }
+        }]
+      };
+      console.log('🟢 Airtable request body:', JSON.stringify(airtableBody, null, 2));
+
       const airtableResponse = await fetch(AIRTABLE_BASE_URL, {
         method: 'PATCH',
         headers: {
           'Authorization': AIRTABLE_TOKEN,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          records: [{
-            id: airtableRecordId,
-            fields: {
-              "Image": [{ url: publicImageUrl }]
-            }
-          }]
-        }),
+        body: JSON.stringify(airtableBody),
       });
 
+      const airtableData = await airtableResponse.json();
+      console.log('🟢 Airtable response status:', airtableResponse.status);
+      console.log('🟢 Airtable response body:', JSON.stringify(airtableData, null, 2));
+
       if (!airtableResponse.ok) {
-        throw new Error('Failed to update Airtable record');
+        const errorMsg = airtableData.error?.message || `Airtable update failed with status ${airtableResponse.status}`;
+        console.error('ProfileScreen - Airtable error:', errorMsg);
+        showError(`Airtable update failed: ${errorMsg}`);
+        return;
       }
 
-      console.log('ProfileScreen - Airtable record updated successfully');
+      console.log('ProfileScreen - ✅ Airtable record updated successfully');
 
       // Reload profile to show new image
       await loadProfile();
       
       alert('Profile photo updated successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('ProfileScreen - Error uploading photo:', error);
-      alert('Failed to upload photo. Please try again.');
+      const errorMsg = error.message || 'An unknown error occurred during photo upload.';
+      showError(`Upload error: ${errorMsg}`);
     } finally {
       setUploading(false);
     }
@@ -908,6 +973,29 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </Pressable>
         </Pressable>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <View style={styles.errorModalOverlay}>
+          <View style={[styles.errorModalContent, { backgroundColor: themeColors.card }]}>
+            <Text style={styles.errorModalTitle}>Upload Error</Text>
+            <Text style={[styles.errorModalMessage, { color: themeColors.text }]}>
+              {errorMessage}
+            </Text>
+            <TouchableOpacity
+              style={[styles.errorModalButton, { backgroundColor: colors.light.primary }]}
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Text style={styles.errorModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
