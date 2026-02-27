@@ -21,6 +21,7 @@ import { IconSymbol } from "@/components/IconSymbol";
 import { colors, spacing, typography, borderRadius } from "@/styles/commonStyles";
 import { apiGet, authenticatedPut } from "@/utils/api";
 import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 
 interface UserProfile {
   id: string;
@@ -40,11 +41,27 @@ interface UserProfile {
   image: string | null;
 }
 
+interface AirtableRecord {
+  id: string;
+  fields: {
+    Email?: string;
+    email?: string;
+    [key: string]: any;
+  };
+}
+
+interface AirtableResponse {
+  records: AirtableRecord[];
+}
+
 // Helper to resolve image source for React Native Image component
 function resolveImageSource(uri: string | null | undefined) {
   if (!uri) return null;
   return { uri, cache: 'reload' as const };
 }
+
+// Storage key for Airtable record ID
+const AIRTABLE_RECORD_ID_KEY = 'airtableRecordId';
 
 export default function ProfileScreen() {
   const { colors: themeColors } = useTheme();
@@ -58,6 +75,7 @@ export default function ProfileScreen() {
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [imageRefreshKey, setImageRefreshKey] = useState(0);
+  const [airtableRecordId, setAirtableRecordId] = useState<string | null>(null);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -79,6 +97,98 @@ export default function ProfileScreen() {
     loadProfile();
   }, []);
 
+  /**
+   * Fetch all Airtable records and match user email to find their record ID
+   */
+  const fetchAndMatchAirtableRecord = async (userEmail: string): Promise<string | null> => {
+    try {
+      console.log('ProfileScreen - Fetching Airtable records to match user email:', userEmail);
+      
+      const airtableUrl = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
+      const airtableApiKey = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
+
+      const response = await fetch(airtableUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${airtableApiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('ProfileScreen - Airtable fetch failed:', errorData);
+        throw new Error(`Failed to fetch Airtable records: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const data: AirtableResponse = await response.json();
+      console.log('ProfileScreen - Fetched', data.records.length, 'Airtable records');
+
+      // Normalize user email for comparison
+      const normalizedUserEmail = userEmail.trim().toLowerCase();
+      console.log('ProfileScreen - Normalized user email:', normalizedUserEmail);
+
+      // Try to find matching record
+      for (const record of data.records) {
+        // Check both "Email" and "email" field names (case variations)
+        const recordEmail = record.fields.Email || record.fields.email;
+        
+        console.log('ProfileScreen - Checking record:', {
+          recordId: record.id,
+          recordEmail: recordEmail,
+          allFields: Object.keys(record.fields)
+        });
+
+        if (recordEmail) {
+          const normalizedRecordEmail = recordEmail.trim().toLowerCase();
+          console.log('ProfileScreen - Comparing:', {
+            userEmail: normalizedUserEmail,
+            recordEmail: normalizedRecordEmail,
+            match: normalizedUserEmail === normalizedRecordEmail
+          });
+
+          if (normalizedUserEmail === normalizedRecordEmail) {
+            console.log('ProfileScreen - MATCH FOUND! Airtable record ID:', record.id);
+            
+            // Store the record ID locally for future use
+            if (Platform.OS === 'web') {
+              localStorage.setItem(AIRTABLE_RECORD_ID_KEY, record.id);
+            } else {
+              await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, record.id);
+            }
+            
+            return record.id;
+          }
+        }
+      }
+
+      console.error('ProfileScreen - No matching Airtable record found for email:', userEmail);
+      console.log('ProfileScreen - Available email fields in records:', 
+        data.records.map(r => ({ id: r.id, email: r.fields.Email || r.fields.email }))
+      );
+      
+      return null;
+    } catch (error) {
+      console.error('ProfileScreen - Error fetching/matching Airtable record:', error);
+      return null;
+    }
+  };
+
+  /**
+   * Get stored Airtable record ID from local storage
+   */
+  const getStoredAirtableRecordId = async (): Promise<string | null> => {
+    try {
+      if (Platform.OS === 'web') {
+        return localStorage.getItem(AIRTABLE_RECORD_ID_KEY);
+      } else {
+        return await SecureStore.getItemAsync(AIRTABLE_RECORD_ID_KEY);
+      }
+    } catch (error) {
+      console.error('ProfileScreen - Error retrieving stored Airtable record ID:', error);
+      return null;
+    }
+  };
+
   const loadProfile = async () => {
     try {
       setLoading(true);
@@ -93,6 +203,25 @@ export default function ProfileScreen() {
       });
       setProfile(data);
       setImageRefreshKey(prev => prev + 1);
+
+      // Try to get stored Airtable record ID first
+      let recordId = await getStoredAirtableRecordId();
+      
+      // If not stored or if we want to refresh, fetch and match from Airtable
+      if (!recordId && data.email) {
+        console.log('ProfileScreen - No stored Airtable record ID, fetching from Airtable');
+        recordId = await fetchAndMatchAirtableRecord(data.email);
+        
+        if (recordId) {
+          setAirtableRecordId(recordId);
+          console.log('ProfileScreen - Airtable record ID set:', recordId);
+        } else {
+          console.error('ProfileScreen - Could not find matching Airtable record');
+        }
+      } else if (recordId) {
+        setAirtableRecordId(recordId);
+        console.log('ProfileScreen - Using stored Airtable record ID:', recordId);
+      }
     } catch (error) {
       console.error('ProfileScreen - Failed to load profile:', error);
     } finally {
@@ -101,10 +230,28 @@ export default function ProfileScreen() {
   };
 
   const pickAndUploadPhoto = async () => {
-    if (!profile?.airtableRecordId) {
-      setErrorMessage('Unable to upload photo: Airtable record ID not found. Please contact support.');
+    if (!profile?.email) {
+      setErrorMessage('Unable to upload photo: User email not found.');
       setErrorModalVisible(true);
       return;
+    }
+
+    // Check if we have the Airtable record ID
+    let recordId = airtableRecordId;
+    
+    if (!recordId) {
+      console.log('ProfileScreen - No Airtable record ID, attempting to fetch and match');
+      setUploadingPhoto(true);
+      recordId = await fetchAndMatchAirtableRecord(profile.email);
+      setUploadingPhoto(false);
+      
+      if (!recordId) {
+        setErrorMessage('Your profile was not found in the system. Please make sure you registered with the same email address.');
+        setErrorModalVisible(true);
+        return;
+      }
+      
+      setAirtableRecordId(recordId);
     }
 
     setUploadingPhoto(true);
@@ -175,18 +322,20 @@ export default function ProfileScreen() {
       console.log('ProfileScreen - Cloudinary upload successful:', secureUrl);
 
       // 2. PATCH Airtable record with Cloudinary URL
-      console.log('ProfileScreen - Updating Airtable record');
+      console.log('ProfileScreen - Updating Airtable record with ID:', recordId);
       const airtableUrl = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
       const airtableApiKey = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
 
       const airtableBody = {
         records: [{
-          id: profile.airtableRecordId,
+          id: recordId,
           fields: {
             Image: [{ url: secureUrl }]
           }
         }]
       };
+
+      console.log('ProfileScreen - Airtable PATCH body:', JSON.stringify(airtableBody, null, 2));
 
       const airtableResponse = await fetch(airtableUrl, {
         method: 'PATCH',
