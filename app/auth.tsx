@@ -171,6 +171,19 @@ export default function AuthScreen() {
             <Text style={[styles.helperText, { color: appColors.textSecondary }]}>
               First time here? Use the email you registered with for the conference.
             </Text>
+
+            {/* Forgot Password Link */}
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={() => {
+                console.log('AuthScreen - User tapped Forgot Password');
+                router.push("/auth-popup");
+              }}
+            >
+              <Text style={[styles.forgotPasswordText, { color: appColors.primary }]}>
+                Forgot Password?
+              </Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -304,6 +317,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.md,
     lineHeight: 18,
+  },
+  forgotPasswordButton: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  forgotPasswordText: {
+    ...typography.body,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
