@@ -50,8 +50,12 @@ class AirtableCache {
       this.logger.info('Initializing Airtable cache');
     }
 
-    // Perform initial cache population
-    await this.refresh();
+    // Perform initial cache population in background (non-blocking)
+    this.refresh().catch((error) => {
+      if (this.logger) {
+        this.logger.warn({ err: error }, 'Initial cache refresh failed, will retry on next interval');
+      }
+    });
 
     // Start hourly refresh
     this.refreshInterval = setInterval(async () => {
