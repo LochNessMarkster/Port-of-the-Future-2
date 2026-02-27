@@ -18,7 +18,7 @@ import {
   TextInput,
   RefreshControl
 } from 'react-native';
-import { authenticatedGet } from '@/utils/api';
+import { apiCall, getBearerToken } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Stack } from 'expo-router';
 
@@ -278,8 +278,20 @@ export default function ExhibitorsScreen() {
     }
     
     try {
-      console.log('[Exhibitors] Fetching exhibitors from /api/exhibitors (authenticated)');
-      const data = await authenticatedGet<ExhibitorBackendResponse[]>('/api/exhibitors');
+      console.log('[Exhibitors] Fetching exhibitors from /api/exhibitors');
+      // Try with bearer token first, fall back to cookie-based auth
+      const token = await getBearerToken();
+      let data: ExhibitorBackendResponse[];
+      if (token) {
+        console.log('[Exhibitors] Using bearer token for exhibitors request');
+        data = await apiCall<ExhibitorBackendResponse[]>('/api/exhibitors', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        }, false, true);
+      } else {
+        console.log('[Exhibitors] No bearer token, trying with credentials (cookie-based auth)');
+        data = await apiCall<ExhibitorBackendResponse[]>('/api/exhibitors', { method: 'GET' }, true, true);
+      }
       console.log('[Exhibitors] Received exhibitors:', data.length);
       
       const mappedExhibitors = data.map(mapExhibitorResponse);

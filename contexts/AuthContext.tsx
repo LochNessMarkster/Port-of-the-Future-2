@@ -215,6 +215,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('AuthContext - User authenticated via Better Auth session:', session.data.user.email);
           setUser(session.data.user as User);
           
+          // Store bearer token from session if available (enables authenticated API calls)
+          const sessionToken = (session.data as any)?.session?.token || (session as any)?.data?.token;
+          if (sessionToken && typeof sessionToken === 'string' && sessionToken.length > 0) {
+            console.log('AuthContext - Storing bearer token from Better Auth session, length:', sessionToken.length);
+            await setBearerToken(sessionToken);
+          } else {
+            console.log('AuthContext - No bearer token in Better Auth session data');
+          }
+          
           // Fetch and store Airtable record ID by matching email
           await fetchAndStoreAirtableRecordId(session.data.user.email);
           
@@ -280,6 +289,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.error) {
         console.error('AuthContext - Sign in error:', response.error);
         throw new Error(response.error.message || 'Failed to sign in');
+      }
+
+      // Store bearer token if returned in the response
+      // Better Auth returns session token in data.token or data.session.token
+      const token = (response.data as any)?.token 
+        || (response.data as any)?.session?.token 
+        || (response as any)?.token;
+      if (token && typeof token === 'string' && token.length > 0) {
+        console.log('AuthContext - Storing bearer token from sign in response, length:', token.length);
+        await setBearerToken(token);
+      } else {
+        console.log('AuthContext - No bearer token in sign in response, will use cookie-based auth');
       }
 
       console.log('AuthContext - Sign in successful, fetching user profile');

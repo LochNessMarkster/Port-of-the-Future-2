@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { authenticatedGet } from '@/utils/api';
+import { apiCall, getBearerToken } from '@/utils/api';
 import { Stack } from 'expo-router';
 
 interface Sponsor {
@@ -251,8 +251,20 @@ export default function SponsorsScreen() {
   const loadSponsors = async () => {
     try {
       setLoading(true);
-      console.log('[Sponsors] Fetching sponsors from /api/sponsors (authenticated)');
-      const data = await authenticatedGet<Sponsor[]>('/api/sponsors');
+      console.log('[Sponsors] Fetching sponsors from /api/sponsors');
+      // Try with bearer token first, fall back to cookie-based auth
+      const token = await getBearerToken();
+      let data: Sponsor[];
+      if (token) {
+        console.log('[Sponsors] Using bearer token for sponsors request');
+        data = await apiCall<Sponsor[]>('/api/sponsors', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        }, false, true);
+      } else {
+        console.log('[Sponsors] No bearer token, trying with credentials (cookie-based auth)');
+        data = await apiCall<Sponsor[]>('/api/sponsors', { method: 'GET' }, true, true);
+      }
       console.log('[Sponsors] Received sponsors:', data.length);
       setSponsors(data);
     } catch (error) {

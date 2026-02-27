@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { authenticatedGet } from '@/utils/api';
+import { apiCall, getBearerToken } from '@/utils/api';
 import { Stack } from 'expo-router';
 
 interface Speaker {
@@ -201,8 +201,20 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
-      console.log('SpeakersScreen - Fetching speakers from /api/speakers (authenticated)');
-      const data = await authenticatedGet<Speaker[]>('/api/speakers');
+      console.log('SpeakersScreen - Fetching speakers from /api/speakers');
+      // Try with bearer token first, fall back to cookie-based auth
+      const token = await getBearerToken();
+      let data: Speaker[];
+      if (token) {
+        console.log('SpeakersScreen - Using bearer token for speakers request');
+        data = await apiCall<Speaker[]>('/api/speakers', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        }, false, true);
+      } else {
+        console.log('SpeakersScreen - No bearer token, trying with credentials (cookie-based auth)');
+        data = await apiCall<Speaker[]>('/api/speakers', { method: 'GET' }, true, true);
+      }
       setSpeakers(data);
       console.log('SpeakersScreen - Loaded speakers:', data.length);
       if (data.length > 0) {

@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet, authenticatedPost, authenticatedDelete } from '@/utils/api';
+import { apiCall, authenticatedPost, authenticatedDelete, getBearerToken } from '@/utils/api';
 
 interface Session {
   id: string;
@@ -493,7 +493,19 @@ export default function AgendaScreen() {
       setLoading(true);
       setError(null);
       console.log('AgendaScreen - Fetching sessions from /api/sessions');
-      const data = await apiGet<SessionBackendResponse[]>('/api/sessions');
+      // Try with bearer token first (for authenticated users), fall back to cookie-based auth
+      let data: SessionBackendResponse[];
+      const token = await getBearerToken();
+      if (token) {
+        console.log('AgendaScreen - Using bearer token for sessions request');
+        data = await apiCall<SessionBackendResponse[]>('/api/sessions', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        }, false, true);
+      } else {
+        console.log('AgendaScreen - No bearer token, trying with credentials (cookie-based auth)');
+        data = await apiCall<SessionBackendResponse[]>('/api/sessions', { method: 'GET' }, true, true);
+      }
       
       // Map backend response to frontend interface
       const mappedSessions = data.map(mapSessionResponse);
@@ -539,11 +551,22 @@ export default function AgendaScreen() {
   const loadBookmarkedSessions = async () => {
     try {
       console.log('AgendaScreen - Fetching bookmarked sessions from /api/schedule');
-      const data = await apiGet<{ sessionId: string }[]>('/api/schedule');
+      // Schedule endpoint requires auth - try bearer token first, then cookies
+      const token = await getBearerToken();
+      let data: { sessionId: string }[];
+      if (token) {
+        data = await apiCall<{ sessionId: string }[]>('/api/schedule', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        }, false, true);
+      } else {
+        data = await apiCall<{ sessionId: string }[]>('/api/schedule', { method: 'GET' }, true, true);
+      }
       setBookmarkedSessions(new Set(data.map(item => item.sessionId)));
       console.log('AgendaScreen - Loaded bookmarked sessions:', data.length);
     } catch (err) {
-      console.error('AgendaScreen - Error loading bookmarked sessions:', err);
+      console.error('AgendaScreen - Error loading bookmarked sessions (non-critical):', err);
+      // Non-critical - user may not be authenticated for schedule
     }
   };
 
