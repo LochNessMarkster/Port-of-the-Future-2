@@ -82,6 +82,7 @@ export default function ProfileScreen() {
   const [recordsFound, setRecordsFound] = useState<number>(0);
   const [firstRecordFields, setFirstRecordFields] = useState<string>('');
   const [loginEmail, setLoginEmail] = useState<string>('');
+  const [airtableEmails, setAirtableEmails] = useState<string[]>([]);
   const [airtableLoading, setAirtableLoading] = useState(false);
 
   // Edit form state
@@ -121,7 +122,6 @@ export default function ProfileScreen() {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${airtableApiKey}`,
-          'Content-Type': 'application/json',
         },
       });
 
@@ -168,6 +168,21 @@ export default function ProfileScreen() {
         setFirstRecordFields(fieldsJson);
         console.log('ProfileScreen - First record fields:', fieldsJson);
       }
+
+      // Extract first 5 emails from Airtable records
+      const emails: string[] = [];
+      for (let i = 0; i < Math.min(5, data.records.length); i++) {
+        const record = data.records[i];
+        const recordEmail = record.fields.Email || record.fields.email;
+        if (recordEmail) {
+          const normalizedEmail = String(recordEmail).trim().toLowerCase();
+          emails.push(normalizedEmail);
+        } else {
+          emails.push('(no email)');
+        }
+      }
+      setAirtableEmails(emails);
+      console.log('ProfileScreen - First 5 Airtable emails:', emails);
 
       // Normalize user email for comparison
       const normalizedUserEmail = userEmail.trim().toLowerCase();
@@ -540,21 +555,23 @@ export default function ProfileScreen() {
                 <Text style={[styles.debugValue, { color: '#000000' }]}>{recordsFound}</Text>
               </View>
 
-              {firstRecordFields ? (
-                <View style={styles.debugRow}>
-                  <Text style={[styles.debugLabel, { color: '#856404' }]}>First record fields:</Text>
-                  <Text style={[styles.debugValue, { color: '#000000', fontSize: 11 }]}>
-                    {firstRecordFields}
-                  </Text>
-                </View>
-              ) : null}
-
               <View style={styles.debugRow}>
                 <Text style={[styles.debugLabel, { color: '#856404' }]}>Login email:</Text>
                 <Text style={[styles.debugValue, { color: '#000000' }]}>
                   {loginEmail || 'Not set yet'}
                 </Text>
               </View>
+
+              {airtableEmails.length > 0 ? (
+                <View style={styles.debugRow}>
+                  <Text style={[styles.debugLabel, { color: '#856404' }]}>First 5 Airtable emails:</Text>
+                  {airtableEmails.map((email, index) => (
+                    <Text key={index} style={[styles.debugValue, { color: '#000000', marginLeft: 8 }]}>
+                      {index + 1}. {email}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
             </>
           )}
         </View>
