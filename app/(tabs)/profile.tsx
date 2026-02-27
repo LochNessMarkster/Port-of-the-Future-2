@@ -76,6 +76,11 @@ export default function ProfileScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [imageRefreshKey, setImageRefreshKey] = useState(0);
   const [airtableRecordId, setAirtableRecordId] = useState<string | null>(null);
+  
+  // Debug state
+  const [airtableEmails, setAirtableEmails] = useState<string[]>([]);
+  const [airtableFields, setAirtableFields] = useState<string[]>([]);
+  const [airtableLoading, setAirtableLoading] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -102,6 +107,7 @@ export default function ProfileScreen() {
    */
   const fetchAndMatchAirtableRecord = async (userEmail: string): Promise<string | null> => {
     try {
+      setAirtableLoading(true);
       console.log('ProfileScreen - Fetching Airtable records to match user email:', userEmail);
       
       const airtableUrl = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
@@ -127,8 +133,19 @@ export default function ProfileScreen() {
       const normalizedUserEmail = userEmail.trim().toLowerCase();
       console.log('ProfileScreen - Normalized user email:', normalizedUserEmail);
 
+      // Collect debug info
+      const emailValues: string[] = [];
+      let firstRecordFields: string[] = [];
+
       // Try to find matching record
-      for (const record of data.records) {
+      for (let i = 0; i < data.records.length; i++) {
+        const record = data.records[i];
+        
+        // Capture field names from first record
+        if (i === 0 && record.fields) {
+          firstRecordFields = Object.keys(record.fields);
+        }
+
         // Check both "Email" and "email" field names (case variations)
         const recordEmail = record.fields.Email || record.fields.email;
         
@@ -139,7 +156,9 @@ export default function ProfileScreen() {
         });
 
         if (recordEmail) {
-          const normalizedRecordEmail = recordEmail.trim().toLowerCase();
+          const normalizedRecordEmail = String(recordEmail).trim().toLowerCase();
+          emailValues.push(normalizedRecordEmail);
+          
           console.log('ProfileScreen - Comparing:', {
             userEmail: normalizedUserEmail,
             recordEmail: normalizedRecordEmail,
@@ -156,10 +175,18 @@ export default function ProfileScreen() {
               await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, record.id);
             }
             
+            // Store debug info
+            setAirtableEmails(emailValues.slice(0, 5));
+            setAirtableFields(firstRecordFields);
+            
             return record.id;
           }
         }
       }
+
+      // Store debug info even if no match
+      setAirtableEmails(emailValues.slice(0, 5));
+      setAirtableFields(firstRecordFields);
 
       console.error('ProfileScreen - No matching Airtable record found for email:', userEmail);
       console.log('ProfileScreen - Available email fields in records:', 
@@ -170,6 +197,8 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error('ProfileScreen - Error fetching/matching Airtable record:', error);
       return null;
+    } finally {
+      setAirtableLoading(false);
     }
   };
 
@@ -207,20 +236,17 @@ export default function ProfileScreen() {
       // Try to get stored Airtable record ID first
       let recordId = await getStoredAirtableRecordId();
       
-      // If not stored or if we want to refresh, fetch and match from Airtable
-      if (!recordId && data.email) {
-        console.log('ProfileScreen - No stored Airtable record ID, fetching from Airtable');
-        recordId = await fetchAndMatchAirtableRecord(data.email);
+      // Always fetch from Airtable to populate debug info
+      if (data.email) {
+        console.log('ProfileScreen - Fetching from Airtable for debug info');
+        const fetchedRecordId = await fetchAndMatchAirtableRecord(data.email);
         
-        if (recordId) {
-          setAirtableRecordId(recordId);
-          console.log('ProfileScreen - Airtable record ID set:', recordId);
+        if (fetchedRecordId) {
+          setAirtableRecordId(fetchedRecordId);
+          console.log('ProfileScreen - Airtable record ID set:', fetchedRecordId);
         } else {
           console.error('ProfileScreen - Could not find matching Airtable record');
         }
-      } else if (recordId) {
-        setAirtableRecordId(recordId);
-        console.log('ProfileScreen - Using stored Airtable record ID:', recordId);
       }
     } catch (error) {
       console.error('ProfileScreen - Failed to load profile:', error);
@@ -447,6 +473,7 @@ export default function ProfileScreen() {
 
   const displayName = profile.name || 'User';
   const displayEmail = profile.email;
+  const normalizedLoginEmail = displayEmail.trim().toLowerCase();
   const displayCompany = profile.company || 'Not specified';
   const displayTitle = profile.title || 'Not specified';
   const displayPhone = profile.phone || 'Not specified';
@@ -469,6 +496,50 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* DEBUG INFO - TEMPORARY */}
+        <View style={[styles.debugSection, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
+          <Text style={[styles.debugTitle, { color: '#856404' }]}>🔍 DEBUG INFO (Temporary)</Text>
+          
+          <View style={styles.debugRow}>
+            <Text style={[styles.debugLabel, { color: '#856404' }]}>Your login email:</Text>
+            <Text style={[styles.debugValue, { color: '#000000' }]}>{normalizedLoginEmail}</Text>
+          </View>
+
+          {airtableLoading ? (
+            <ActivityIndicator size="small" color="#856404" style={{ marginVertical: 8 }} />
+          ) : (
+            <>
+              <View style={styles.debugRow}>
+                <Text style={[styles.debugLabel, { color: '#856404' }]}>Airtable emails (first 5):</Text>
+              </View>
+              {airtableEmails.length > 0 ? (
+                airtableEmails.map((email, index) => (
+                  <Text key={index} style={[styles.debugValue, { color: '#000000', marginLeft: 8 }]}>
+                    {index + 1}. {email}
+                  </Text>
+                ))
+              ) : (
+                <Text style={[styles.debugValue, { color: '#856404', marginLeft: 8 }]}>
+                  No emails loaded yet
+                </Text>
+              )}
+
+              <View style={[styles.debugRow, { marginTop: 8 }]}>
+                <Text style={[styles.debugLabel, { color: '#856404' }]}>Airtable fields (first record):</Text>
+              </View>
+              {airtableFields.length > 0 ? (
+                <Text style={[styles.debugValue, { color: '#000000', marginLeft: 8 }]}>
+                  {airtableFields.join(', ')}
+                </Text>
+              ) : (
+                <Text style={[styles.debugValue, { color: '#856404', marginLeft: 8 }]}>
+                  No fields loaded yet
+                </Text>
+              )}
+            </>
+          )}
+        </View>
+
         {/* Profile Header */}
         <View style={styles.header}>
           <View style={styles.photoContainer}>
@@ -827,6 +898,29 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  debugSection: {
+    margin: spacing.lg,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
+  },
+  debugRow: {
+    marginTop: spacing.xs,
+  },
+  debugLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  debugValue: {
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   header: {
     alignItems: 'center',
