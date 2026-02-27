@@ -110,6 +110,51 @@ const getFiltersForDay = (day: '23' | '24' | '25'): string[] => {
   }
 };
 
+// Extract track number from Type/Track field
+function extractTrackNumber(typeTrack: string): number | null {
+  const match = typeTrack.match(/Track\s+(\d+)/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+// Get sort priority for Type/Track field
+function getTypeTrackPriority(typeTrack: string): number {
+  const cleanType = typeTrack.trim();
+  
+  // 1. Keynote & Plenary (and variations)
+  if (cleanType.toLowerCase().includes('keynote') && cleanType.toLowerCase().includes('plenary')) {
+    return 1;
+  }
+  
+  // 2. Pre-Conference (and variations)
+  if (cleanType.toLowerCase().includes('pre-conference')) {
+    return 2;
+  }
+  
+  // 3. Track items (sorted by track number)
+  const trackNumber = extractTrackNumber(cleanType);
+  if (trackNumber !== null) {
+    return 100 + trackNumber; // Track 1 = 101, Track 2 = 102, etc.
+  }
+  
+  // 4. Special Event
+  if (cleanType.toLowerCase().includes('special event')) {
+    return 200;
+  }
+  
+  // 5. Break
+  if (cleanType.toLowerCase() === 'break') {
+    return 300;
+  }
+  
+  // 6. Luncheon
+  if (cleanType.toLowerCase().includes('luncheon')) {
+    return 400;
+  }
+  
+  // 7. Everything else (items without track numbers)
+  return 500;
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -794,7 +839,7 @@ export default function AgendaScreen() {
     return getFiltersForDay(selectedDay);
   }, [selectedDay]);
 
-  // Sort and filter sessions by selected day, time, search query, and active filter
+  // Sort and filter sessions by selected day, time, track order, search query, and active filter
   const sortedFilteredSessions = useMemo(() => {
     const filtered = sessions.filter(session => {
       // Determine which day this session belongs to by checking the date field
@@ -829,11 +874,21 @@ export default function AgendaScreen() {
       return matchesTitle || matchesSpeaker || matchesRoom || matchesType || matchesDescription;
     });
     
-    // Sort by time (earliest to latest)
+    // Sort by time (earliest to latest), then by track order
     const sorted = [...filtered].sort((a, b) => {
       const timeA = parseTime(a.time);
       const timeB = parseTime(b.time);
-      return timeA - timeB;
+      
+      // Primary sort: by time
+      if (timeA !== timeB) {
+        return timeA - timeB;
+      }
+      
+      // Secondary sort: by track order (for sessions at the same time)
+      const priorityA = getTypeTrackPriority(a.type);
+      const priorityB = getTypeTrackPriority(b.type);
+      
+      return priorityA - priorityB;
     });
     
     console.log('AgendaScreen - Sorted sessions for day', selectedDay, 'with filter', activeFilter, ':', sorted.length);
