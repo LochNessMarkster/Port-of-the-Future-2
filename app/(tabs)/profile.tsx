@@ -16,10 +16,9 @@ import {
 } from "react-native";
 import { colors, spacing, typography, borderRadius } from "@/styles/commonStyles";
 import React, { useEffect, useState } from "react";
-import { apiGet, authenticatedPut } from "@/utils/api";
+import { apiGet, authenticatedPut, BACKEND_URL, getBearerToken } from "@/utils/api";
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from "@react-navigation/native";
-import * as SecureStore from 'expo-secure-store';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -37,13 +36,8 @@ interface UserProfile {
   sharePhone: boolean;
   shareLinkedIn: boolean;
   emailVerified: boolean | null;
-  airtableRecordId: string | null;
   image: string | null;
 }
-
-const AIRTABLE_RECORD_ID_KEY = 'airtableRecordId';
-const AIRTABLE_BASE_URL = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
-const AIRTABLE_TOKEN = 'Bearer patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
 
 const styles = StyleSheet.create({
   container: {
@@ -294,63 +288,64 @@ function resolveImageSource(uri: string | null | undefined) {
 }
 
 /**
- * Upload image to Cloudinary with correct FormData formatting
- * Handles both native (file URI) and web (blob URL) platforms
+ * Upload image to backend /api/profile/upload-photo endpoint
+ * The backend handles Cloudinary upload and Airtable record update
+ * Returns the signed URL for the uploaded image
  */
-const uploadImage = async (imageUri: string): Promise<string> => {
-  console.log('uploadImage - Platform:', Platform.OS);
-  console.log('uploadImage - imageUri type:', typeof imageUri, 'value:', imageUri);
-  
+const uploadProfilePhoto = async (imageUri: string): Promise<string> => {
+  console.log('[ProfileScreen] uploadProfilePhoto - Platform:', Platform.OS);
+  console.log('[ProfileScreen] uploadProfilePhoto - imageUri:', imageUri);
+
+  const token = await getBearerToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please sign in.');
+  }
+
   const formData = new FormData();
-  
+
   if (Platform.OS === 'web') {
-    // On web, we need to convert the blob URL to a File object
-    console.log('uploadImage - Web platform detected, converting blob to File');
-    
+    console.log('[ProfileScreen] uploadProfilePhoto - Web platform, converting blob to File');
     try {
       const response = await fetch(imageUri);
       const blob = await response.blob();
-      console.log('uploadImage - Blob created, type:', blob.type, 'size:', blob.size);
-      
-      // Create a File object from the blob
+      console.log('[ProfileScreen] uploadProfilePhoto - Blob type:', blob.type, 'size:', blob.size);
       const file = new File([blob], 'profile.jpg', { type: blob.type || 'image/jpeg' });
-      console.log('uploadImage - File created, name:', file.name, 'type:', file.type);
-      
       formData.append('file', file);
     } catch (error) {
-      console.error('uploadImage - Error converting blob to File:', error);
+      console.error('[ProfileScreen] uploadProfilePhoto - Error converting blob:', error);
       throw new Error('Failed to process image for upload');
     }
   } else {
-    // On native platforms, use the URI directly
-    console.log('uploadImage - Native platform detected, using URI directly');
+    console.log('[ProfileScreen] uploadProfilePhoto - Native platform, using URI directly');
     const uriParts = imageUri.split('.');
     const fileType = uriParts[uriParts.length - 1];
-    
     formData.append('file', {
       uri: imageUri,
       name: 'profile.jpg',
-      type: 'image/' + (fileType === 'png' ? 'png' : 'jpeg')
+      type: 'image/' + (fileType === 'png' ? 'png' : 'jpeg'),
     } as any);
   }
-  
-  formData.append('upload_preset', 'POF-app');
-  
-  console.log('uploadImage - Sending request to Cloudinary...');
-  const response = await fetch('https://api.cloudinary.com/v1_1/dwfnlugp3/image/upload', {
+
+  console.log('[ProfileScreen] uploadProfilePhoto - Sending to backend /api/profile/upload-photo');
+  const response = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
     method: 'POST',
-    body: formData
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Do NOT set Content-Type here - let the browser/native set it with boundary for multipart
+    },
+    body: formData,
   });
-  
+
   const data = await response.json();
-  console.log('uploadImage - Cloudinary response status:', response.status);
-  console.log('uploadImage - Cloudinary response data:', JSON.stringify(data, null, 2));
-  
+  console.log('[ProfileScreen] uploadProfilePhoto - Response status:', response.status);
+  console.log('[ProfileScreen] uploadProfilePhoto - Response data:', JSON.stringify(data, null, 2));
+
   if (!response.ok) {
-    throw new Error(data.error?.message || 'Cloudinary upload failed');
+    throw new Error(data.error || `Upload failed with status ${response.status}`);
   }
-  
-  return data.secure_url;
+
+  // Backend returns { url: string } - the signed URL for the uploaded image
+  return data.url;
 };
 
 export default function ProfileScreen() {
@@ -380,28 +375,15 @@ export default function ProfileScreen() {
     loadProfile();
   }, []);
 
-  const getStoredAirtableRecordId = async (): Promise<string | null> => {
-    try {
-      if (Platform.OS === 'web') {
-        return localStorage.getItem(AIRTABLE_RECORD_ID_KEY);
-      } else {
-        return await SecureStore.getItemAsync(AIRTABLE_RECORD_ID_KEY);
-      }
-    } catch (error) {
-      console.error('ProfileScreen - Error getting stored Airtable record ID:', error);
-      return null;
-    }
-  };
-
   const loadProfile = async () => {
-    console.log('ProfileScreen - Loading profile');
+    console.log('[ProfileScreen] Loading profile from /api/profile');
     setLoading(true);
     try {
       const data = await apiGet<UserProfile>('/api/profile');
-      console.log('ProfileScreen - Profile loaded:', data.email);
+      console.log('[ProfileScreen] Profile loaded:', data.email, '| image:', data.image ? 'present' : 'none');
       setProfile(data);
     } catch (error) {
-      console.error('ProfileScreen - Error loading profile:', error);
+      console.error('[ProfileScreen] Error loading profile:', error);
     } finally {
       setLoading(false);
     }
@@ -414,16 +396,14 @@ export default function ProfileScreen() {
   };
 
   const pickAndUploadPhoto = async () => {
-    console.log('ProfileScreen - User tapped edit photo button');
-    
-    // Request permissions
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
+    console.log('[ProfileScreen] User tapped edit photo button');
+
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.status !== 'granted') {
       showError('Camera roll permissions are required to upload a photo.');
       return;
     }
 
-    // Pick image
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -431,20 +411,16 @@ export default function ProfileScreen() {
       quality: 0.7,
     });
 
-    console.log('ProfileScreen - Image picker result:', JSON.stringify(result, null, 2));
-
     if (result.canceled || !result.assets || result.assets.length === 0) {
-      console.log('ProfileScreen - Image picker canceled');
+      console.log('[ProfileScreen] Image picker canceled');
       return;
     }
 
-    // CRITICAL: Extract the URI string from the result
     const imageUri = result.assets[0].uri;
-    console.log('ProfileScreen - Extracted imageUri type:', typeof imageUri, 'value:', imageUri);
+    console.log('[ProfileScreen] Selected imageUri:', imageUri);
 
-    // Verify imageUri is a string
     if (typeof imageUri !== 'string') {
-      console.error('ProfileScreen - ERROR: imageUri is not a string!', imageUri);
+      console.error('[ProfileScreen] ERROR: imageUri is not a string!', imageUri);
       showError('Invalid image URI. Please try again.');
       return;
     }
@@ -452,63 +428,16 @@ export default function ProfileScreen() {
     setUploading(true);
 
     try {
-      // Get stored Airtable record ID
-      const airtableRecordId = await getStoredAirtableRecordId();
-      console.log('ProfileScreen - Airtable record ID:', airtableRecordId);
+      console.log('[ProfileScreen] Uploading photo to backend...');
+      // Upload to backend - it handles Cloudinary upload + Airtable update + DB update
+      const signedUrl = await uploadProfilePhoto(imageUri);
+      console.log('[ProfileScreen] ✅ Photo uploaded successfully, signed URL:', signedUrl);
 
-      if (!airtableRecordId) {
-        console.error('ProfileScreen - No Airtable record ID found');
-        showError('Your profile is not linked to an Airtable record. Please contact support.');
-        return;
-      }
-
-      // Upload to Cloudinary using the correct upload function
-      console.log('🔵 Starting Cloudinary upload with URI:', imageUri);
-      const publicImageUrl = await uploadImage(imageUri);
-      console.log('ProfileScreen - ✅ Image uploaded to Cloudinary:', publicImageUrl);
-
-      // Update Airtable record
-      console.log('🟢 Starting Airtable PATCH...');
-      console.log('🟢 Airtable record ID being used:', airtableRecordId);
-      
-      const airtableBody = {
-        records: [{
-          id: airtableRecordId,
-          fields: {
-            "Image": [{ url: publicImageUrl }]
-          }
-        }]
-      };
-      console.log('🟢 Airtable request body:', JSON.stringify(airtableBody, null, 2));
-
-      const airtableResponse = await fetch(AIRTABLE_BASE_URL, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': AIRTABLE_TOKEN,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(airtableBody),
-      });
-
-      const airtableData = await airtableResponse.json();
-      console.log('🟢 Airtable response status:', airtableResponse.status);
-      console.log('🟢 Airtable response body:', JSON.stringify(airtableData, null, 2));
-
-      if (!airtableResponse.ok) {
-        const errorMsg = airtableData.error?.message || `Airtable update failed with status ${airtableResponse.status}`;
-        console.error('ProfileScreen - Airtable error:', errorMsg);
-        showError(`Airtable update failed: ${errorMsg}`);
-        return;
-      }
-
-      console.log('ProfileScreen - ✅ Airtable record updated successfully');
-
-      // Reload profile to show new image
-      await loadProfile();
-      
-      alert('Profile photo updated successfully!');
+      // Immediately update the profile state with the new image URL so it displays right away
+      setProfile((prev) => prev ? { ...prev, image: signedUrl } : prev);
+      console.log('[ProfileScreen] ✅ Profile photo updated in UI');
     } catch (error: any) {
-      console.error('ProfileScreen - Error uploading photo:', error);
+      console.error('[ProfileScreen] Error uploading photo:', error);
       const errorMsg = error.message || 'An unknown error occurred during photo upload.';
       showError(`Upload error: ${errorMsg}`);
     } finally {
@@ -539,10 +468,10 @@ export default function ProfileScreen() {
   };
 
   const saveProfile = async () => {
-    console.log('ProfileScreen - Saving profile');
+    console.log('[ProfileScreen] Saving profile');
     setLoading(true);
     try {
-      const updatedProfile = await authenticatedPut<UserProfile>('/api/profile', {
+      await authenticatedPut<UserProfile>('/api/profile', {
         name: editName,
         company: editCompany,
         title: editTitle,
@@ -554,12 +483,13 @@ export default function ProfileScreen() {
         sharePhone: editSharePhone,
         shareLinkedIn: editShareLinkedIn,
       });
-      console.log('ProfileScreen - Profile updated successfully');
-      setProfile(updatedProfile);
+      console.log('[ProfileScreen] Profile updated, reloading with fresh signed URLs');
+      // Reload profile via GET to get fresh signed URL for image
+      await loadProfile();
       closeEditModal();
     } catch (error) {
-      console.error('ProfileScreen - Error saving profile:', error);
-      alert('Failed to save profile. Please try again.');
+      console.error('[ProfileScreen] Error saving profile:', error);
+      showError('Failed to save profile. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -600,6 +530,7 @@ export default function ProfileScreen() {
   }
 
   const profileInitials = getInitials(profile.name);
+  const displayPhotoUrl = profile.image;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -607,9 +538,9 @@ export default function ProfileScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            {profile.image ? (
+            {displayPhotoUrl ? (
               <Image
-                source={resolveImageSource(profile.image)}
+                source={resolveImageSource(displayPhotoUrl)}
                 style={styles.avatar}
               />
             ) : (

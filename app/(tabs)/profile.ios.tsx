@@ -16,10 +16,9 @@ import {
 } from "react-native";
 import { colors, spacing, typography, borderRadius } from "@/styles/commonStyles";
 import React, { useEffect, useState } from "react";
-import { apiGet, authenticatedPut } from "@/utils/api";
+import { apiGet, authenticatedPut, BACKEND_URL, getBearerToken } from "@/utils/api";
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from "@react-navigation/native";
-import * as SecureStore from 'expo-secure-store';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -37,13 +36,8 @@ interface UserProfile {
   sharePhone: boolean;
   shareLinkedIn: boolean;
   emailVerified: boolean | null;
-  airtableRecordId: string | null;
   image: string | null;
 }
-
-const AIRTABLE_RECORD_ID_KEY = 'airtableRecordId';
-const AIRTABLE_BASE_URL = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
-const AIRTABLE_TOKEN = 'Bearer patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
 
 const styles = StyleSheet.create({
   container: {
@@ -294,106 +288,64 @@ function resolveImageSource(uri: string | null | undefined) {
 }
 
 /**
- * Normalize email for consistent comparison
+ * Upload image to backend /api/profile/upload-photo endpoint
+ * The backend handles Cloudinary upload and Airtable record update
+ * Returns the signed URL for the uploaded image
  */
-function normalizeEmail(email: string): string {
-  return email
-    .toLowerCase()
-    .trim()
-    .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
-    .replace(/[^\x20-\x7E]/g, ''); // Remove non-printable ASCII characters
-}
+const uploadProfilePhoto = async (imageUri: string): Promise<string> => {
+  console.log('[ProfileScreen] uploadProfilePhoto - Platform:', Platform.OS);
+  console.log('[ProfileScreen] uploadProfilePhoto - imageUri:', imageUri);
 
-/**
- * Fetch all records from Airtable with pagination support
- */
-async function fetchAllAirtableRecords(baseUrl: string, authHeader: string): Promise<any[]> {
-  let allRecords: any[] = [];
-  let offset: string | undefined = undefined;
-  let pageCount = 0;
+  const token = await getBearerToken();
+  if (!token) {
+    throw new Error('Authentication token not found. Please sign in.');
+  }
 
-  do {
-    pageCount++;
-    const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
-    console.log(`ProfileScreen - Fetching Airtable page ${pageCount}${offset ? ` (offset: ${offset})` : ''}`);
-    
-    const response = await fetch(url, { 
-      headers: { Authorization: authHeader } 
-    });
-    
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(`Airtable API error (status ${response.status}): ${JSON.stringify(data)}`);
-    }
-
-    allRecords = allRecords.concat(data.records);
-    offset = data.offset;
-    console.log(`ProfileScreen - Page ${pageCount}: fetched ${data.records.length} records`);
-  } while (offset);
-
-  console.log(`ProfileScreen - ✅ Total: ${allRecords.length} records across ${pageCount} pages`);
-  return allRecords;
-}
-
-/**
- * Upload image to Cloudinary with correct FormData formatting
- * Handles both native (file URI) and web (blob URL) platforms
- */
-const uploadImage = async (imageUri: string): Promise<string> => {
-  console.log('uploadImage - Platform:', Platform.OS);
-  console.log('uploadImage - imageUri type:', typeof imageUri, 'value:', imageUri);
-  
   const formData = new FormData();
-  
+
   if (Platform.OS === 'web') {
-    // On web, we need to convert the blob URL to a File object
-    console.log('uploadImage - Web platform detected, converting blob to File');
-    
+    console.log('[ProfileScreen] uploadProfilePhoto - Web platform, converting blob to File');
     try {
       const response = await fetch(imageUri);
       const blob = await response.blob();
-      console.log('uploadImage - Blob created, type:', blob.type, 'size:', blob.size);
-      
-      // Create a File object from the blob
+      console.log('[ProfileScreen] uploadProfilePhoto - Blob type:', blob.type, 'size:', blob.size);
       const file = new File([blob], 'profile.jpg', { type: blob.type || 'image/jpeg' });
-      console.log('uploadImage - File created, name:', file.name, 'type:', file.type);
-      
       formData.append('file', file);
     } catch (error) {
-      console.error('uploadImage - Error converting blob to File:', error);
+      console.error('[ProfileScreen] uploadProfilePhoto - Error converting blob:', error);
       throw new Error('Failed to process image for upload');
     }
   } else {
-    // On native platforms, use the URI directly
-    console.log('uploadImage - Native platform detected, using URI directly');
+    console.log('[ProfileScreen] uploadProfilePhoto - Native platform, using URI directly');
     const uriParts = imageUri.split('.');
     const fileType = uriParts[uriParts.length - 1];
-    
     formData.append('file', {
       uri: imageUri,
       name: 'profile.jpg',
-      type: 'image/' + (fileType === 'png' ? 'png' : 'jpeg')
+      type: 'image/' + (fileType === 'png' ? 'png' : 'jpeg'),
     } as any);
   }
-  
-  formData.append('upload_preset', 'POF-app');
-  
-  console.log('uploadImage - Sending request to Cloudinary...');
-  const response = await fetch('https://api.cloudinary.com/v1_1/dwfnlugp3/image/upload', {
+
+  console.log('[ProfileScreen] uploadProfilePhoto - Sending to backend /api/profile/upload-photo');
+  const response = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
     method: 'POST',
-    body: formData
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Do NOT set Content-Type here - let the browser/native set it with boundary for multipart
+    },
+    body: formData,
   });
-  
+
   const data = await response.json();
-  console.log('uploadImage - Cloudinary response status:', response.status);
-  console.log('uploadImage - Cloudinary response data:', JSON.stringify(data, null, 2));
-  
+  console.log('[ProfileScreen] uploadProfilePhoto - Response status:', response.status);
+  console.log('[ProfileScreen] uploadProfilePhoto - Response data:', JSON.stringify(data, null, 2));
+
   if (!response.ok) {
-    throw new Error(data.error?.message || 'Cloudinary upload failed');
+    throw new Error(data.error || `Upload failed with status ${response.status}`);
   }
-  
-  return data.secure_url;
+
+  // Backend returns { url: string } - the signed URL for the uploaded image
+  return data.url;
 };
 
 export default function ProfileScreen() {
@@ -405,7 +357,6 @@ export default function ProfileScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const { signOut } = useAuth();
 
-  // Edit form state
   const [editName, setEditName] = useState("");
   const [editCompany, setEditCompany] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -423,102 +374,34 @@ export default function ProfileScreen() {
     loadProfile();
   }, []);
 
-  const getStoredAirtableRecordId = async (): Promise<string | null> => {
-    try {
-      if (Platform.OS === 'web') {
-        return localStorage.getItem(AIRTABLE_RECORD_ID_KEY);
-      } else {
-        return await SecureStore.getItemAsync(AIRTABLE_RECORD_ID_KEY);
-      }
-    } catch (error) {
-      console.error('ProfileScreen - Error getting stored Airtable record ID:', error);
-      return null;
-    }
-  };
-
-  /**
-   * Fetch and store Airtable record ID by matching user email
-   * This is called if the record ID is missing before photo upload
-   */
-  const fetchAndStoreAirtableRecordId = async (userEmail: string): Promise<string | null> => {
-    console.log('ProfileScreen - Fetching Airtable record ID for email:', userEmail);
-    
-    try {
-      // Fetch all records from Airtable with pagination
-      const allRecords = await fetchAllAirtableRecords(AIRTABLE_BASE_URL, AIRTABLE_TOKEN);
-      
-      // Normalize the user's email for comparison
-      const normalizedUserEmail = normalizeEmail(userEmail);
-      console.log('ProfileScreen - Normalized user email:', normalizedUserEmail);
-      
-      // Find matching record by email
-      let matchedRecord = null;
-      for (const record of allRecords) {
-        const recordEmail = record.fields?.Email || record.fields?.email || '';
-        const normalizedRecordEmail = normalizeEmail(recordEmail);
-        
-        if (normalizedRecordEmail === normalizedUserEmail) {
-          matchedRecord = record;
-          console.log(`ProfileScreen - ✅ Matched Airtable record ID: ${record.id} for email: ${userEmail}`);
-          break;
-        }
-      }
-      
-      if (matchedRecord) {
-        // Store the Airtable record ID
-        if (Platform.OS === 'web') {
-          localStorage.setItem(AIRTABLE_RECORD_ID_KEY, matchedRecord.id);
-        } else {
-          await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, matchedRecord.id);
-        }
-        console.log('ProfileScreen - Airtable record ID stored successfully');
-        return matchedRecord.id;
-      } else {
-        console.warn('ProfileScreen - No Airtable record found for email:', userEmail);
-        return null;
-      }
-    } catch (error) {
-      console.error('ProfileScreen - Error fetching Airtable record ID:', error);
-      return null;
-    }
-  };
-
   const loadProfile = async () => {
-    console.log('ProfileScreen - Loading profile');
+    console.log('[ProfileScreen] Loading profile from /api/profile');
     setLoading(true);
     try {
       const data = await apiGet<UserProfile>('/api/profile');
-      console.log('ProfileScreen - Profile loaded:', data.email);
+      console.log('[ProfileScreen] Profile loaded:', data.email, '| image:', data.image ? 'present' : 'none');
       setProfile(data);
     } catch (error) {
-      console.error('ProfileScreen - Error loading profile:', error);
+      console.error('[ProfileScreen] Error loading profile:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const showError = (message: string) => {
-    const errorText = message;
-    setErrorMessage(errorText);
+    setErrorMessage(message);
     setErrorModalVisible(true);
   };
 
   const pickAndUploadPhoto = async () => {
-    console.log('ProfileScreen - User tapped edit photo button');
-    
-    if (!profile) {
-      showError('Profile not loaded. Please try again.');
-      return;
-    }
+    console.log('[ProfileScreen] User tapped edit photo button');
 
-    // Request permissions
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.status !== 'granted') {
       showError('Camera roll permissions are required to upload a photo.');
       return;
     }
 
-    // Pick image
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -526,20 +409,16 @@ export default function ProfileScreen() {
       quality: 0.7,
     });
 
-    console.log('ProfileScreen - Image picker result:', JSON.stringify(result, null, 2));
-
     if (result.canceled || !result.assets || result.assets.length === 0) {
-      console.log('ProfileScreen - Image picker canceled');
+      console.log('[ProfileScreen] Image picker canceled');
       return;
     }
 
-    // CRITICAL: Extract the URI string from the result
     const imageUri = result.assets[0].uri;
-    console.log('ProfileScreen - Extracted imageUri type:', typeof imageUri, 'value:', imageUri);
+    console.log('[ProfileScreen] Selected imageUri:', imageUri);
 
-    // Verify imageUri is a string
     if (typeof imageUri !== 'string') {
-      console.error('ProfileScreen - ERROR: imageUri is not a string!', imageUri);
+      console.error('[ProfileScreen] ERROR: imageUri is not a string!', imageUri);
       showError('Invalid image URI. Please try again.');
       return;
     }
@@ -547,69 +426,16 @@ export default function ProfileScreen() {
     setUploading(true);
 
     try {
-      // Get stored Airtable record ID
-      let airtableRecordId = await getStoredAirtableRecordId();
-      console.log('ProfileScreen - Stored Airtable record ID:', airtableRecordId);
+      console.log('[ProfileScreen] Uploading photo to backend...');
+      // Upload to backend - it handles Cloudinary upload + Airtable update + DB update
+      const signedUrl = await uploadProfilePhoto(imageUri);
+      console.log('[ProfileScreen] ✅ Photo uploaded successfully, signed URL:', signedUrl);
 
-      // If no record ID is stored, fetch it from Airtable by matching email
-      if (!airtableRecordId) {
-        console.log('ProfileScreen - No stored record ID, fetching from Airtable...');
-        airtableRecordId = await fetchAndStoreAirtableRecordId(profile.email);
-      }
-
-      if (!airtableRecordId) {
-        console.error('ProfileScreen - No Airtable record ID found after fetch attempt');
-        showError('Your profile is not linked to an Airtable record. Please make sure you registered with the same email address used for the conference.');
-        return;
-      }
-
-      // Upload to Cloudinary using the correct upload function
-      console.log('🔵 Starting Cloudinary upload with URI:', imageUri);
-      const publicImageUrl = await uploadImage(imageUri);
-      console.log('ProfileScreen - ✅ Image uploaded to Cloudinary:', publicImageUrl);
-
-      // Update Airtable record
-      console.log('🟢 Starting Airtable PATCH...');
-      console.log('🟢 Airtable record ID being used:', airtableRecordId);
-      
-      const airtableBody = {
-        records: [{
-          id: airtableRecordId,
-          fields: {
-            "Image": [{ url: publicImageUrl }]
-          }
-        }]
-      };
-      console.log('🟢 Airtable request body:', JSON.stringify(airtableBody, null, 2));
-
-      const airtableResponse = await fetch(AIRTABLE_BASE_URL, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': AIRTABLE_TOKEN,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(airtableBody),
-      });
-
-      const airtableData = await airtableResponse.json();
-      console.log('🟢 Airtable response status:', airtableResponse.status);
-      console.log('🟢 Airtable response body:', JSON.stringify(airtableData, null, 2));
-
-      if (!airtableResponse.ok) {
-        const errorMsg = airtableData.error?.message || `Airtable update failed with status ${airtableResponse.status}`;
-        console.error('ProfileScreen - Airtable error:', errorMsg);
-        showError(`Airtable update failed: ${errorMsg}`);
-        return;
-      }
-
-      console.log('ProfileScreen - ✅ Airtable record updated successfully');
-
-      // Reload profile to show new image
-      await loadProfile();
-      
-      alert('Profile photo updated successfully!');
+      // Immediately update the profile state with the new image URL so it displays right away
+      setProfile((prev) => prev ? { ...prev, image: signedUrl } : prev);
+      console.log('[ProfileScreen] ✅ Profile photo updated in UI');
     } catch (error: any) {
-      console.error('ProfileScreen - Error uploading photo:', error);
+      console.error('[ProfileScreen] Error uploading photo:', error);
       const errorMsg = error.message || 'An unknown error occurred during photo upload.';
       showError(`Upload error: ${errorMsg}`);
     } finally {
@@ -618,7 +444,7 @@ export default function ProfileScreen() {
   };
 
   const openEditModal = () => {
-    console.log('ProfileScreen - Opening edit modal');
+    console.log('[ProfileScreen] Opening edit modal');
     if (profile) {
       setEditName(profile.name);
       setEditCompany(profile.company || "");
@@ -635,15 +461,15 @@ export default function ProfileScreen() {
   };
 
   const closeEditModal = () => {
-    console.log('ProfileScreen - Closing edit modal');
+    console.log('[ProfileScreen] Closing edit modal');
     setEditModalVisible(false);
   };
 
   const saveProfile = async () => {
-    console.log('ProfileScreen - Saving profile');
+    console.log('[ProfileScreen] Saving profile');
     setLoading(true);
     try {
-      const updatedProfile = await authenticatedPut<UserProfile>('/api/profile', {
+      await authenticatedPut<UserProfile>('/api/profile', {
         name: editName,
         company: editCompany,
         title: editTitle,
@@ -655,24 +481,25 @@ export default function ProfileScreen() {
         sharePhone: editSharePhone,
         shareLinkedIn: editShareLinkedIn,
       });
-      console.log('ProfileScreen - Profile updated successfully');
-      setProfile(updatedProfile);
+      console.log('[ProfileScreen] Profile updated, reloading with fresh signed URLs');
+      // Reload profile via GET to get fresh signed URL for image
+      await loadProfile();
       closeEditModal();
     } catch (error) {
-      console.error('ProfileScreen - Error saving profile:', error);
-      alert('Failed to save profile. Please try again.');
+      console.error('[ProfileScreen] Error saving profile:', error);
+      showError('Failed to save profile. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSignOut = async () => {
-    console.log('ProfileScreen - User tapped sign out');
+    console.log('[ProfileScreen] User tapped sign out');
     try {
       await signOut();
-      console.log('ProfileScreen - Sign out successful');
+      console.log('[ProfileScreen] Sign out successful');
     } catch (error) {
-      console.error('ProfileScreen - Sign out error:', error);
+      console.error('[ProfileScreen] Sign out error:', error);
     }
   };
 
@@ -701,16 +528,16 @@ export default function ProfileScreen() {
   }
 
   const profileInitials = getInitials(profile.name);
+  const displayPhotoUrl = profile.image;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            {profile.image ? (
+            {displayPhotoUrl ? (
               <Image
-                source={resolveImageSource(profile.image)}
+                source={resolveImageSource(displayPhotoUrl)}
                 style={styles.avatar}
               />
             ) : (
@@ -744,7 +571,6 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Profile Information */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Profile Information</Text>
 
@@ -799,7 +625,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Privacy Settings */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Privacy Settings</Text>
 
@@ -844,7 +669,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Edit Button */}
         <TouchableOpacity
           style={[styles.editButton, { backgroundColor: colors.light.primary }]}
           onPress={openEditModal}
@@ -852,7 +676,6 @@ export default function ProfileScreen() {
           <Text style={styles.editButtonText}>Edit Profile</Text>
         </TouchableOpacity>
 
-        {/* Sign Out Button */}
         <TouchableOpacity
           style={[styles.signOutButton, { borderColor: themeColors.border }]}
           onPress={handleSignOut}
@@ -861,7 +684,6 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Edit Modal */}
       <Modal
         visible={editModalVisible}
         transparent
@@ -1015,7 +837,6 @@ export default function ProfileScreen() {
         </Pressable>
       </Modal>
 
-      {/* Error Modal */}
       <Modal
         visible={errorModalVisible}
         transparent
