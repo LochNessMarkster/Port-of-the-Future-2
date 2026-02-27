@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet } from '@/utils/api';
+import { authenticatedGet } from '@/utils/api';
 import { Stack } from 'expo-router';
 
 interface Sponsor {
@@ -251,8 +251,8 @@ export default function SponsorsScreen() {
   const loadSponsors = async () => {
     try {
       setLoading(true);
-      console.log('[Sponsors] Fetching sponsors from /api/sponsors');
-      const data = await apiGet<Sponsor[]>('/api/sponsors');
+      console.log('[Sponsors] Fetching sponsors from /api/sponsors (authenticated)');
+      const data = await authenticatedGet<Sponsor[]>('/api/sponsors');
       console.log('[Sponsors] Received sponsors:', data.length);
       setSponsors(data);
     } catch (error) {

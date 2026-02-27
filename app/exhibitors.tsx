@@ -18,7 +18,7 @@ import {
   TextInput,
   RefreshControl
 } from 'react-native';
-import { apiGet } from '@/utils/api';
+import { authenticatedGet } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Stack } from 'expo-router';
 
@@ -278,8 +278,8 @@ export default function ExhibitorsScreen() {
     }
     
     try {
-      console.log('[Exhibitors] Fetching exhibitors from /api/exhibitors');
-      const data = await apiGet<ExhibitorBackendResponse[]>('/api/exhibitors');
+      console.log('[Exhibitors] Fetching exhibitors from /api/exhibitors (authenticated)');
+      const data = await authenticatedGet<ExhibitorBackendResponse[]>('/api/exhibitors');
       console.log('[Exhibitors] Received exhibitors:', data.length);
       
       const mappedExhibitors = data.map(mapExhibitorResponse);
