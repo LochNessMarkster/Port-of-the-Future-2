@@ -11,21 +11,21 @@ import {
   Modal,
   Pressable,
   Switch,
-  Image,
-  Platform,
 } from "react-native";
 import { colors, spacing, typography, borderRadius } from "@/styles/commonStyles";
 import React, { useEffect, useState } from "react";
-import { apiGet, authenticatedPut, BACKEND_URL, getBearerToken } from "@/utils/api";
-import * as ImagePicker from 'expo-image-picker';
+import { apiGet, authenticatedPut } from "@/utils/api";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
+import { InitialsAvatar } from "@/components/InitialsAvatar";
 
 interface UserProfile {
   id: string;
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   company: string | null;
   title: string | null;
   phone: string | null;
@@ -36,7 +36,6 @@ interface UserProfile {
   sharePhone: boolean;
   shareLinkedIn: boolean;
   emailVerified: boolean | null;
-  image: string | null;
 }
 
 const styles = StyleSheet.create({
@@ -59,34 +58,6 @@ const styles = StyleSheet.create({
   avatarContainer: {
     position: 'relative',
     marginBottom: spacing.md,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarInitials: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  editPhotoButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
   },
   userName: {
     ...typography.h2,
@@ -235,126 +206,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 60,
-  },
-  uploadingText: {
-    color: '#FFFFFF',
-    marginTop: spacing.sm,
-    fontSize: 12,
-  },
-  errorModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  errorModalContent: {
-    borderRadius: borderRadius.md,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 400,
-  },
-  errorModalTitle: {
-    ...typography.h3,
-    marginBottom: spacing.md,
-    color: '#EF4444',
-  },
-  errorModalMessage: {
-    ...typography.body,
-    marginBottom: spacing.lg,
-  },
-  errorModalButton: {
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.sm,
-    alignItems: 'center',
-  },
-  errorModalButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
 });
-
-function resolveImageSource(uri: string | null | undefined) {
-  if (!uri) return { uri: '' };
-  if (typeof uri === 'string') return { uri };
-  return uri;
-}
-
-/**
- * Upload image to backend /api/profile/upload-photo endpoint
- * The backend handles Cloudinary upload and Airtable record update
- * Returns the signed URL for the uploaded image
- */
-const uploadProfilePhoto = async (imageUri: string): Promise<string> => {
-  console.log('[ProfileScreen] uploadProfilePhoto - Platform:', Platform.OS);
-  console.log('[ProfileScreen] uploadProfilePhoto - imageUri:', imageUri);
-
-  const token = await getBearerToken();
-  if (!token) {
-    throw new Error('Authentication token not found. Please sign in.');
-  }
-
-  const formData = new FormData();
-
-  if (Platform.OS === 'web') {
-    console.log('[ProfileScreen] uploadProfilePhoto - Web platform, converting blob to File');
-    try {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      console.log('[ProfileScreen] uploadProfilePhoto - Blob type:', blob.type, 'size:', blob.size);
-      const file = new File([blob], 'profile.jpg', { type: blob.type || 'image/jpeg' });
-      formData.append('file', file);
-    } catch (error) {
-      console.error('[ProfileScreen] uploadProfilePhoto - Error converting blob:', error);
-      throw new Error('Failed to process image for upload');
-    }
-  } else {
-    console.log('[ProfileScreen] uploadProfilePhoto - Native platform, using URI directly');
-    const uriParts = imageUri.split('.');
-    const fileType = uriParts[uriParts.length - 1];
-    formData.append('file', {
-      uri: imageUri,
-      name: 'profile.jpg',
-      type: 'image/' + (fileType === 'png' ? 'png' : 'jpeg'),
-    } as any);
-  }
-
-  console.log('[ProfileScreen] uploadProfilePhoto - Sending to backend /api/profile/upload-photo');
-  const response = await fetch(`${BACKEND_URL}/api/profile/upload-photo`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      // Do NOT set Content-Type here - let the browser/native set it with boundary for multipart
-    },
-    body: formData,
-  });
-
-  const data = await response.json();
-  console.log('[ProfileScreen] uploadProfilePhoto - Response status:', response.status);
-  console.log('[ProfileScreen] uploadProfilePhoto - Response data:', JSON.stringify(data, null, 2));
-
-  if (!response.ok) {
-    throw new Error(data.error || `Upload failed with status ${response.status}`);
-  }
-
-  // Backend returns { url: string } - the signed URL for the uploaded image
-  return data.url;
-};
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [errorModalVisible, setErrorModalVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
   const { signOut } = useAuth();
 
   const [editName, setEditName] = useState("");
@@ -379,67 +236,12 @@ export default function ProfileScreen() {
     setLoading(true);
     try {
       const data = await apiGet<UserProfile>('/api/profile');
-      console.log('[ProfileScreen] Profile loaded:', data.email, '| image:', data.image ? 'present' : 'none');
+      console.log('[ProfileScreen] Profile loaded:', data.email);
       setProfile(data);
     } catch (error) {
       console.error('[ProfileScreen] Error loading profile:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const showError = (message: string) => {
-    setErrorMessage(message);
-    setErrorModalVisible(true);
-  };
-
-  const pickAndUploadPhoto = async () => {
-    console.log('[ProfileScreen] User tapped edit photo button');
-
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissionResult.status !== 'granted') {
-      showError('Camera roll permissions are required to upload a photo.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-
-    if (result.canceled || !result.assets || result.assets.length === 0) {
-      console.log('[ProfileScreen] Image picker canceled');
-      return;
-    }
-
-    const imageUri = result.assets[0].uri;
-    console.log('[ProfileScreen] Selected imageUri:', imageUri);
-
-    if (typeof imageUri !== 'string') {
-      console.error('[ProfileScreen] ERROR: imageUri is not a string!', imageUri);
-      showError('Invalid image URI. Please try again.');
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      console.log('[ProfileScreen] Uploading photo to backend...');
-      // Upload to backend - it handles Cloudinary upload + Airtable update + DB update
-      const signedUrl = await uploadProfilePhoto(imageUri);
-      console.log('[ProfileScreen] ✅ Photo uploaded successfully, signed URL:', signedUrl);
-
-      // Immediately update the profile state with the new image URL so it displays right away
-      setProfile((prev) => prev ? { ...prev, image: signedUrl } : prev);
-      console.log('[ProfileScreen] ✅ Profile photo updated in UI');
-    } catch (error: any) {
-      console.error('[ProfileScreen] Error uploading photo:', error);
-      const errorMsg = error.message || 'An unknown error occurred during photo upload.';
-      showError(`Upload error: ${errorMsg}`);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -481,13 +283,11 @@ export default function ProfileScreen() {
         sharePhone: editSharePhone,
         shareLinkedIn: editShareLinkedIn,
       });
-      console.log('[ProfileScreen] Profile updated, reloading with fresh signed URLs');
-      // Reload profile via GET to get fresh signed URL for image
+      console.log('[ProfileScreen] Profile updated, reloading');
       await loadProfile();
       closeEditModal();
     } catch (error) {
       console.error('[ProfileScreen] Error saving profile:', error);
-      showError('Failed to save profile. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -503,12 +303,12 @@ export default function ProfileScreen() {
     }
   };
 
-  const getInitials = (name: string): string => {
-    const nameParts = name.split(' ');
-    const firstInitial = nameParts[0]?.[0] || '';
-    const lastInitial = nameParts[nameParts.length - 1]?.[0] || '';
-    const initials = firstInitial + lastInitial;
-    return initials.toUpperCase();
+  // Extract first and last name from full name
+  const getFirstLastName = (fullName: string): { firstName: string; lastName: string } => {
+    const nameParts = (fullName || '').trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    return { firstName, lastName };
   };
 
   if (loading && !profile) {
@@ -527,37 +327,19 @@ export default function ProfileScreen() {
     );
   }
 
-  const profileInitials = getInitials(profile.name);
-  const displayPhotoUrl = profile.image;
+  const { firstName, lastName } = getFirstLastName(profile.name);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            {displayPhotoUrl ? (
-              <Image
-                source={resolveImageSource(displayPhotoUrl)}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.light.primary }]}>
-                <Text style={styles.avatarInitials}>{profileInitials}</Text>
-              </View>
-            )}
-            {uploading && (
-              <View style={styles.uploadingOverlay}>
-                <ActivityIndicator color="#FFFFFF" />
-                <Text style={styles.uploadingText}>Uploading...</Text>
-              </View>
-            )}
-            <TouchableOpacity
-              style={[styles.editPhotoButton, { backgroundColor: colors.light.primary, borderColor: themeColors.background }]}
-              onPress={pickAndUploadPhoto}
-              disabled={uploading}
-            >
-              <IconSymbol ios_icon_name="camera.fill" android_material_icon_name="camera" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+            <InitialsAvatar
+              firstName={firstName}
+              lastName={lastName}
+              size={120}
+              fontSize={48}
+            />
           </View>
 
           <Text style={[styles.userName, { color: themeColors.text }]}>{profile.name}</Text>
@@ -835,28 +617,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </Pressable>
         </Pressable>
-      </Modal>
-
-      <Modal
-        visible={errorModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setErrorModalVisible(false)}
-      >
-        <View style={styles.errorModalOverlay}>
-          <View style={[styles.errorModalContent, { backgroundColor: themeColors.card }]}>
-            <Text style={styles.errorModalTitle}>Upload Error</Text>
-            <Text style={[styles.errorModalMessage, { color: themeColors.text }]}>
-              {errorMessage}
-            </Text>
-            <TouchableOpacity
-              style={[styles.errorModalButton, { backgroundColor: colors.light.primary }]}
-              onPress={() => setErrorModalVisible(false)}
-            >
-              <Text style={styles.errorModalButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </Modal>
     </SafeAreaView>
   );

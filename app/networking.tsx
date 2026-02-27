@@ -8,7 +8,6 @@ import {
   ScrollView, 
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   TextInput
@@ -18,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
+import { InitialsAvatar } from '@/components/InitialsAvatar';
 
 interface Attendee {
   id: string;
@@ -31,13 +31,6 @@ interface Attendee {
   linkedin: string | null;
   registrationLevel: string | null;
   optInNetworking: 'YES' | 'NO' | null;
-  image: string | null;
-}
-
-function resolveImageSource(source: string | null | undefined) {
-  if (!source) return require('@/assets/images/POF-ICON.png');
-  if (typeof source === 'string') return { uri: source };
-  return source;
 }
 
 const styles = StyleSheet.create({
@@ -83,12 +76,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  attendeeImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  attendeeAvatarWrapper: {
     marginRight: spacing.md,
-    backgroundColor: '#f0f0f0',
   },
   attendeeInfo: {
     flex: 1,
@@ -158,12 +147,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  modalAvatarWrapper: {
     marginBottom: spacing.md,
-    backgroundColor: '#f0f0f0',
   },
   modalName: {
     ...typography.h2,
@@ -243,23 +228,14 @@ export default function NetworkingScreen() {
       console.log('[NetworkingScreen] Fetching attendees in networking directory...');
       const data = await apiGet<Attendee[]>('/api/attendees');
       
-      // Log image data for debugging
-      console.log('[NetworkingScreen] Sample attendee image data:', data.slice(0, 3).map(a => ({
-        name: a.name,
-        hasImage: !!a.image,
-        imageValue: a.image
-      })));
-      
       setAttendees(data);
       console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees in directory');
       
       const optedInCount = data.filter(a => a.optInNetworking === 'YES').length;
-      const withImages = data.filter(a => a.image).length;
       console.log('[NetworkingScreen] Opt-in breakdown:', {
         total: data.length,
         optedIn: optedInCount,
         notOptedIn: data.length - optedInCount,
-        withImages: withImages
       });
     } catch (error) {
       console.error('[NetworkingScreen] Error loading attendees:', error);
@@ -403,8 +379,6 @@ export default function NetworkingScreen() {
           </View>
         ) : (
           filteredAttendees.map((attendee) => {
-            const imageSource = resolveImageSource(attendee.image);
-            
             return (
               <TouchableOpacity
                 key={attendee.id}
@@ -412,10 +386,14 @@ export default function NetworkingScreen() {
                 onPress={() => setSelectedAttendee(attendee)}
                 activeOpacity={0.7}
               >
-                <Image
-                  source={imageSource}
-                  style={styles.attendeeImage}
-                />
+                <View style={styles.attendeeAvatarWrapper}>
+                  <InitialsAvatar
+                    firstName={attendee.firstName}
+                    lastName={attendee.lastName}
+                    size={60}
+                    fontSize={24}
+                  />
+                </View>
                 <View style={styles.attendeeInfo}>
                   <Text style={[styles.attendeeName, { color: appColors.text }]}>
                     {attendee.name || [attendee.firstName, attendee.lastName].filter(Boolean).join(' ') || 'Unknown Attendee'}
@@ -473,10 +451,16 @@ export default function NetworkingScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeader}>
-                <Image
-                  source={resolveImageSource(selectedAttendee?.image)}
-                  style={styles.modalImage}
-                />
+                <View style={styles.modalAvatarWrapper}>
+                  {selectedAttendee && (
+                    <InitialsAvatar
+                      firstName={selectedAttendee.firstName}
+                      lastName={selectedAttendee.lastName}
+                      size={120}
+                      fontSize={48}
+                    />
+                  )}
+                </View>
                 <Text style={[styles.modalName, { color: appColors.text }]}>
                   {selectedAttendee?.name || [selectedAttendee?.firstName, selectedAttendee?.lastName].filter(Boolean).join(' ') || 'Unknown Attendee'}
                 </Text>
