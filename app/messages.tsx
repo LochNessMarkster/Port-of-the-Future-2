@@ -15,68 +15,40 @@ import {
   Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet, authenticatedPost, authenticatedPut } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNotifications } from '@/contexts/NotificationContext';
+
+const AIRTABLE_BASE_URL = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tbltP0MT3ed7Kp6fr';
+const AIRTABLE_TOKEN = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
+
+interface AirtableMessage {
+  id: string;
+  fields: {
+    From: string;
+    To: string;
+    Message: string;
+    Timestamp: string;
+    Read: boolean;
+  };
+  createdTime: string;
+}
 
 interface Message {
   id: string;
-  senderId: string;
-  senderName?: string;
-  recipientId: string;
-  recipientName?: string;
-  content: string;
+  from: string;
+  to: string;
+  message: string;
+  timestamp: string;
   read: boolean;
-  createdAt: string;
 }
 
-interface MessageThread {
-  id: string;
-  senderId: string;
-  senderName: string;
-  recipientId: string;
-  recipientName: string;
-  content: string;
-  read: boolean;
-  createdAt: string;
-}
-
-interface AttendeeInfo {
-  id: string;
-  name: string;
-  firstName?: string;
-  lastName?: string;
-  company?: string | null;
-  title?: string | null;
-}
-
-/**
- * Resolve a display name for a user/attendee ID.
- * Falls back to fetching from /api/attendees/{id} if the name is empty
- * (which happens when the ID is an Airtable attendee ID, not a Better Auth user ID).
- */
-async function resolveDisplayName(id: string, knownName: string): Promise<string> {
-  if (knownName && knownName.trim().length > 0) {
-    return knownName;
-  }
-  // Name is empty - this is likely an Airtable attendee ID, try to fetch their info
-  try {
-    console.log('[MessagesScreen] Resolving name for Airtable attendee:', id);
-    const attendee = await apiGet<AttendeeInfo>(`/api/attendees/${id}`);
-    if (attendee?.name && attendee.name.trim().length > 0) {
-      return attendee.name;
-    }
-    if (attendee?.firstName || attendee?.lastName) {
-      return `${attendee.firstName || ''} ${attendee.lastName || ''}`.trim();
-    }
-  } catch (error) {
-    console.warn('[MessagesScreen] Could not resolve name for ID:', id, error);
-  }
-  // Final fallback: show a shortened version of the ID
-  return `Attendee (${id.slice(0, 8)}...)`;
+interface Conversation {
+  otherUserEmail: string;
+  lastMessage: string;
+  lastTimestamp: string;
+  unreadCount: number;
 }
 
 const styles = StyleSheet.create({
@@ -107,9 +79,18 @@ const styles = StyleSheet.create({
     ...typography.h3,
   },
   unreadBadge: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  unreadBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   threadPreview: {
     ...typography.bodySmall,
@@ -221,86 +202,172 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  backButton: {
+    marginRight: spacing.sm,
+  },
 });
 
 export default function MessagesScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const { user } = useAuth();
-  const { refreshUnreadCount } = useNotifications();
   const params = useLocalSearchParams();
-  const recipientId = params.recipientId as string | undefined;
-  // recipientName can be passed from the networking screen to avoid an extra fetch
+  const router = useRouter();
+  const recipientEmail = params.recipientId as string | undefined;
   const recipientNameParam = params.recipientName as string | undefined;
 
-  const [threads, setThreads] = useState<MessageThread[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(recipientId || null);
-  // Track the display name for the current conversation partner
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(recipientEmail || null);
   const [conversationPartnerName, setConversationPartnerName] = useState<string>(recipientNameParam || '');
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const loadThreads = useCallback(async () => {
+  // Fetch all messages from Airtable
+  const fetchMessages = async (): Promise<Message[]> => {
+    try {
+      console.log('[MessagesScreen] Fetching messages from Airtable...');
+      const response = await fetch(AIRTABLE_BASE_URL, {
+        headers: {
+          'Authorization': `Bearer ${AIRTABLE_TOKEN}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[MessagesScreen] Airtable fetch error:', response.status, errorText);
+        throw new Error(`Failed to fetch messages: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const records = data.records as AirtableMessage[];
+      
+      const parsedMessages = records.map((record) => ({
+        id: record.id,
+        from: record.fields.From || '',
+        to: record.fields.To || '',
+        message: record.fields.Message || '',
+        timestamp: record.fields.Timestamp || record.createdTime,
+        read: record.fields.Read || false,
+      }));
+
+      console.log('[MessagesScreen] Fetched messages:', parsedMessages.length);
+      return parsedMessages;
+    } catch (error) {
+      console.error('[MessagesScreen] Error fetching messages:', error);
+      throw error;
+    }
+  };
+
+  // Load conversations (grouped by sender/recipient)
+  const loadConversations = useCallback(async () => {
+    if (!user?.email) {
+      console.log('[MessagesScreen] No user email, skipping conversation load');
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log('[MessagesScreen] Loading message threads...');
-      const data = await apiGet<MessageThread[]>('/api/messages');
+      console.log('[MessagesScreen] Loading conversations for:', user.email);
       
-      // Resolve names for any threads where senderName/recipientName is empty
-      // (this happens when the other party is an Airtable attendee)
-      const resolvedThreads = await Promise.all(
-        data.map(async (thread) => {
-          const resolvedSenderName = await resolveDisplayName(thread.senderId, thread.senderName);
-          const resolvedRecipientName = await resolveDisplayName(thread.recipientId, thread.recipientName);
-          return {
-            ...thread,
-            senderName: resolvedSenderName,
-            recipientName: resolvedRecipientName,
-          };
-        })
+      const allMessages = await fetchMessages();
+      
+      // Filter messages where user is sender or recipient
+      const userMessages = allMessages.filter(
+        (msg) => msg.from === user.email || msg.to === user.email
       );
+
+      // Group by conversation partner
+      const conversationMap = new Map<string, Conversation>();
       
-      setThreads(resolvedThreads);
-      console.log('[MessagesScreen] Loaded threads:', resolvedThreads.length);
+      userMessages.forEach((msg) => {
+        const otherUserEmail = msg.from === user.email ? msg.to : msg.from;
+        
+        const existing = conversationMap.get(otherUserEmail);
+        const msgTimestamp = new Date(msg.timestamp).getTime();
+        
+        if (!existing || new Date(existing.lastTimestamp).getTime() < msgTimestamp) {
+          const unreadCount = userMessages.filter(
+            (m) => m.from === otherUserEmail && m.to === user.email && !m.read
+          ).length;
+          
+          conversationMap.set(otherUserEmail, {
+            otherUserEmail,
+            lastMessage: msg.message,
+            lastTimestamp: msg.timestamp,
+            unreadCount,
+          });
+        }
+      });
+
+      const conversationList = Array.from(conversationMap.values()).sort(
+        (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+      );
+
+      setConversations(conversationList);
+      console.log('[MessagesScreen] Loaded conversations:', conversationList.length);
     } catch (error) {
-      console.error('[MessagesScreen] Error loading threads:', error);
-      setThreads([]);
+      console.error('[MessagesScreen] Error loading conversations:', error);
+      setConversations([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.email]);
 
-  const loadConversation = useCallback(async (userId: string) => {
+  // Load conversation with specific user
+  const loadConversation = useCallback(async (otherUserEmail: string) => {
+    if (!user?.email) {
+      console.log('[MessagesScreen] No user email, skipping conversation load');
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log('[MessagesScreen] Loading conversation with:', userId);
-      const data = await apiGet<Message[]>(`/api/messages/${userId}`);
-      setMessages(data);
-      console.log('[MessagesScreen] Loaded messages:', data.length);
+      console.log('[MessagesScreen] Loading conversation with:', otherUserEmail);
       
-      // If we don't have a name yet, try to resolve it
-      if (!conversationPartnerName) {
-        const resolvedName = await resolveDisplayName(userId, '');
-        setConversationPartnerName(resolvedName);
-      }
+      const allMessages = await fetchMessages();
       
+      // Filter messages between these two users
+      const conversationMessages = allMessages.filter(
+        (msg) =>
+          (msg.from === user.email && msg.to === otherUserEmail) ||
+          (msg.from === otherUserEmail && msg.to === user.email)
+      );
+
+      // Sort by timestamp
+      conversationMessages.sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+      setMessages(conversationMessages);
+      console.log('[MessagesScreen] Loaded messages:', conversationMessages.length);
+
       // Mark unread messages as read
-      const unreadMessages = data.filter(m => !m.read && m.recipientId === user?.id);
-      for (const message of unreadMessages) {
+      const unreadMessages = conversationMessages.filter(
+        (msg) => msg.from === otherUserEmail && msg.to === user.email && !msg.read
+      );
+
+      for (const msg of unreadMessages) {
         try {
-          await authenticatedPut(`/api/messages/${message.id}/read`, {});
+          await fetch(`${AIRTABLE_BASE_URL}/${msg.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${AIRTABLE_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fields: {
+                Read: true,
+              },
+            }),
+          });
+          console.log('[MessagesScreen] Marked message as read:', msg.id);
         } catch (readError) {
-          console.warn('[MessagesScreen] Failed to mark message as read:', message.id, readError);
+          console.warn('[MessagesScreen] Failed to mark message as read:', msg.id, readError);
         }
-      }
-      
-      // Refresh unread count after marking messages as read
-      if (unreadMessages.length > 0) {
-        await refreshUnreadCount();
       }
     } catch (error) {
       console.error('[MessagesScreen] Error loading conversation:', error);
@@ -308,15 +375,29 @@ export default function MessagesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, conversationPartnerName, refreshUnreadCount]);
+  }, [user?.email]);
 
   useEffect(() => {
-    if (selectedUserId) {
-      loadConversation(selectedUserId);
+    if (selectedUserEmail) {
+      loadConversation(selectedUserEmail);
     } else {
-      loadThreads();
+      loadConversations();
     }
-  }, [selectedUserId, loadConversation, loadThreads]);
+  }, [selectedUserEmail, loadConversation, loadConversations]);
+
+  // Poll for new messages every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('[MessagesScreen] Polling for new messages...');
+      if (selectedUserEmail) {
+        loadConversation(selectedUserEmail);
+      } else {
+        loadConversations();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [selectedUserEmail, loadConversation, loadConversations]);
 
   const sendMessage = async () => {
     const trimmedMessage = messageText.trim();
@@ -324,18 +405,18 @@ export default function MessagesScreen() {
     console.log('[MessagesScreen] sendMessage called', {
       hasMessage: !!trimmedMessage,
       messageLength: trimmedMessage.length,
-      hasRecipient: !!selectedUserId,
-      recipientId: selectedUserId,
-      hasUser: !!user?.id,
-      userId: user?.id,
+      hasRecipient: !!selectedUserEmail,
+      recipientEmail: selectedUserEmail,
+      hasUser: !!user?.email,
+      userEmail: user?.email,
     });
     
-    if (!trimmedMessage || !selectedUserId) {
+    if (!trimmedMessage || !selectedUserEmail) {
       console.log('[MessagesScreen] Cannot send: empty message or no recipient');
       return;
     }
 
-    if (!user?.id) {
+    if (!user?.email) {
       console.error('[MessagesScreen] Cannot send: user not authenticated');
       setErrorMessage('You must be logged in to send messages.');
       setErrorModalVisible(true);
@@ -343,43 +424,50 @@ export default function MessagesScreen() {
     }
 
     setSending(true);
-    console.log('[MessagesScreen] Attempting to send message:', {
-      recipientId: selectedUserId,
-      contentLength: trimmedMessage.length,
-      senderId: user.id,
-    });
+    console.log('[MessagesScreen] Attempting to send message to Airtable...');
     
     try {
-      console.log('[MessagesScreen] Calling authenticatedPost /api/messages...');
-      const response = await authenticatedPost('/api/messages', {
-        recipientId: selectedUserId,
-        content: trimmedMessage,
-      });
+      const timestamp = new Date().toISOString();
       
-      console.log('[MessagesScreen] Message sent successfully, response:', response);
+      const response = await fetch(AIRTABLE_BASE_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${AIRTABLE_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fields: {
+            From: user.email,
+            To: selectedUserEmail,
+            Message: trimmedMessage,
+            Timestamp: timestamp,
+            Read: false,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[MessagesScreen] Airtable POST error:', response.status, errorText);
+        throw new Error(`Failed to send message: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('[MessagesScreen] Message sent successfully:', result);
+      
       setMessageText('');
       
       // Reload conversation to show the new message
       console.log('[MessagesScreen] Reloading conversation to show new message...');
-      await loadConversation(selectedUserId);
-      
-      // Refresh unread count after sending a message
-      await refreshUnreadCount();
+      await loadConversation(selectedUserEmail);
     } catch (error) {
       console.error('[MessagesScreen] Error sending message:', error);
-      console.error('[MessagesScreen] Error details:', {
-        errorType: typeof error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-      });
       
-      // Show user-friendly error message
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
       setErrorMessage(`Failed to send message: ${errorMsg}`);
       setErrorModalVisible(true);
     } finally {
       setSending(false);
-      console.log('[MessagesScreen] sendMessage completed, sending:', sending);
     }
   };
 
@@ -389,52 +477,61 @@ export default function MessagesScreen() {
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) {
+      const justNowText = 'Just now';
+      return justNowText;
+    }
     if (diffMins < 60) {
       const mins = diffMins;
-      return `${mins}m ago`;
+      const minsAgoText = `${mins}m ago`;
+      return minsAgoText;
     }
     if (diffMins < 1440) {
       const hours = Math.floor(diffMins / 60);
-      return `${hours}h ago`;
+      const hoursAgoText = `${hours}h ago`;
+      return hoursAgoText;
     }
     return date.toLocaleDateString();
   };
 
   const canSendMessage = messageText.trim().length > 0 && !sending;
 
-  console.log('[MessagesScreen] Render state:', {
-    hasUser: !!user,
-    userId: user?.id,
-    selectedUserId,
-    conversationPartnerName,
-    messageCount: messages.length,
-    threadCount: threads.length,
-    loading,
-    sending,
-    canSendMessage,
-    messageTextLength: messageText.length,
-  });
+  const handleBackPress = () => {
+    console.log('[MessagesScreen] Back button pressed');
+    setSelectedUserEmail(null);
+    setConversationPartnerName('');
+    setMessages([]);
+  };
 
-  if (selectedUserId) {
-    // Show conversation view with input at the top
+  if (selectedUserEmail) {
+    // Show conversation view
+    const displayName = conversationPartnerName || selectedUserEmail;
+    
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-        {/* Conversation partner name header */}
-        {conversationPartnerName ? (
-          <View style={[styles.conversationHeader, { backgroundColor: appColors.card, borderBottomColor: appColors.border }]}>
-            <Text style={[styles.conversationHeaderName, { color: appColors.text }]} numberOfLines={1}>
-              {conversationPartnerName}
-            </Text>
-          </View>
-        ) : null}
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: displayName,
+            headerLeft: () => (
+              <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+                <IconSymbol
+                  ios_icon_name="chevron.left"
+                  android_material_icon_name="arrow-back"
+                  size={24}
+                  color={appColors.text}
+                />
+              </TouchableOpacity>
+            ),
+          }}
+        />
 
         <KeyboardAvoidingView 
           style={styles.conversationContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={100}
         >
-          {/* Input container moved to the top */}
+          {/* Input container at the top */}
           <View style={[styles.inputContainer, { borderBottomColor: appColors.border, backgroundColor: appColors.card }]}>
             <TextInput
               style={[styles.input, { backgroundColor: appColors.background, color: appColors.text }]}
@@ -491,8 +588,8 @@ export default function MessagesScreen() {
               </Text>
             ) : (
               messages.map((message) => {
-                const isSent = message.senderId === user?.id;
-                const messageTime = formatDate(message.createdAt);
+                const isSent = message.from === user?.email;
+                const messageTime = formatDate(message.timestamp);
                 
                 return (
                   <View
@@ -507,7 +604,7 @@ export default function MessagesScreen() {
                       styles.messageText,
                       { color: isSent ? '#FFFFFF' : appColors.text }
                     ]}>
-                      {message.content}
+                      {message.message}
                     </Text>
                     <Text style={[
                       styles.messageTime,
@@ -566,9 +663,16 @@ export default function MessagesScreen() {
     );
   }
 
-  // Show threads list
+  // Show conversations list
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Messages',
+        }}
+      />
+      
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
@@ -578,41 +682,43 @@ export default function MessagesScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={appColors.primary} />
           </View>
-        ) : threads.length === 0 ? (
+        ) : conversations.length === 0 ? (
           <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
             No messages yet
           </Text>
         ) : (
-          threads.map((thread) => {
-            const otherPersonName = thread.senderId === user?.id ? thread.recipientName : thread.senderName;
-            const otherPersonId = thread.senderId === user?.id ? thread.recipientId : thread.senderId;
-            const isUnread = !thread.read && thread.recipientId === user?.id;
-            const threadDate = formatDate(thread.createdAt);
+          conversations.map((conversation, index) => {
+            const hasUnread = conversation.unreadCount > 0;
+            const threadDate = formatDate(conversation.lastTimestamp);
 
             return (
               <TouchableOpacity
-                key={thread.id}
+                key={index}
                 style={[styles.threadCard, { backgroundColor: appColors.card }]}
                 onPress={() => {
-                  console.log('[MessagesScreen] Opening conversation with:', otherPersonId, otherPersonName);
-                  setConversationPartnerName(otherPersonName || '');
-                  setSelectedUserId(otherPersonId);
+                  console.log('[MessagesScreen] Opening conversation with:', conversation.otherUserEmail);
+                  setConversationPartnerName(conversation.otherUserEmail);
+                  setSelectedUserEmail(conversation.otherUserEmail);
                 }}
                 activeOpacity={0.7}
               >
                 <View style={styles.threadHeader}>
                   <Text style={[styles.threadName, { color: appColors.text }]}>
-                    {otherPersonName}
+                    {conversation.otherUserEmail}
                   </Text>
-                  {isUnread ? (
-                    <View style={[styles.unreadBadge, { backgroundColor: appColors.primary }]} />
+                  {hasUnread ? (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>
+                        {conversation.unreadCount}
+                      </Text>
+                    </View>
                   ) : null}
                 </View>
                 <Text 
                   style={[styles.threadPreview, { color: appColors.textSecondary }]}
                   numberOfLines={2}
                 >
-                  {thread.content}
+                  {conversation.lastMessage}
                 </Text>
                 <Text style={[styles.threadDate, { color: appColors.textSecondary }]}>
                   {threadDate}

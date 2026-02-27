@@ -36,7 +36,6 @@ interface Attendee {
 
 function resolveImageSource(source: string | null | undefined) {
   if (!source) return require('@/assets/images/POF-ICON.png');
-  // Use cache: 'reload' to ensure signed URLs are not served from stale cache
   return { uri: source, cache: 'reload' as const };
 }
 
@@ -245,29 +244,11 @@ export default function NetworkingScreen() {
       setAttendees(data);
       console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees in directory');
       
-      // Log opt-in status and name/image debug info
       const optedInCount = data.filter(a => a.optInNetworking === 'YES').length;
       console.log('[NetworkingScreen] Opt-in breakdown:', {
         total: data.length,
         optedIn: optedInCount,
         notOptedIn: data.length - optedInCount
-      });
-      
-      // Debug: log attendees with missing names or images
-      data.forEach(a => {
-        if (!a.name && !a.firstName && !a.lastName) {
-          console.warn('[NetworkingScreen] Attendee missing all name fields:', a.id);
-        } else if (!a.name) {
-          console.log('[NetworkingScreen] Attendee has firstName/lastName but no name field:', {
-            id: a.id,
-            firstName: a.firstName,
-            lastName: a.lastName,
-            name: a.name,
-          });
-        }
-        if (a.image) {
-          console.log('[NetworkingScreen] Attendee has image URL:', { id: a.id, imageUrl: a.image.substring(0, 60) + '...' });
-        }
       });
     } catch (error) {
       console.error('[NetworkingScreen] Error loading attendees:', error);
@@ -279,12 +260,18 @@ export default function NetworkingScreen() {
 
   const sendMessage = (attendee: Attendee) => {
     setSelectedAttendee(null);
+    
+    if (!attendee.email) {
+      console.warn('[NetworkingScreen] Cannot message attendee without email:', attendee.id);
+      return;
+    }
+    
     const encodedName = encodeURIComponent(attendee.name || '');
-    console.log('[NetworkingScreen] Opening messages with attendee:', attendee.id, attendee.name);
-    router.push(`/messages?recipientId=${attendee.id}&recipientName=${encodedName}`);
+    const encodedEmail = encodeURIComponent(attendee.email);
+    console.log('[NetworkingScreen] Opening messages with attendee:', attendee.email, attendee.name);
+    router.push(`/messages?recipientId=${encodedEmail}&recipientName=${encodedName}`);
   };
 
-  // Filter attendees by search query
   const filteredAttendees = useMemo(() => {
     if (searchQuery.trim() === '') return attendees;
     
@@ -308,7 +295,6 @@ export default function NetworkingScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-      {/* Info Card */}
       {!loading && attendees.length > 0 && (
         <View style={[styles.infoCard, { backgroundColor: appColors.card }]}>
           <IconSymbol
@@ -323,7 +309,6 @@ export default function NetworkingScreen() {
         </View>
       )}
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
           <IconSymbol
@@ -421,7 +406,6 @@ export default function NetworkingScreen() {
         )}
       </ScrollView>
 
-      {/* Attendee Detail Modal */}
       <Modal
         visible={selectedAttendee !== null}
         transparent
@@ -465,7 +449,6 @@ export default function NetworkingScreen() {
                 )}
               </View>
 
-              {/* Contact Information */}
               <View style={styles.modalSection}>
                 <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                   Contact Information

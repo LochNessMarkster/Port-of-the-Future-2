@@ -1,7 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiGet } from '@/utils/api';
 import { useAuth } from './AuthContext';
+
+const AIRTABLE_BASE_URL = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tbltP0MT3ed7Kp6fr';
+const AIRTABLE_TOKEN = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
 
 interface NotificationContextType {
   unreadMessageCount: number;
@@ -27,31 +29,51 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const refreshUnreadCount = useCallback(async () => {
-    if (!user) {
+    if (!user?.email) {
       setUnreadMessageCount(0);
       setPreviousCount(0);
       return;
     }
 
     try {
-      console.log('[NotificationContext] Fetching unread message count...');
-      const data = await apiGet<{ count: number }>('/api/messages/unread-count');
-      console.log('[NotificationContext] Unread count:', data.count);
+      console.log('[NotificationContext] Fetching unread message count from Airtable...');
+      
+      // Build filter formula: {To}='user@email.com' AND {Read}=FALSE()
+      const filterFormula = `AND({To}='${user.email}', {Read}=FALSE())`;
+      const encodedFormula = encodeURIComponent(filterFormula);
+      const url = `${AIRTABLE_BASE_URL}?filterByFormula=${encodedFormula}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${AIRTABLE_TOKEN}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[NotificationContext] Airtable fetch error:', response.status, errorText);
+        throw new Error(`Failed to fetch unread count: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const count = data.records?.length || 0;
+      
+      console.log('[NotificationContext] Unread count:', count);
       
       // Show toast if count increased (new message received)
-      if (data.count > previousCount && previousCount > 0) {
-        const newMessages = data.count - previousCount;
+      if (count > previousCount && previousCount > 0) {
+        const newMessages = count - previousCount;
         const messageText = newMessages === 1 ? 'You have a new message' : `You have ${newMessages} new messages`;
         showToast(messageText);
       }
       
-      setPreviousCount(data.count);
-      setUnreadMessageCount(data.count);
+      setPreviousCount(count);
+      setUnreadMessageCount(count);
     } catch (error) {
       console.error('[NotificationContext] Error fetching unread count:', error);
       setUnreadMessageCount(0);
     }
-  }, [user, previousCount, showToast]);
+  }, [user?.email, previousCount, showToast]);
 
   // Poll for unread messages every 30 seconds when user is logged in
   useEffect(() => {
