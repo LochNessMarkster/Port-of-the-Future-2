@@ -336,6 +336,36 @@ async function fetchAllAirtableRecords(baseUrl: string, authHeader: string): Pro
   return allRecords;
 }
 
+/**
+ * Upload image to Cloudinary with correct FormData formatting
+ */
+const uploadImage = async (imageUri: string): Promise<string> => {
+  const formData = new FormData();
+  const uriParts = imageUri.split('.');
+  const fileType = uriParts[uriParts.length - 1];
+  
+  formData.append('file', {
+    uri: imageUri,
+    name: 'profile.jpg',
+    type: 'image/' + (fileType === 'png' ? 'png' : 'jpeg')
+  } as any);
+  
+  formData.append('upload_preset', 'POF-app');
+  
+  const response = await fetch('https://api.cloudinary.com/v1_1/dwfnlugp3/image/upload', {
+    method: 'POST',
+    body: formData
+  });
+  
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.error?.message || 'Cloudinary upload failed');
+  }
+  
+  return data.secure_url;
+};
+
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -493,49 +523,9 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Upload to Cloudinary with correctly formatted FormData
+      // Upload to Cloudinary using the correct upload function
       console.log('🔵 Starting Cloudinary upload...');
-      const cloudinaryFormData = new FormData();
-      
-      // CRITICAL: Format the file object correctly with uri, type, and name
-      cloudinaryFormData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'photo.jpg',
-      } as any);
-      
-      // CRITICAL: Include upload_preset for unsigned upload
-      cloudinaryFormData.append('upload_preset', 'POF-app');
-
-      console.log('🔵 Uploading to Cloudinary with uri:', imageUri);
-      console.log('🔵 Upload preset: POF-app');
-
-      // CRITICAL FIX: Do NOT set Content-Type header manually
-      // Let fetch set it automatically with the correct boundary parameter
-      const cloudinaryResponse = await fetch('https://api.cloudinary.com/v1_1/dwfnlugp3/image/upload', {
-        method: 'POST',
-        body: cloudinaryFormData,
-        // NO Content-Type header - fetch will set it automatically for FormData
-      });
-
-      const cloudinaryData = await cloudinaryResponse.json();
-      console.log('🔵 Cloudinary response status:', cloudinaryResponse.status);
-      console.log('🔵 Cloudinary response body:', JSON.stringify(cloudinaryData, null, 2));
-
-      if (!cloudinaryResponse.ok) {
-        const errorMsg = cloudinaryData.error?.message || `Cloudinary upload failed with status ${cloudinaryResponse.status}`;
-        console.error('ProfileScreen - Cloudinary error:', errorMsg);
-        showError(`Cloudinary upload failed: ${errorMsg}`);
-        return;
-      }
-
-      if (!cloudinaryData.secure_url) {
-        console.error('ProfileScreen - No secure_url in Cloudinary response');
-        showError('Cloudinary upload succeeded but no image URL was returned.');
-        return;
-      }
-
-      const publicImageUrl = cloudinaryData.secure_url;
+      const publicImageUrl = await uploadImage(imageUri);
       console.log('ProfileScreen - ✅ Image uploaded to Cloudinary:', publicImageUrl);
 
       // Update Airtable record
