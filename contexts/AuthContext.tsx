@@ -2,11 +2,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { authClient } from '@/lib/auth';
-import { getBearerToken, setBearerToken, clearAuthTokens, authenticatedPost } from '@/utils/api';
+import { getBearerToken, setBearerToken, clearAuthTokens } from '@/utils/api';
 import * as SecureStore from 'expo-secure-store';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://uufwc6w3behkdb57y7ptup24r75vc4rq.app.specular.dev';
 const AIRTABLE_RECORD_ID_KEY = 'airtableRecordId';
+const AIRTABLE_BASE_URL = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
+const AIRTABLE_TOKEN = 'Bearer patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
 
 interface User {
   id: string;
@@ -33,27 +35,92 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Normalize email for consistent comparison
+ */
+function normalizeEmail(email: string): string {
+  return email
+    .toLowerCase()
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
+    .replace(/[^\x20-\x7E]/g, ''); // Remove non-printable ASCII characters
+}
+
+/**
+ * Fetch all records from Airtable with pagination support
+ */
+async function fetchAllAirtableRecords(baseUrl: string, authHeader: string): Promise<any[]> {
+  let allRecords: any[] = [];
+  let offset: string | undefined = undefined;
+  let pageCount = 0;
+
+  do {
+    pageCount++;
+    const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
+    console.log(`AuthContext - Fetching Airtable page ${pageCount}${offset ? ` (offset: ${offset})` : ''}`);
+    
+    const response = await fetch(url, { 
+      headers: { Authorization: authHeader } 
+    });
+    
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`Airtable API error (status ${response.status}): ${JSON.stringify(data)}`);
+    }
+
+    allRecords = allRecords.concat(data.records);
+    offset = data.offset;
+    console.log(`AuthContext - Page ${pageCount}: fetched ${data.records.length} records`);
+  } while (offset);
+
+  console.log(`AuthContext - ✅ Total: ${allRecords.length} records across ${pageCount} pages`);
+  return allRecords;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   /**
-   * Fetch and store Airtable record ID for the user
+   * Fetch and store Airtable record ID for the user by matching email
+   * This function fetches ALL records from Airtable with pagination support
    */
-  const fetchAndStoreAirtableRecordId = async () => {
-    console.log('AuthContext - Fetching Airtable record ID');
+  const fetchAndStoreAirtableRecordId = async (userEmail: string) => {
+    console.log('AuthContext - Fetching Airtable record ID for email:', userEmail);
+    
     try {
-      const response = await authenticatedPost<{ airtableRecordId: string | null }>('/api/registration/get-airtable-record-id', {});
+      // Fetch all records from Airtable with pagination
+      const allRecords = await fetchAllAirtableRecords(AIRTABLE_BASE_URL, AIRTABLE_TOKEN);
       
-      if (response.airtableRecordId) {
-        console.log('AuthContext - Storing Airtable record ID:', response.airtableRecordId);
-        if (Platform.OS === 'web') {
-          localStorage.setItem(AIRTABLE_RECORD_ID_KEY, response.airtableRecordId);
-        } else {
-          await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, response.airtableRecordId);
+      // Normalize the user's email for comparison
+      const normalizedUserEmail = normalizeEmail(userEmail);
+      console.log('AuthContext - Normalized user email:', normalizedUserEmail);
+      
+      // Find matching record by email
+      let matchedRecord = null;
+      for (const record of allRecords) {
+        const recordEmail = record.fields?.Email || record.fields?.email || '';
+        const normalizedRecordEmail = normalizeEmail(recordEmail);
+        
+        if (normalizedRecordEmail === normalizedUserEmail) {
+          matchedRecord = record;
+          console.log(`AuthContext - ✅ Matched Airtable record ID: ${record.id} for email: ${userEmail}`);
+          break;
         }
+      }
+      
+      if (matchedRecord) {
+        // Store the Airtable record ID
+        if (Platform.OS === 'web') {
+          localStorage.setItem(AIRTABLE_RECORD_ID_KEY, matchedRecord.id);
+        } else {
+          await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, matchedRecord.id);
+        }
+        console.log('AuthContext - Airtable record ID stored successfully');
       } else {
-        console.log('AuthContext - No Airtable record found for user');
+        console.warn('AuthContext - No Airtable record found for email:', userEmail);
+        console.warn('AuthContext - User may not be registered in the Airtable attendees table');
       }
     } catch (error) {
       console.error('AuthContext - Error fetching Airtable record ID:', error);
@@ -78,8 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
       setLoading(false);
       
-      // Fetch and store Airtable record ID
-      await fetchAndStoreAirtableRecordId();
+      // Fetch and store Airtable record ID by matching email
+      await fetchAndStoreAirtableRecordId(userData.email);
       
       // Small delay to ensure state propagates before navigation
       await new Promise<void>((resolve) => setTimeout(resolve, 200));
@@ -123,8 +190,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log('AuthContext - User profile fetched successfully via bearer token:', user.email);
             setUser(user);
             
-            // Fetch and store Airtable record ID
-            await fetchAndStoreAirtableRecordId();
+            // Fetch and store Airtable record ID by matching email
+            await fetchAndStoreAirtableRecordId(user.email);
             
             setLoading(false);
             return;
@@ -148,8 +215,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('AuthContext - User authenticated via Better Auth session:', session.data.user.email);
           setUser(session.data.user as User);
           
-          // Fetch and store Airtable record ID
-          await fetchAndStoreAirtableRecordId();
+          // Fetch and store Airtable record ID by matching email
+          await fetchAndStoreAirtableRecordId(session.data.user.email);
           
           setLoading(false);
           return;
@@ -173,8 +240,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log('AuthContext - User profile fetched successfully via cookies:', user.email);
             setUser(user);
             
-            // Fetch and store Airtable record ID
-            await fetchAndStoreAirtableRecordId();
+            // Fetch and store Airtable record ID by matching email
+            await fetchAndStoreAirtableRecordId(user.email);
             
             setLoading(false);
             return;

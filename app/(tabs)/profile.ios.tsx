@@ -261,6 +261,49 @@ function resolveImageSource(uri: string | null | undefined) {
   return uri;
 }
 
+/**
+ * Normalize email for consistent comparison
+ */
+function normalizeEmail(email: string): string {
+  return email
+    .toLowerCase()
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
+    .replace(/[^\x20-\x7E]/g, ''); // Remove non-printable ASCII characters
+}
+
+/**
+ * Fetch all records from Airtable with pagination support
+ */
+async function fetchAllAirtableRecords(baseUrl: string, authHeader: string): Promise<any[]> {
+  let allRecords: any[] = [];
+  let offset: string | undefined = undefined;
+  let pageCount = 0;
+
+  do {
+    pageCount++;
+    const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
+    console.log(`ProfileScreen - Fetching Airtable page ${pageCount}${offset ? ` (offset: ${offset})` : ''}`);
+    
+    const response = await fetch(url, { 
+      headers: { Authorization: authHeader } 
+    });
+    
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`Airtable API error (status ${response.status}): ${JSON.stringify(data)}`);
+    }
+
+    allRecords = allRecords.concat(data.records);
+    offset = data.offset;
+    console.log(`ProfileScreen - Page ${pageCount}: fetched ${data.records.length} records`);
+  } while (offset);
+
+  console.log(`ProfileScreen - ✅ Total: ${allRecords.length} records across ${pageCount} pages`);
+  return allRecords;
+}
+
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -299,6 +342,53 @@ export default function ProfileScreen() {
     }
   };
 
+  /**
+   * Fetch and store Airtable record ID by matching user email
+   * This is called if the record ID is missing before photo upload
+   */
+  const fetchAndStoreAirtableRecordId = async (userEmail: string): Promise<string | null> => {
+    console.log('ProfileScreen - Fetching Airtable record ID for email:', userEmail);
+    
+    try {
+      // Fetch all records from Airtable with pagination
+      const allRecords = await fetchAllAirtableRecords(AIRTABLE_BASE_URL, AIRTABLE_TOKEN);
+      
+      // Normalize the user's email for comparison
+      const normalizedUserEmail = normalizeEmail(userEmail);
+      console.log('ProfileScreen - Normalized user email:', normalizedUserEmail);
+      
+      // Find matching record by email
+      let matchedRecord = null;
+      for (const record of allRecords) {
+        const recordEmail = record.fields?.Email || record.fields?.email || '';
+        const normalizedRecordEmail = normalizeEmail(recordEmail);
+        
+        if (normalizedRecordEmail === normalizedUserEmail) {
+          matchedRecord = record;
+          console.log(`ProfileScreen - ✅ Matched Airtable record ID: ${record.id} for email: ${userEmail}`);
+          break;
+        }
+      }
+      
+      if (matchedRecord) {
+        // Store the Airtable record ID
+        if (Platform.OS === 'web') {
+          localStorage.setItem(AIRTABLE_RECORD_ID_KEY, matchedRecord.id);
+        } else {
+          await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, matchedRecord.id);
+        }
+        console.log('ProfileScreen - Airtable record ID stored successfully');
+        return matchedRecord.id;
+      } else {
+        console.warn('ProfileScreen - No Airtable record found for email:', userEmail);
+        return null;
+      }
+    } catch (error) {
+      console.error('ProfileScreen - Error fetching Airtable record ID:', error);
+      return null;
+    }
+  };
+
   const loadProfile = async () => {
     console.log('ProfileScreen - Loading profile');
     setLoading(true);
@@ -316,6 +406,11 @@ export default function ProfileScreen() {
   const pickAndUploadPhoto = async () => {
     console.log('ProfileScreen - User tapped edit photo button');
     
+    if (!profile) {
+      alert('Profile not loaded. Please try again.');
+      return;
+    }
+
     // Request permissions
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -343,12 +438,18 @@ export default function ProfileScreen() {
 
     try {
       // Get stored Airtable record ID
-      const airtableRecordId = await getStoredAirtableRecordId();
-      console.log('ProfileScreen - Airtable record ID:', airtableRecordId);
+      let airtableRecordId = await getStoredAirtableRecordId();
+      console.log('ProfileScreen - Stored Airtable record ID:', airtableRecordId);
+
+      // If no record ID is stored, fetch it from Airtable by matching email
+      if (!airtableRecordId) {
+        console.log('ProfileScreen - No stored record ID, fetching from Airtable...');
+        airtableRecordId = await fetchAndStoreAirtableRecordId(profile.email);
+      }
 
       if (!airtableRecordId) {
-        console.error('ProfileScreen - No Airtable record ID found');
-        alert('Unable to upload photo: Your profile is not linked to an Airtable record. Please contact support.');
+        console.error('ProfileScreen - No Airtable record ID found after fetch attempt');
+        alert('Unable to upload photo: Your profile is not linked to an Airtable record. Please make sure you registered with the same email address used for the conference.');
         return;
       }
 
