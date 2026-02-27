@@ -21,6 +21,7 @@ import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles
 import { apiPost } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { IconSymbol } from "@/components/IconSymbol";
+import * as SecureStore from 'expo-secure-store';
 
 /**
  * Registration Screen
@@ -47,6 +48,8 @@ interface AttendeeData {
   registrationLevel?: string;
 }
 
+const AIRTABLE_RECORD_ID_KEY = 'airtableRecordId';
+
 export default function RegisterScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -68,6 +71,7 @@ export default function RegisterScreen() {
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [attendeeData, setAttendeeData] = useState<AttendeeData | null>(null);
+  const [airtableRecordId, setAirtableRecordId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showSuccessWithSettings, setShowSuccessWithSettings] = useState(false);
@@ -95,12 +99,13 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       console.log('[API] Checking email in Airtable:', email);
-      const response = await apiPost<{ exists: boolean; attendeeData?: AttendeeData }>('/api/registration/check-email', { email });
+      const response = await apiPost<{ exists: boolean; airtableRecordId?: string; attendeeData?: AttendeeData }>('/api/registration/check-email', { email });
       console.log('RegisterScreen - Email check result:', response);
       
       if (response.exists && response.attendeeData) {
         console.log('RegisterScreen - Email found in Airtable, prepopulating data');
         setAttendeeData(response.attendeeData);
+        setAirtableRecordId(response.airtableRecordId || null);
         
         // Prepopulate form fields with Airtable data
         const fullName = `${response.attendeeData.firstName || ''} ${response.attendeeData.lastName || ''}`.trim();
@@ -146,7 +151,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      console.log('[API] Creating account for:', email);
+      console.log('[API] Creating account for:', email, 'with Airtable ID:', airtableRecordId);
       const response = await apiPost<{
         user: {
           id: string;
@@ -156,6 +161,7 @@ export default function RegisterScreen() {
           title: string | null;
           phone: string | null;
           emailVerified: boolean;
+          airtableRecordId: string | null;
         };
         token: string;
       }>('/api/registration/create-account', {
@@ -166,6 +172,7 @@ export default function RegisterScreen() {
         title: title.trim() || undefined,
         phone: phone.trim() || undefined,
         linkedin: linkedin.trim() || undefined,
+        airtableRecordId: airtableRecordId || undefined,
       });
 
       console.log('RegisterScreen - Account created successfully');
@@ -178,6 +185,16 @@ export default function RegisterScreen() {
       }
 
       console.log('RegisterScreen - Token received successfully, length:', response.token.length);
+
+      // Store Airtable record ID locally if available
+      if (response.user.airtableRecordId) {
+        console.log('RegisterScreen - Storing Airtable record ID:', response.user.airtableRecordId);
+        if (Platform.OS === 'web') {
+          localStorage.setItem(AIRTABLE_RECORD_ID_KEY, response.user.airtableRecordId);
+        } else {
+          await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, response.user.airtableRecordId);
+        }
+      }
 
       // Authenticate the user with the returned token
       await setUserFromToken(
@@ -508,6 +525,7 @@ export default function RegisterScreen() {
                     setPassword("");
                     setConfirmPassword("");
                     setAttendeeData(null);
+                    setAirtableRecordId(null);
                   }}
                   disabled={loading}
                 >

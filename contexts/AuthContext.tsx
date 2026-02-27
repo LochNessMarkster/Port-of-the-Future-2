@@ -2,9 +2,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { authClient } from '@/lib/auth';
-import { getBearerToken, setBearerToken, clearAuthTokens } from '@/utils/api';
+import { getBearerToken, setBearerToken, clearAuthTokens, authenticatedPost } from '@/utils/api';
+import * as SecureStore from 'expo-secure-store';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://uufwc6w3behkdb57y7ptup24r75vc4rq.app.specular.dev';
+const AIRTABLE_RECORD_ID_KEY = 'airtableRecordId';
 
 interface User {
   id: string;
@@ -36,6 +38,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   /**
+   * Fetch and store Airtable record ID for the user
+   */
+  const fetchAndStoreAirtableRecordId = async () => {
+    console.log('AuthContext - Fetching Airtable record ID');
+    try {
+      const response = await authenticatedPost<{ airtableRecordId: string | null }>('/api/registration/get-airtable-record-id', {});
+      
+      if (response.airtableRecordId) {
+        console.log('AuthContext - Storing Airtable record ID:', response.airtableRecordId);
+        if (Platform.OS === 'web') {
+          localStorage.setItem(AIRTABLE_RECORD_ID_KEY, response.airtableRecordId);
+        } else {
+          await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, response.airtableRecordId);
+        }
+      } else {
+        console.log('AuthContext - No Airtable record found for user');
+      }
+    } catch (error) {
+      console.error('AuthContext - Error fetching Airtable record ID:', error);
+      // Non-critical error, continue without Airtable ID
+    }
+  };
+
+  /**
    * Set user from token (used after registration/login)
    * Stores the token and sets the user state
    */
@@ -51,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Set user state
       setUser(userData);
       setLoading(false);
+      
+      // Fetch and store Airtable record ID
+      await fetchAndStoreAirtableRecordId();
       
       // Small delay to ensure state propagates before navigation
       await new Promise<void>((resolve) => setTimeout(resolve, 200));
@@ -93,6 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const user = await profileResponse.json();
             console.log('AuthContext - User profile fetched successfully via bearer token:', user.email);
             setUser(user);
+            
+            // Fetch and store Airtable record ID
+            await fetchAndStoreAirtableRecordId();
+            
             setLoading(false);
             return;
           } else {
@@ -114,6 +147,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.data?.user) {
           console.log('AuthContext - User authenticated via Better Auth session:', session.data.user.email);
           setUser(session.data.user as User);
+          
+          // Fetch and store Airtable record ID
+          await fetchAndStoreAirtableRecordId();
+          
           setLoading(false);
           return;
         }
@@ -135,6 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const user = await cookieProfileResponse.json();
             console.log('AuthContext - User profile fetched successfully via cookies:', user.email);
             setUser(user);
+            
+            // Fetch and store Airtable record ID
+            await fetchAndStoreAirtableRecordId();
+            
             setLoading(false);
             return;
           }
@@ -219,6 +260,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuthTokens().catch((error) => {
       console.error('AuthContext - Error clearing auth tokens:', error);
     });
+    
+    // Clear Airtable record ID
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(AIRTABLE_RECORD_ID_KEY);
+    } else {
+      SecureStore.deleteItemAsync(AIRTABLE_RECORD_ID_KEY).catch((error) => {
+        console.error('AuthContext - Error clearing Airtable record ID:', error);
+      });
+    }
   };
 
   // Fetch user on mount
