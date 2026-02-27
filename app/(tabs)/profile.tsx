@@ -295,19 +295,44 @@ function resolveImageSource(uri: string | null | undefined) {
 
 /**
  * Upload image to Cloudinary with correct FormData formatting
+ * Handles both native (file URI) and web (blob URL) platforms
  */
 const uploadImage = async (imageUri: string): Promise<string> => {
+  console.log('uploadImage - Platform:', Platform.OS);
   console.log('uploadImage - imageUri type:', typeof imageUri, 'value:', imageUri);
   
   const formData = new FormData();
-  const uriParts = imageUri.split('.');
-  const fileType = uriParts[uriParts.length - 1];
   
-  formData.append('file', {
-    uri: imageUri,
-    name: 'profile.jpg',
-    type: 'image/' + (fileType === 'png' ? 'png' : 'jpeg')
-  } as any);
+  if (Platform.OS === 'web') {
+    // On web, we need to convert the blob URL to a File object
+    console.log('uploadImage - Web platform detected, converting blob to File');
+    
+    try {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      console.log('uploadImage - Blob created, type:', blob.type, 'size:', blob.size);
+      
+      // Create a File object from the blob
+      const file = new File([blob], 'profile.jpg', { type: blob.type || 'image/jpeg' });
+      console.log('uploadImage - File created, name:', file.name, 'type:', file.type);
+      
+      formData.append('file', file);
+    } catch (error) {
+      console.error('uploadImage - Error converting blob to File:', error);
+      throw new Error('Failed to process image for upload');
+    }
+  } else {
+    // On native platforms, use the URI directly
+    console.log('uploadImage - Native platform detected, using URI directly');
+    const uriParts = imageUri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
+    
+    formData.append('file', {
+      uri: imageUri,
+      name: 'profile.jpg',
+      type: 'image/' + (fileType === 'png' ? 'png' : 'jpeg')
+    } as any);
+  }
   
   formData.append('upload_preset', 'POF-app');
   
