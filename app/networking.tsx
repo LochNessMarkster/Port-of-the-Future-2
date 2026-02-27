@@ -36,7 +36,8 @@ interface Attendee {
 
 function resolveImageSource(source: string | null | undefined) {
   if (!source) return require('@/assets/images/POF-ICON.png');
-  return { uri: source, cache: 'reload' as const };
+  if (typeof source === 'string') return { uri: source };
+  return source;
 }
 
 const styles = StyleSheet.create({
@@ -241,14 +242,24 @@ export default function NetworkingScreen() {
       setLoading(true);
       console.log('[NetworkingScreen] Fetching attendees in networking directory...');
       const data = await apiGet<Attendee[]>('/api/attendees');
+      
+      // Log image data for debugging
+      console.log('[NetworkingScreen] Sample attendee image data:', data.slice(0, 3).map(a => ({
+        name: a.name,
+        hasImage: !!a.image,
+        imageValue: a.image
+      })));
+      
       setAttendees(data);
       console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees in directory');
       
       const optedInCount = data.filter(a => a.optInNetworking === 'YES').length;
+      const withImages = data.filter(a => a.image).length;
       console.log('[NetworkingScreen] Opt-in breakdown:', {
         total: data.length,
         optedIn: optedInCount,
-        notOptedIn: data.length - optedInCount
+        notOptedIn: data.length - optedInCount,
+        withImages: withImages
       });
     } catch (error) {
       console.error('[NetworkingScreen] Error loading attendees:', error);
@@ -391,43 +402,46 @@ export default function NetworkingScreen() {
             </Text>
           </View>
         ) : (
-          filteredAttendees.map((attendee) => (
-            <TouchableOpacity
-              key={attendee.id}
-              style={[styles.attendeeCard, { backgroundColor: appColors.card }]}
-              onPress={() => setSelectedAttendee(attendee)}
-              activeOpacity={0.7}
-            >
-              <Image
-                key={attendee.image || attendee.id}
-                source={resolveImageSource(attendee.image)}
-                style={styles.attendeeImage}
-              />
-              <View style={styles.attendeeInfo}>
-                <Text style={[styles.attendeeName, { color: appColors.text }]}>
-                  {attendee.name || [attendee.firstName, attendee.lastName].filter(Boolean).join(' ') || 'Unknown Attendee'}
-                </Text>
-                {attendee.title && attendee.company && (
-                  <Text style={[styles.attendeeTitle, { color: appColors.textSecondary }]}>
-                    {attendee.title} at {attendee.company}
+          filteredAttendees.map((attendee) => {
+            const imageSource = resolveImageSource(attendee.image);
+            
+            return (
+              <TouchableOpacity
+                key={attendee.id}
+                style={[styles.attendeeCard, { backgroundColor: appColors.card }]}
+                onPress={() => setSelectedAttendee(attendee)}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={imageSource}
+                  style={styles.attendeeImage}
+                />
+                <View style={styles.attendeeInfo}>
+                  <Text style={[styles.attendeeName, { color: appColors.text }]}>
+                    {attendee.name || [attendee.firstName, attendee.lastName].filter(Boolean).join(' ') || 'Unknown Attendee'}
                   </Text>
-                )}
-                {attendee.optInNetworking === 'YES' && (
-                  <View style={styles.optInBadge}>
-                    <IconSymbol
-                      ios_icon_name="checkmark.circle.fill"
-                      android_material_icon_name="check-circle"
-                      size={14}
-                      color="#4CAF50"
-                    />
-                    <Text style={[styles.optInBadgeText, { color: '#4CAF50' }]}>
-                      Open to networking
+                  {attendee.title && attendee.company && (
+                    <Text style={[styles.attendeeTitle, { color: appColors.textSecondary }]}>
+                      {attendee.title} at {attendee.company}
                     </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))
+                  )}
+                  {attendee.optInNetworking === 'YES' && (
+                    <View style={styles.optInBadge}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={14}
+                        color="#4CAF50"
+                      />
+                      <Text style={[styles.optInBadgeText, { color: '#4CAF50' }]}>
+                        Open to networking
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
 
@@ -460,7 +474,6 @@ export default function NetworkingScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeader}>
                 <Image
-                  key={selectedAttendee?.image || selectedAttendee?.id}
                   source={resolveImageSource(selectedAttendee?.image)}
                   style={styles.modalImage}
                 />

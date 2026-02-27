@@ -12,7 +12,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
-  Pressable
+  Pressable,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -21,6 +22,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 
 const AIRTABLE_BASE_URL = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tbltP0MT3ed7Kp6fr';
+const AIRTABLE_REGISTRANTS_BASE_URL = 'https://api.airtable.com/v0/appcNhRl5vEqug2D1/tblQhLaWbOSI0t7iX';
 const AIRTABLE_TOKEN = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
 
 interface AirtableMessage {
@@ -40,6 +42,15 @@ interface AirtableResponse {
   offset?: string;
 }
 
+interface AirtableRegistrant {
+  id: string;
+  fields: {
+    'First Name'?: string;
+    'Last Name'?: string;
+    Email?: string;
+  };
+}
+
 interface Message {
   id: string;
   from: string;
@@ -51,9 +62,16 @@ interface Message {
 
 interface Conversation {
   otherUserEmail: string;
+  otherUserName: string;
   lastMessage: string;
   lastTimestamp: string;
   unreadCount: number;
+  hasUnread: boolean;
+}
+
+function resolveImageSource(source: string | null | undefined) {
+  if (!source) return require('@/assets/images/POF-ICON.png');
+  return { uri: source };
 }
 
 const styles = StyleSheet.create({
@@ -73,6 +91,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  threadCardUnread: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF6B6B',
+  },
+  threadImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: spacing.md,
+    backgroundColor: '#f0f0f0',
+  },
+  threadContent: {
+    flex: 1,
   },
   threadHeader: {
     flexDirection: 'row',
@@ -82,6 +116,14 @@ const styles = StyleSheet.create({
   },
   threadName: {
     ...typography.h3,
+    flex: 1,
+  },
+  unreadIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FF6B6B',
+    marginLeft: spacing.sm,
   },
   unreadBadge: {
     backgroundColor: '#FF6B6B',
@@ -91,6 +133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xs,
+    marginLeft: spacing.sm,
   },
   unreadBadgeText: {
     color: '#FFFFFF',
@@ -230,6 +273,67 @@ export default function MessagesScreen() {
   const [sending, setSending] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [registrantsCache, setRegistrantsCache] = useState<Map<string, { firstName: string; lastName: string }>>(new Map());
+
+  // Fetch ALL registrants from Airtable with pagination
+  const fetchRegistrants = async (): Promise<Map<string, { firstName: string; lastName: string }>> => {
+    try {
+      console.log('[MessagesScreen] Fetching ALL registrants from Airtable with pagination...');
+      
+      let allRecords: AirtableRegistrant[] = [];
+      let offset: string | undefined = undefined;
+      let pageCount = 0;
+
+      do {
+        pageCount++;
+        const url = offset 
+          ? `${AIRTABLE_REGISTRANTS_BASE_URL}?offset=${offset}` 
+          : AIRTABLE_REGISTRANTS_BASE_URL;
+        
+        console.log(`[MessagesScreen] Fetching registrants page ${pageCount}${offset ? ` with offset: ${offset}` : ''}`);
+
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_TOKEN}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[MessagesScreen] Airtable registrants fetch error (page ${pageCount}):`, response.status, errorText);
+          throw new Error(`Failed to fetch registrants: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        console.log(`[MessagesScreen] Registrants page ${pageCount} fetched ${data.records.length} records`);
+        allRecords = allRecords.concat(data.records);
+        
+        offset = data.offset;
+        
+      } while (offset);
+
+      console.log(`[MessagesScreen] ✅ Registrants pagination complete! Fetched ${allRecords.length} total registrants across ${pageCount} pages`);
+      
+      // Build a map of email -> { firstName, lastName }
+      const registrantsMap = new Map<string, { firstName: string; lastName: string }>();
+      allRecords.forEach((record) => {
+        const email = record.fields.Email?.toLowerCase().trim();
+        const firstName = record.fields['First Name'] || '';
+        const lastName = record.fields['Last Name'] || '';
+        
+        if (email) {
+          registrantsMap.set(email, { firstName, lastName });
+        }
+      });
+
+      console.log(`[MessagesScreen] Built registrants map with ${registrantsMap.size} entries`);
+      return registrantsMap;
+    } catch (error) {
+      console.error('[MessagesScreen] Error fetching registrants:', error);
+      return new Map();
+    }
+  };
 
   // Fetch ALL messages from Airtable with pagination
   const fetchMessages = async (): Promise<Message[]> => {
@@ -240,7 +344,6 @@ export default function MessagesScreen() {
       let offset: string | undefined = undefined;
       let pageCount = 0;
 
-      // Keep fetching until there's no offset (all pages retrieved)
       do {
         pageCount++;
         const url = offset 
@@ -266,7 +369,6 @@ export default function MessagesScreen() {
         console.log(`[MessagesScreen] Page ${pageCount} fetched ${data.records.length} records`);
         allRecords = allRecords.concat(data.records);
         
-        // Check if there's another page
         offset = data.offset;
         
       } while (offset);
@@ -300,6 +402,10 @@ export default function MessagesScreen() {
       setLoading(true);
       console.log('[MessagesScreen] Loading conversations for:', user.email);
       
+      // Fetch registrants first to get names
+      const registrantsMap = await fetchRegistrants();
+      setRegistrantsCache(registrantsMap);
+      
       const allMessages = await fetchMessages();
       
       // Filter messages where user is sender or recipient
@@ -312,6 +418,7 @@ export default function MessagesScreen() {
       
       userMessages.forEach((msg) => {
         const otherUserEmail = msg.from === user.email ? msg.to : msg.from;
+        const otherUserEmailLower = otherUserEmail.toLowerCase().trim();
         
         const existing = conversationMap.get(otherUserEmail);
         const msgTimestamp = new Date(msg.timestamp).getTime();
@@ -321,21 +428,37 @@ export default function MessagesScreen() {
             (m) => m.from === otherUserEmail && m.to === user.email && !m.read
           ).length;
           
+          // Look up the sender's name from registrants
+          const registrant = registrantsMap.get(otherUserEmailLower);
+          const firstName = registrant?.firstName || '';
+          const lastName = registrant?.lastName || '';
+          const fullName = [firstName, lastName].filter(Boolean).join(' ') || otherUserEmail;
+          
           conversationMap.set(otherUserEmail, {
             otherUserEmail,
+            otherUserName: fullName,
             lastMessage: msg.message,
             lastTimestamp: msg.timestamp,
             unreadCount,
+            hasUnread: unreadCount > 0,
           });
         }
       });
 
-      const conversationList = Array.from(conversationMap.values()).sort(
-        (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
-      );
+      const conversationList = Array.from(conversationMap.values());
+      
+      // Sort: unread conversations first, then by timestamp
+      conversationList.sort((a, b) => {
+        // First, sort by unread status (unread first)
+        if (a.hasUnread && !b.hasUnread) return -1;
+        if (!a.hasUnread && b.hasUnread) return 1;
+        
+        // Then sort by timestamp (most recent first)
+        return new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime();
+      });
 
       setConversations(conversationList);
-      console.log('[MessagesScreen] Loaded conversations:', conversationList.length);
+      console.log('[MessagesScreen] Loaded conversations:', conversationList.length, 'with unread:', conversationList.filter(c => c.hasUnread).length);
     } catch (error) {
       console.error('[MessagesScreen] Error loading conversations:', error);
       setConversations([]);
@@ -715,41 +838,51 @@ export default function MessagesScreen() {
           </Text>
         ) : (
           conversations.map((conversation, index) => {
-            const hasUnread = conversation.unreadCount > 0;
+            const hasUnread = conversation.hasUnread;
             const threadDate = formatDate(conversation.lastTimestamp);
+            const displayName = conversation.otherUserName;
 
             return (
               <TouchableOpacity
                 key={index}
-                style={[styles.threadCard, { backgroundColor: appColors.card }]}
+                style={[
+                  styles.threadCard, 
+                  { backgroundColor: appColors.card },
+                  hasUnread && styles.threadCardUnread
+                ]}
                 onPress={() => {
                   console.log('[MessagesScreen] Opening conversation with:', conversation.otherUserEmail);
-                  setConversationPartnerName(conversation.otherUserEmail);
+                  setConversationPartnerName(displayName);
                   setSelectedUserEmail(conversation.otherUserEmail);
                 }}
                 activeOpacity={0.7}
               >
-                <View style={styles.threadHeader}>
-                  <Text style={[styles.threadName, { color: appColors.text }]}>
-                    {conversation.otherUserEmail}
+                <View style={styles.threadContent}>
+                  <View style={styles.threadHeader}>
+                    <Text style={[styles.threadName, { color: appColors.text }]}>
+                      {displayName}
+                    </Text>
+                    {hasUnread ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={styles.unreadIndicator} />
+                        <View style={styles.unreadBadge}>
+                          <Text style={styles.unreadBadgeText}>
+                            {conversation.unreadCount}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text 
+                    style={[styles.threadPreview, { color: appColors.textSecondary }]}
+                    numberOfLines={2}
+                  >
+                    {conversation.lastMessage}
                   </Text>
-                  {hasUnread ? (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadBadgeText}>
-                        {conversation.unreadCount}
-                      </Text>
-                    </View>
-                  ) : null}
+                  <Text style={[styles.threadDate, { color: appColors.textSecondary }]}>
+                    {threadDate}
+                  </Text>
                 </View>
-                <Text 
-                  style={[styles.threadPreview, { color: appColors.textSecondary }]}
-                  numberOfLines={2}
-                >
-                  {conversation.lastMessage}
-                </Text>
-                <Text style={[styles.threadDate, { color: appColors.textSecondary }]}>
-                  {threadDate}
-                </Text>
               </TouchableOpacity>
             );
           })
