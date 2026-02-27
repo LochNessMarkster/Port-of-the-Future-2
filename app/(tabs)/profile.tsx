@@ -98,12 +98,6 @@ export default function ProfileScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [imageRefreshKey, setImageRefreshKey] = useState(0);
   const [airtableRecordId, setAirtableRecordId] = useState<string | null>(null);
-  
-  // Debug state
-  const [matchFound, setMatchFound] = useState<boolean>(false);
-  const [matchedRecordId, setMatchedRecordId] = useState<string>('');
-  const [record97Email, setRecord97Email] = useState<string>('');
-  const [airtableLoading, setAirtableLoading] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -132,7 +126,6 @@ export default function ProfileScreen() {
     console.log("Starting Airtable fetch...");
     
     try {
-      setAirtableLoading(true);
       console.log('ProfileScreen - Fetching Airtable records to match user email:', userEmail);
       
       const airtableUrl = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblqe1kPM95Cp4Srn';
@@ -145,7 +138,6 @@ export default function ProfileScreen() {
         },
       });
 
-      // Log raw response status and body
       const rawResponseBody = await response.text();
       console.log('Airtable API status:', response.status);
 
@@ -180,24 +172,8 @@ export default function ProfileScreen() {
       // Normalize user email for comparison
       const normalizedUserEmail = normalizeEmail(userEmail);
       console.log('ProfileScreen - Normalized user email:', `"${normalizedUserEmail}"`);
-      console.log('ProfileScreen - User email char codes:', Array.from(normalizedUserEmail).map(c => c.charCodeAt(0)));
-
-      // Get record #97's email for debugging (index 96, 0-based)
-      if (data.records.length >= 97) {
-        const record97 = data.records[96];
-        const record97RawEmail = record97.fields.Email || record97.fields.email || '';
-        setRecord97Email(`"${record97RawEmail}"`);
-        console.log('ProfileScreen - Record #97 raw email:', `"${record97RawEmail}"`);
-        console.log('ProfileScreen - Record #97 email char codes:', Array.from(String(record97RawEmail)).map(c => c.charCodeAt(0)));
-        console.log('ProfileScreen - Record #97 normalized email:', `"${normalizeEmail(record97RawEmail)}"`);
-      } else {
-        setRecord97Email('(Record #97 not found - only ' + data.records.length + ' records)');
-      }
 
       // Loop through ALL records to find a match
-      let foundMatch = false;
-      let foundRecordId = '';
-
       for (let i = 0; i < data.records.length; i++) {
         const record = data.records[i];
         
@@ -216,8 +192,6 @@ export default function ProfileScreen() {
 
           if (normalizedUserEmail === normalizedRecordEmail) {
             console.log('ProfileScreen - ✅ MATCH FOUND! Airtable record ID:', record.id);
-            foundMatch = true;
-            foundRecordId = record.id;
             
             // Store the record ID locally for future use
             if (Platform.OS === 'web') {
@@ -226,10 +200,6 @@ export default function ProfileScreen() {
               await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, record.id);
             }
             
-            // Update debug state
-            setMatchFound(true);
-            setMatchedRecordId(record.id);
-            
             return record.id;
           }
         }
@@ -237,8 +207,6 @@ export default function ProfileScreen() {
 
       // No match found
       console.error('ProfileScreen - ❌ No matching Airtable record found for email:', userEmail);
-      setMatchFound(false);
-      setMatchedRecordId('');
       
       return null;
     } catch (error: any) {
@@ -246,8 +214,6 @@ export default function ProfileScreen() {
       setErrorMessage(`API Error: ${error.message || 'Unknown error'}`);
       setErrorModalVisible(true);
       return null;
-    } finally {
-      setAirtableLoading(false);
     }
   };
 
@@ -282,9 +248,9 @@ export default function ProfileScreen() {
       setProfile(data);
       setImageRefreshKey(prev => prev + 1);
 
-      // Always fetch from Airtable to populate debug info
+      // Fetch from Airtable to get record ID
       if (data.email) {
-        console.log('ProfileScreen - Fetching from Airtable for matching and debug info');
+        console.log('ProfileScreen - Fetching from Airtable for matching');
         const fetchedRecordId = await fetchAndMatchAirtableRecord(data.email);
         
         if (fetchedRecordId) {
@@ -538,39 +504,9 @@ export default function ProfileScreen() {
   const initials = getInitials(displayName);
   const profileImageSource = resolveImageSource(profile.image);
 
-  const matchFoundText = matchFound ? 'yes' : 'no';
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* DEBUG INFO - TEMPORARY */}
-        <View style={[styles.debugSection, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
-          <Text style={[styles.debugTitle, { color: '#856404' }]}>🔍 DEBUG INFO (Temporary)</Text>
-          
-          {airtableLoading ? (
-            <ActivityIndicator size="small" color="#856404" style={{ marginVertical: 8 }} />
-          ) : (
-            <>
-              <View style={styles.debugRow}>
-                <Text style={[styles.debugLabel, { color: '#856404' }]}>Match found:</Text>
-                <Text style={[styles.debugValue, { color: '#000000' }]}>{matchFoundText}</Text>
-              </View>
-
-              {matchFound ? (
-                <View style={styles.debugRow}>
-                  <Text style={[styles.debugLabel, { color: '#856404' }]}>Matched record ID:</Text>
-                  <Text style={[styles.debugValue, { color: '#000000' }]}>{matchedRecordId}</Text>
-                </View>
-              ) : null}
-
-              <View style={styles.debugRow}>
-                <Text style={[styles.debugLabel, { color: '#856404' }]}>Record #97 email:</Text>
-                <Text style={[styles.debugValue, { color: '#000000' }]}>{record97Email}</Text>
-              </View>
-            </>
-          )}
-        </View>
-
         {/* Profile Header */}
         <View style={styles.header}>
           <View style={styles.photoContainer}>
@@ -929,29 +865,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  debugSection: {
-    margin: spacing.lg,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 2,
-  },
-  debugTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
-  debugRow: {
-    marginTop: spacing.xs,
-  },
-  debugLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  debugValue: {
-    fontSize: 13,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   header: {
     alignItems: 'center',
