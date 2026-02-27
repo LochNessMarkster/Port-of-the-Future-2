@@ -75,6 +75,11 @@ export default function AuthScreen() {
     }
   };
 
+  const handleForgotPassword = () => {
+    console.log('AuthScreen - User tapped Forgot Password');
+    router.push("/forgot-password");
+  };
+
   const inputBackgroundColor = colorScheme === 'dark' ? appColors.card : '#FFFFFF';
   const inputBorderColor = appColors.border;
 
@@ -134,6 +139,16 @@ export default function AuthScreen() {
               secureTextEntry
               autoCapitalize="none"
             />
+
+            {/* Forgot Password Link */}
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={handleForgotPassword}
+            >
+              <Text style={[styles.forgotPasswordText, { color: appColors.primary }]}>
+                Forgot Password?
+              </Text>
+            </TouchableOpacity>
 
             {/* Submit Button */}
             <TouchableOpacity
@@ -260,12 +275,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 16,
   },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  forgotPasswordText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+  },
   primaryButton: {
     height: 50,
     borderRadius: borderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   primaryButtonText: {
     color: "#FFFFFF",
