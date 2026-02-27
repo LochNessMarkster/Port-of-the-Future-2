@@ -297,6 +297,8 @@ function resolveImageSource(uri: string | null | undefined) {
  * Upload image to Cloudinary with correct FormData formatting
  */
 const uploadImage = async (imageUri: string): Promise<string> => {
+  console.log('uploadImage - imageUri type:', typeof imageUri, 'value:', imageUri);
+  
   const formData = new FormData();
   const uriParts = imageUri.split('.');
   const fileType = uriParts[uriParts.length - 1];
@@ -309,12 +311,15 @@ const uploadImage = async (imageUri: string): Promise<string> => {
   
   formData.append('upload_preset', 'POF-app');
   
+  console.log('uploadImage - Sending request to Cloudinary...');
   const response = await fetch('https://api.cloudinary.com/v1_1/dwfnlugp3/image/upload', {
     method: 'POST',
     body: formData
   });
   
   const data = await response.json();
+  console.log('uploadImage - Cloudinary response status:', response.status);
+  console.log('uploadImage - Cloudinary response data:', JSON.stringify(data, null, 2));
   
   if (!response.ok) {
     throw new Error(data.error?.message || 'Cloudinary upload failed');
@@ -401,13 +406,23 @@ export default function ProfileScreen() {
       quality: 0.7,
     });
 
+    console.log('ProfileScreen - Image picker result:', JSON.stringify(result, null, 2));
+
     if (result.canceled || !result.assets || result.assets.length === 0) {
       console.log('ProfileScreen - Image picker canceled');
       return;
     }
 
+    // CRITICAL: Extract the URI string from the result
     const imageUri = result.assets[0].uri;
-    console.log('ProfileScreen - Image selected, URI:', imageUri);
+    console.log('ProfileScreen - Extracted imageUri type:', typeof imageUri, 'value:', imageUri);
+
+    // Verify imageUri is a string
+    if (typeof imageUri !== 'string') {
+      console.error('ProfileScreen - ERROR: imageUri is not a string!', imageUri);
+      showError('Invalid image URI. Please try again.');
+      return;
+    }
 
     setUploading(true);
 
@@ -423,7 +438,7 @@ export default function ProfileScreen() {
       }
 
       // Upload to Cloudinary using the correct upload function
-      console.log('🔵 Starting Cloudinary upload...');
+      console.log('🔵 Starting Cloudinary upload with URI:', imageUri);
       const publicImageUrl = await uploadImage(imageUri);
       console.log('ProfileScreen - ✅ Image uploaded to Cloudinary:', publicImageUrl);
 
