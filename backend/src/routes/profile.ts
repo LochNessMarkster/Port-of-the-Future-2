@@ -346,4 +346,119 @@ export function registerProfileRoutes(app: App) {
       }
     }
   );
+
+  /**
+   * POST /api/profile/update-airtable - Update user profile in Airtable
+   */
+  app.fastify.post(
+    '/api/profile/update-airtable',
+    {
+      schema: {
+        description: 'Update user profile information in Airtable',
+        tags: ['profile'],
+        body: {
+          type: 'object',
+          properties: {
+            firstName: { type: 'string' },
+            lastName: { type: 'string' },
+            company: { type: 'string' },
+            title: { type: 'string' },
+            phone: { type: 'string' },
+          },
+          required: ['firstName', 'lastName', 'company', 'title', 'phone'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              error: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      const userEmail = session.user.email;
+      const { firstName, lastName, company, title, phone } = request.body as {
+        firstName?: string;
+        lastName?: string;
+        company?: string;
+        title?: string;
+        phone?: string;
+      };
+
+      app.logger.info(
+        { userId, userEmail, body: request.body },
+        'Updating user profile in Airtable'
+      );
+
+      try {
+        // Fetch attendees to find the user's Airtable record ID
+        const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+          logger: app.logger,
+        });
+
+        const attendee = attendeesData.records.find(
+          (record: AirtableRecord<AttendeeFields>) =>
+            record.fields['Email']?.toLowerCase() === userEmail.toLowerCase()
+        );
+
+        if (!attendee) {
+          app.logger.warn({ userId, userEmail }, 'Airtable record not found for user');
+          return reply.status(400).send({
+            success: false,
+            error: 'Airtable record not found for this user',
+          });
+        }
+
+        const recordId = attendee.id;
+        app.logger.info({ userId, userEmail, airtableRecordId: recordId }, 'Found Airtable record for user');
+
+        // Update the Airtable record
+        const updatedRecord = await updateAirtableRecord(
+          TABLES.ATTENDEES,
+          recordId,
+          {
+            'First Name': firstName,
+            'Last Name': lastName,
+            Company: company,
+            'Job Title': title,
+            Phone: phone,
+          } as any,
+          app.logger
+        );
+
+        app.logger.info(
+          { userId, userEmail, airtableRecordId: recordId },
+          'Successfully updated user profile in Airtable'
+        );
+
+        return {
+          success: true,
+          message: 'Profile updated in Airtable',
+        };
+      } catch (error) {
+        app.logger.error(
+          { err: error, userId, userEmail },
+          'Failed to update user profile in Airtable'
+        );
+        return reply.status(400).send({
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update profile in Airtable',
+        });
+      }
+    }
+  );
 }
