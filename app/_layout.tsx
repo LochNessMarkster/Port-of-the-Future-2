@@ -106,7 +106,7 @@ function RootLayoutInner() {
 
   // Determine if we should show the tab bar
   // Show on all screens except auth screens
-  const shouldShowTabBar = user && !pathname.includes('/auth') && pathname !== '/auth-popup' && pathname !== '/auth-callback' && pathname !== '/register' && pathname !== '/forgot-password';
+  const shouldShowTabBar = user && !pathname.includes('/auth') && pathname !== '/auth-popup' && pathname !== '/auth-callback' && pathname !== '/register';
 
   // On iOS, don't show the FloatingTabBar (native tabs are used)
   const showFloatingTabBar = shouldShowTabBar && Platform.OS !== 'ios';

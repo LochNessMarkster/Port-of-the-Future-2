@@ -20,7 +20,6 @@ import { registerCacheRoutes } from './routes/cache.js';
 import { registerActivitiesRoutes } from './routes/activities.js';
 import { registerFloorPlanRoutes } from './routes/floor-plan.js';
 import { registerRegistrationRoutes } from './routes/registration.js';
-import { registerPasswordResetRoutes } from './routes/password-reset.js';
 import { airtableCache } from './services/airtable-cache.js';
 
 const schema = { ...appSchema, ...authSchema };
@@ -60,7 +59,6 @@ registerCacheRoutes(app);
 registerActivitiesRoutes(app);
 registerFloorPlanRoutes(app);
 registerRegistrationRoutes(app);
-registerPasswordResetRoutes(app);
 
 await app.run();
 app.logger.info('Application running');

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { Platform } from "react-native";
 
-
 type Status = "processing" | "success" | "error";
 
 export default function AuthCallbackScreen() {
