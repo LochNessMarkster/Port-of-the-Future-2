@@ -101,6 +101,12 @@ export function registerAttendeesRoutes(app: App) {
           const sharePhone = userPrefs?.sharePhone ?? true;
           const shareLinkedIn = userPrefs?.shareLinkedIn ?? true;
 
+          // Extract image URL from Airtable's Image field
+          let imageUrl: string | null = null;
+          if (record.fields.Image && Array.isArray(record.fields.Image) && record.fields.Image.length > 0) {
+            imageUrl = record.fields.Image[0].url;
+          }
+
           // Debug logging for name field
           if (!name || name.length === 0) {
             app.logger.warn(
@@ -139,50 +145,15 @@ export function registerAttendeesRoutes(app: App) {
             linkedin: shareLinkedIn ? (userPrefs?.linkedin || null) : null,
             registrationLevel: record.fields['Registration Level'] || null,
             optInNetworking: record.fields['Opt In Networking'] || null,
-            imageKey: userPrefs?.image || null,
+            image: imageUrl,
           };
         });
 
-        // Convert storage keys to signed URLs for images
-        const resultWithSignedUrls = await Promise.all(
-          result.map(async (attendee) => {
-            let imageUrl: string | null = null;
-
-            if (attendee.imageKey) {
-              try {
-                const { url } = await app.storage.getSignedUrl(attendee.imageKey);
-                imageUrl = url;
-                app.logger.debug(
-                  { attendeeId: attendee.id, email: attendee.email, imageKey: attendee.imageKey, hasUrl: !!url },
-                  'Generated signed URL for profile image'
-                );
-              } catch (urlError) {
-                app.logger.warn(
-                  { err: urlError, attendeeId: attendee.id, email: attendee.email, imageKey: attendee.imageKey },
-                  'Failed to generate signed URL for image, returning null'
-                );
-                imageUrl = null;
-              }
-            } else {
-              app.logger.debug(
-                { attendeeId: attendee.id, email: attendee.email, name: attendee.name },
-                'Attendee has no profile image'
-              );
-            }
-
-            const { imageKey, ...attendeeWithoutImageKey } = attendee;
-            return {
-              ...attendeeWithoutImageKey,
-              image: imageUrl,
-            };
-          })
-        );
-
         app.logger.info(
-          { totalFetched: data.records.length, optedInCount: resultWithSignedUrls.length },
+          { totalFetched: data.records.length, optedInCount: result.length },
           'Attendees fetched successfully'
         );
-        return resultWithSignedUrls;
+        return result;
       } catch (error) {
         app.logger.error({ err: error }, 'Failed to fetch attendees');
         throw error;

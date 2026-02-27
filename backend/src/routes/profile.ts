@@ -3,7 +3,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import { user } from '../db/auth-schema.js';
-import { fetchAirtableAttendees, updateAirtableRecord, TABLES } from '../utils/airtable.js';
+import { fetchAirtableAttendees, updateAirtableRecord, TABLES, type AirtableRecord, type AttendeeFields } from '../utils/airtable.js';
 
 export function registerProfileRoutes(app: App) {
   const requireAuth = app.requireAuth();
@@ -178,15 +178,26 @@ export function registerProfileRoutes(app: App) {
         }
 
         const profile = userProfile[0];
-        let imageUrl = profile.image;
+        let imageUrl: string | null = null;
 
-        // Generate signed URL for image if it exists
-        if (imageUrl) {
+        // Fetch image URL from Airtable's Image field
+        if (profile.email) {
           try {
-            const { url } = await app.storage.getSignedUrl(imageUrl);
-            imageUrl = url;
+            const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+              logger: app.logger,
+            });
+
+            const attendee = attendeesData.records.find(
+              (record: AirtableRecord<AttendeeFields>) =>
+                record.fields['Email']?.toLowerCase() === profile.email.toLowerCase()
+            );
+
+            if (attendee?.fields.Image && Array.isArray(attendee.fields.Image) && attendee.fields.Image.length > 0) {
+              imageUrl = attendee.fields.Image[0].url;
+              app.logger.debug({ userId, email: profile.email }, 'Retrieved image URL from Airtable');
+            }
           } catch (err) {
-            app.logger.debug({ err, userId }, 'Could not generate signed URL for image');
+            app.logger.debug({ err, userId }, 'Could not fetch image from Airtable');
           }
         }
 

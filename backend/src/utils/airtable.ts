@@ -608,6 +608,7 @@ export interface AttendeeFields {
   Phone?: string;
   'Registration Level'?: string;
   'Opt In Networking'?: string;
+  Image?: Array<{ id: string; url: string; filename: string; size: number; type: string }>;
 }
 
 export interface ActivityFields {
