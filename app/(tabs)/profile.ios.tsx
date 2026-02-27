@@ -78,8 +78,10 @@ export default function ProfileScreen() {
   const [airtableRecordId, setAirtableRecordId] = useState<string | null>(null);
   
   // Debug state
-  const [airtableEmails, setAirtableEmails] = useState<string[]>([]);
-  const [airtableFields, setAirtableFields] = useState<string[]>([]);
+  const [apiStatusCode, setApiStatusCode] = useState<number | null>(null);
+  const [recordsFound, setRecordsFound] = useState<number>(0);
+  const [firstRecordFields, setFirstRecordFields] = useState<string>('');
+  const [loginEmail, setLoginEmail] = useState<string>('');
   const [airtableLoading, setAirtableLoading] = useState(false);
 
   // Edit form state
@@ -106,6 +108,8 @@ export default function ProfileScreen() {
    * Fetch all Airtable records and match user email to find their record ID
    */
   const fetchAndMatchAirtableRecord = async (userEmail: string): Promise<string | null> => {
+    console.log("Starting Airtable fetch...");
+    
     try {
       setAirtableLoading(true);
       console.log('ProfileScreen - Fetching Airtable records to match user email:', userEmail);
@@ -117,35 +121,63 @@ export default function ProfileScreen() {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${airtableApiKey}`,
+          'Content-Type': 'application/json',
         },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('ProfileScreen - Airtable fetch failed:', errorData);
-        throw new Error(`Failed to fetch Airtable records: ${errorData.error?.message || response.statusText}`);
+      // Log raw response status and body
+      const rawResponseBody = await response.text();
+      console.log('Airtable API status:', response.status);
+      console.log('Airtable API raw response body:', rawResponseBody);
+
+      // Update debug state
+      setApiStatusCode(response.status);
+
+      // Parse the response
+      let data: AirtableResponse;
+      try {
+        data = JSON.parse(rawResponseBody);
+      } catch (parseError) {
+        console.error('ProfileScreen - Failed to parse Airtable response:', parseError);
+        setErrorMessage(`API Error: Failed to parse response - ${parseError}`);
+        setErrorModalVisible(true);
+        return null;
       }
 
-      const data: AirtableResponse = await response.json();
+      if (!response.ok) {
+        console.error('ProfileScreen - Airtable fetch failed:', data);
+        const errorMsg = (data as any).error?.message || response.statusText;
+        setErrorMessage(`API Error: ${response.status} - ${errorMsg}`);
+        setErrorModalVisible(true);
+        return null;
+      }
+
+      if (!data.records || !Array.isArray(data.records)) {
+        console.error('ProfileScreen - Invalid Airtable response structure:', data);
+        setErrorMessage('API Error: Invalid response structure - no records array');
+        setErrorModalVisible(true);
+        return null;
+      }
+
       console.log('ProfileScreen - Fetched', data.records.length, 'Airtable records');
+      setRecordsFound(data.records.length);
+
+      // Store first record fields for debugging
+      if (data.records.length > 0 && data.records[0].fields) {
+        const fieldsJson = JSON.stringify(data.records[0].fields, null, 2);
+        setFirstRecordFields(fieldsJson);
+        console.log('ProfileScreen - First record fields:', fieldsJson);
+      }
 
       // Normalize user email for comparison
       const normalizedUserEmail = userEmail.trim().toLowerCase();
       console.log('ProfileScreen - Normalized user email:', normalizedUserEmail);
-
-      // Collect debug info
-      const emailValues: string[] = [];
-      let firstRecordFields: string[] = [];
+      setLoginEmail(normalizedUserEmail);
 
       // Try to find matching record
       for (let i = 0; i < data.records.length; i++) {
         const record = data.records[i];
         
-        // Capture field names from first record
-        if (i === 0 && record.fields) {
-          firstRecordFields = Object.keys(record.fields);
-        }
-
         // Check both "Email" and "email" field names (case variations)
         const recordEmail = record.fields.Email || record.fields.email;
         
@@ -157,7 +189,6 @@ export default function ProfileScreen() {
 
         if (recordEmail) {
           const normalizedRecordEmail = String(recordEmail).trim().toLowerCase();
-          emailValues.push(normalizedRecordEmail);
           
           console.log('ProfileScreen - Comparing:', {
             userEmail: normalizedUserEmail,
@@ -175,18 +206,10 @@ export default function ProfileScreen() {
               await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, record.id);
             }
             
-            // Store debug info
-            setAirtableEmails(emailValues.slice(0, 5));
-            setAirtableFields(firstRecordFields);
-            
             return record.id;
           }
         }
       }
-
-      // Store debug info even if no match
-      setAirtableEmails(emailValues.slice(0, 5));
-      setAirtableFields(firstRecordFields);
 
       console.error('ProfileScreen - No matching Airtable record found for email:', userEmail);
       console.log('ProfileScreen - Available email fields in records:', 
@@ -194,8 +217,10 @@ export default function ProfileScreen() {
       );
       
       return null;
-    } catch (error) {
+    } catch (error: any) {
       console.error('ProfileScreen - Error fetching/matching Airtable record:', error);
+      setErrorMessage(`API Error: ${error.message || 'Unknown error'}`);
+      setErrorModalVisible(true);
       return null;
     } finally {
       setAirtableLoading(false);
@@ -473,7 +498,6 @@ export default function ProfileScreen() {
 
   const displayName = profile.name || 'User';
   const displayEmail = profile.email;
-  const normalizedLoginEmail = displayEmail.trim().toLowerCase();
   const displayCompany = profile.company || 'Not specified';
   const displayTitle = profile.title || 'Not specified';
   const displayPhone = profile.phone || 'Not specified';
@@ -500,42 +524,37 @@ export default function ProfileScreen() {
         <View style={[styles.debugSection, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
           <Text style={[styles.debugTitle, { color: '#856404' }]}>🔍 DEBUG INFO (Temporary)</Text>
           
-          <View style={styles.debugRow}>
-            <Text style={[styles.debugLabel, { color: '#856404' }]}>Your login email:</Text>
-            <Text style={[styles.debugValue, { color: '#000000' }]}>{normalizedLoginEmail}</Text>
-          </View>
-
           {airtableLoading ? (
             <ActivityIndicator size="small" color="#856404" style={{ marginVertical: 8 }} />
           ) : (
             <>
               <View style={styles.debugRow}>
-                <Text style={[styles.debugLabel, { color: '#856404' }]}>Airtable emails (first 5):</Text>
-              </View>
-              {airtableEmails.length > 0 ? (
-                airtableEmails.map((email, index) => (
-                  <Text key={index} style={[styles.debugValue, { color: '#000000', marginLeft: 8 }]}>
-                    {index + 1}. {email}
-                  </Text>
-                ))
-              ) : (
-                <Text style={[styles.debugValue, { color: '#856404', marginLeft: 8 }]}>
-                  No emails loaded yet
+                <Text style={[styles.debugLabel, { color: '#856404' }]}>API status:</Text>
+                <Text style={[styles.debugValue, { color: '#000000' }]}>
+                  {apiStatusCode !== null ? apiStatusCode : 'Not fetched yet'}
                 </Text>
-              )}
+              </View>
 
-              <View style={[styles.debugRow, { marginTop: 8 }]}>
-                <Text style={[styles.debugLabel, { color: '#856404' }]}>Airtable fields (first record):</Text>
+              <View style={styles.debugRow}>
+                <Text style={[styles.debugLabel, { color: '#856404' }]}>Records found:</Text>
+                <Text style={[styles.debugValue, { color: '#000000' }]}>{recordsFound}</Text>
               </View>
-              {airtableFields.length > 0 ? (
-                <Text style={[styles.debugValue, { color: '#000000', marginLeft: 8 }]}>
-                  {airtableFields.join(', ')}
+
+              {firstRecordFields ? (
+                <View style={styles.debugRow}>
+                  <Text style={[styles.debugLabel, { color: '#856404' }]}>First record fields:</Text>
+                  <Text style={[styles.debugValue, { color: '#000000', fontSize: 11 }]}>
+                    {firstRecordFields}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.debugRow}>
+                <Text style={[styles.debugLabel, { color: '#856404' }]}>Login email:</Text>
+                <Text style={[styles.debugValue, { color: '#000000' }]}>
+                  {loginEmail || 'Not set yet'}
                 </Text>
-              ) : (
-                <Text style={[styles.debugValue, { color: '#856404', marginLeft: 8 }]}>
-                  No fields loaded yet
-                </Text>
-              )}
+              </View>
             </>
           )}
         </View>
@@ -867,7 +886,7 @@ export default function ProfileScreen() {
               size={48}
               color="#FF6B6B"
             />
-            <Text style={[styles.errorModalTitle, { color: appColors.text }]}>Upload Failed</Text>
+            <Text style={[styles.errorModalTitle, { color: appColors.text }]}>Error</Text>
             <Text style={[styles.errorModalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
             </Text>
