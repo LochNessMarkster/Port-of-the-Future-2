@@ -198,6 +198,7 @@ export default function SpeakersScreen() {
   const [loadingMessage, setLoadingMessage] = useState('Loading speakers...');
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   console.log('SpeakersScreen - Rendered');
 
@@ -208,8 +209,10 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
+      setError(null);
       setLoadingMessage('Loading speakers...');
       console.log('SpeakersScreen - Fetching speakers from cached Airtable endpoint');
+      console.log('SpeakersScreen - URL:', CACHED_AIRTABLE_URL);
       
       let allRecords: Speaker[] = [];
       let offset: string | undefined = undefined;
@@ -222,14 +225,28 @@ export default function SpeakersScreen() {
         console.log('SpeakersScreen -', pageMessage);
         
         const url = offset ? `${CACHED_AIRTABLE_URL}?offset=${offset}` : CACHED_AIRTABLE_URL;
+        console.log('SpeakersScreen - Fetching from:', url);
+        
         const response = await fetch(url);
+        console.log('SpeakersScreen - Response status:', response.status);
+        console.log('SpeakersScreen - Response ok:', response.ok);
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorText = await response.text();
+          console.error('SpeakersScreen - Error response body:', errorText);
+          throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
         }
         
-        const data = await response.json();
+        const responseText = await response.text();
+        console.log('SpeakersScreen - Response text length:', responseText.length);
+        console.log('SpeakersScreen - Response text preview:', responseText.substring(0, 200));
+        
+        const data = JSON.parse(responseText);
         console.log('SpeakersScreen - Page', page, 'received', data.records?.length || 0, 'records');
+        
+        if (data.records && data.records.length > 0) {
+          console.log('SpeakersScreen - First record fields:', Object.keys(data.records[0].fields || {}));
+        }
         
         // Map Airtable records to Speaker interface
         const records = (data.records || []).map((record: any) => ({
@@ -264,6 +281,11 @@ export default function SpeakersScreen() {
       }
     } catch (error) {
       console.error('SpeakersScreen - Error loading speakers:', error);
+      console.error('SpeakersScreen - Error type:', typeof error);
+      console.error('SpeakersScreen - Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('SpeakersScreen - Error stack:', error instanceof Error ? error.stack : 'No stack');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
       setSpeakers([]);
     } finally {
       setLoading(false);
@@ -354,6 +376,35 @@ export default function SpeakersScreen() {
               <Text style={[styles.loadingText, { color: appColors.textSecondary }]}>
                 {loadingMessage}
               </Text>
+            </View>
+          ) : error ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle"
+                android_material_icon_name="error"
+                size={48}
+                color={appColors.error || '#ff3b30'}
+              />
+              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
+                Error loading speakers
+              </Text>
+              <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.sm }]}>
+                {error}
+              </Text>
+              <TouchableOpacity
+                onPress={loadSpeakers}
+                style={{
+                  marginTop: spacing.lg,
+                  paddingHorizontal: spacing.lg,
+                  paddingVertical: spacing.md,
+                  backgroundColor: appColors.primary,
+                  borderRadius: borderRadius.md,
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600' }}>
+                  Retry
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : filteredSpeakers.length === 0 ? (
             <View style={styles.emptyContainer}>
