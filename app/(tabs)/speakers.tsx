@@ -17,20 +17,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiCall, getBearerToken } from '@/utils/api';
 import { Stack } from 'expo-router';
 
 interface Speaker {
   id: string;
   firstName: string;
   lastName: string;
-  name: string;
   title: string;
-  photo: string;
-  topic: string;
-  synopsis: string;
+  speakingTopic: string;
   bio: string;
+  photoUrl: string | null;
 }
+
+const CACHED_AIRTABLE_URL = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblNp1JZk4ARZZZlT';
 
 const styles = StyleSheet.create({
   container: {
@@ -90,6 +89,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
+    backgroundColor: '#e0e0e0',
   },
   speakerPhoto: {
     width: '100%',
@@ -108,6 +108,11 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
+  },
+  loadingText: {
+    ...typography.body,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   emptyContainer: {
     padding: spacing.xl,
@@ -149,6 +154,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     overflow: 'hidden',
     marginBottom: spacing.sm,
+    backgroundColor: '#e0e0e0',
   },
   modalPhoto: {
     width: '100%',
@@ -189,6 +195,7 @@ export default function SpeakersScreen() {
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Loading speakers...');
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -201,25 +208,59 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
-      console.log('SpeakersScreen - Fetching speakers from /api/speakers');
-      // Try with bearer token first, fall back to cookie-based auth
-      const token = await getBearerToken();
-      let data: Speaker[];
-      if (token) {
-        console.log('SpeakersScreen - Using bearer token for speakers request');
-        data = await apiCall<Speaker[]>('/api/speakers', {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-        }, false, true);
-      } else {
-        console.log('SpeakersScreen - No bearer token, trying with credentials (cookie-based auth)');
-        data = await apiCall<Speaker[]>('/api/speakers', { method: 'GET' }, true, true);
-      }
-      setSpeakers(data);
-      console.log('SpeakersScreen - Loaded speakers:', data.length);
-      if (data.length > 0) {
-        console.log('SpeakersScreen - First speaker:', data[0].firstName, data[0].lastName);
-        console.log('SpeakersScreen - Last speaker:', data[data.length - 1].firstName, data[data.length - 1].lastName);
+      setLoadingMessage('Loading speakers...');
+      console.log('SpeakersScreen - Fetching speakers from cached Airtable endpoint');
+      
+      let allRecords: Speaker[] = [];
+      let offset: string | undefined = undefined;
+      let page = 1;
+
+      // Fetch all pages using offset-based pagination
+      do {
+        const pageMessage = `Loading page ${page}...`;
+        setLoadingMessage(pageMessage);
+        console.log('SpeakersScreen -', pageMessage);
+        
+        const url = offset ? `${CACHED_AIRTABLE_URL}?offset=${offset}` : CACHED_AIRTABLE_URL;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('SpeakersScreen - Page', page, 'received', data.records?.length || 0, 'records');
+        
+        // Map Airtable records to Speaker interface
+        const records = (data.records || []).map((record: any) => ({
+          id: record.id,
+          firstName: record.fields['Speaker Name'] || '',
+          lastName: record.fields['Last Name'] || '',
+          title: record.fields['Speaker Title'] || '',
+          speakingTopic: record.fields['Speaking Topic'] || '',
+          bio: record.fields['Bio'] || '',
+          photoUrl: record.fields['Photo']?.[0]?.url || null,
+        }));
+        
+        allRecords = allRecords.concat(records);
+        offset = data.offset;
+        page++;
+      } while (offset);
+
+      console.log('SpeakersScreen - Total speakers loaded:', allRecords.length);
+      
+      // Sort speakers alphabetically by last name, then first name
+      const sortedSpeakers = allRecords.sort((a, b) => {
+        const lastNameCompare = a.lastName.localeCompare(b.lastName);
+        if (lastNameCompare !== 0) return lastNameCompare;
+        return a.firstName.localeCompare(b.firstName);
+      });
+      
+      setSpeakers(sortedSpeakers);
+      console.log('SpeakersScreen - Speakers sorted and set');
+      if (sortedSpeakers.length > 0) {
+        console.log('SpeakersScreen - First speaker:', sortedSpeakers[0].firstName, sortedSpeakers[0].lastName);
+        console.log('SpeakersScreen - Last speaker:', sortedSpeakers[sortedSpeakers.length - 1].firstName, sortedSpeakers[sortedSpeakers.length - 1].lastName);
       }
     } catch (error) {
       console.error('SpeakersScreen - Error loading speakers:', error);
@@ -229,7 +270,7 @@ export default function SpeakersScreen() {
     }
   };
 
-  // Filter speakers by search query (backend already sorts by last name)
+  // Filter speakers by search query
   const filteredSpeakers = useMemo(() => {
     if (searchQuery.trim() === '') {
       return speakers;
@@ -237,14 +278,15 @@ export default function SpeakersScreen() {
     
     const query = searchQuery.toLowerCase();
     const filtered = speakers.filter(speaker => {
+      const fullName = `${speaker.firstName} ${speaker.lastName}`.toLowerCase();
+      const matchesName = fullName.includes(query);
       const matchesFirstName = speaker.firstName.toLowerCase().includes(query);
       const matchesLastName = speaker.lastName.toLowerCase().includes(query);
-      const matchesFullName = speaker.name.toLowerCase().includes(query);
       const matchesTitle = speaker.title.toLowerCase().includes(query);
-      const matchesTopic = speaker.topic.toLowerCase().includes(query);
+      const matchesTopic = speaker.speakingTopic.toLowerCase().includes(query);
       const matchesBio = speaker.bio.toLowerCase().includes(query);
       
-      return matchesFirstName || matchesLastName || matchesFullName || matchesTitle || matchesTopic || matchesBio;
+      return matchesName || matchesFirstName || matchesLastName || matchesTitle || matchesTopic || matchesBio;
     });
     
     console.log('SpeakersScreen - Filtered speakers:', filtered.length);
@@ -255,6 +297,8 @@ export default function SpeakersScreen() {
     console.log('SpeakersScreen - Clearing search');
     setSearchQuery('');
   };
+
+  const fullName = selectedSpeaker ? `${selectedSpeaker.firstName} ${selectedSpeaker.lastName}` : '';
 
   return (
     <React.Fragment>
@@ -307,6 +351,9 @@ export default function SpeakersScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
+              <Text style={[styles.loadingText, { color: appColors.textSecondary }]}>
+                {loadingMessage}
+              </Text>
             </View>
           ) : filteredSpeakers.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -325,30 +372,35 @@ export default function SpeakersScreen() {
             </View>
           ) : (
             <View style={styles.speakerGrid}>
-              {filteredSpeakers.map((speaker, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.speakerCard, { backgroundColor: appColors.card }]}
-                  onPress={() => {
-                    console.log('SpeakersScreen - Speaker card pressed:', speaker.firstName, speaker.lastName);
-                    setSelectedSpeaker(speaker);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.speakerPhotoContainer}>
-                    <Image
-                      source={{ uri: speaker.photo }}
-                      style={styles.speakerPhoto}
-                    />
-                  </View>
-                  <Text style={[styles.speakerName, { color: appColors.text }]}>
-                    {speaker.name}
-                  </Text>
-                  <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
-                    {speaker.title}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {filteredSpeakers.map((speaker, index) => {
+                const cardFullName = `${speaker.firstName} ${speaker.lastName}`;
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.speakerCard, { backgroundColor: appColors.card }]}
+                    onPress={() => {
+                      console.log('SpeakersScreen - Speaker card pressed:', speaker.firstName, speaker.lastName);
+                      setSelectedSpeaker(speaker);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.speakerPhotoContainer}>
+                      {speaker.photoUrl ? (
+                        <Image
+                          source={{ uri: speaker.photoUrl }}
+                          style={styles.speakerPhoto}
+                        />
+                      ) : null}
+                    </View>
+                    <Text style={[styles.speakerName, { color: appColors.text }]}>
+                      {cardFullName}
+                    </Text>
+                    <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
+                      {speaker.title}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </ScrollView>
@@ -386,37 +438,28 @@ export default function SpeakersScreen() {
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalPhotoContainer}>
                   <View style={styles.modalPhotoWrapper}>
-                    <Image
-                      source={{ uri: selectedSpeaker?.photo }}
-                      style={styles.modalPhoto}
-                    />
+                    {selectedSpeaker?.photoUrl ? (
+                      <Image
+                        source={{ uri: selectedSpeaker.photoUrl }}
+                        style={styles.modalPhoto}
+                      />
+                    ) : null}
                   </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
-                    {selectedSpeaker?.name}
+                    {fullName}
                   </Text>
                   <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
                     {selectedSpeaker?.title}
                   </Text>
                 </View>
 
-                {selectedSpeaker?.topic ? (
+                {selectedSpeaker?.speakingTopic ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                       Speaking Topic
                     </Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.topic}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {selectedSpeaker?.synopsis ? (
-                  <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Synopsis
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.synopsis}
+                      {selectedSpeaker.speakingTopic}
                     </Text>
                   </View>
                 ) : null}
