@@ -17,7 +17,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiCall, getBearerToken } from '@/utils/api';
 import { Stack } from 'expo-router';
 
 interface Speaker {
@@ -31,6 +30,28 @@ interface Speaker {
   synopsis: string;
   bio: string;
 }
+
+interface AirtableSpeakerRecord {
+  id: string;
+  createdTime: string;
+  fields: {
+    'First Name'?: string;
+    'Last Name'?: string;
+    'Title'?: string;
+    'Photo'?: Array<{ url: string }>;
+    'Topic'?: string;
+    'Synopsis'?: string;
+    'Bio'?: string;
+  };
+}
+
+interface AirtableResponse {
+  records: AirtableSpeakerRecord[];
+  offset?: string;
+}
+
+const AIRTABLE_BASE_URL = 'https://api.airtable.com/v0/appkKjciinTlnsbkd/tblNp1JZk4ARZZZlT';
+const AIRTABLE_TOKEN = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
 const styles = StyleSheet.create({
   container: {
@@ -108,6 +129,11 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
+  },
+  loadingText: {
+    ...typography.body,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   emptyContainer: {
     padding: spacing.xl,
@@ -191,6 +217,7 @@ export default function SpeakersScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loadingProgress, setLoadingProgress] = useState('');
 
   console.log('SpeakersScreen - Rendered');
 
@@ -201,35 +228,94 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
-      console.log('SpeakersScreen - Fetching speakers from /api/speakers');
-      // Try with bearer token first, fall back to cookie-based auth
-      const token = await getBearerToken();
-      let data: Speaker[];
-      if (token) {
-        console.log('SpeakersScreen - Using bearer token for speakers request');
-        data = await apiCall<Speaker[]>('/api/speakers', {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-        }, false, true);
-      } else {
-        console.log('SpeakersScreen - No bearer token, trying with credentials (cookie-based auth)');
-        data = await apiCall<Speaker[]>('/api/speakers', { method: 'GET' }, true, true);
-      }
-      setSpeakers(data);
-      console.log('SpeakersScreen - Loaded speakers:', data.length);
-      if (data.length > 0) {
-        console.log('SpeakersScreen - First speaker:', data[0].firstName, data[0].lastName);
-        console.log('SpeakersScreen - Last speaker:', data[data.length - 1].firstName, data[data.length - 1].lastName);
+      setLoadingProgress('Fetching speakers...');
+      console.log('SpeakersScreen - Starting paginated fetch from Airtable');
+      
+      let allRecords: AirtableSpeakerRecord[] = [];
+      let offset: string | undefined;
+      let pageCount = 0;
+
+      // Keep fetching until there's no offset
+      do {
+        pageCount++;
+        const url = offset 
+          ? `${AIRTABLE_BASE_URL}?offset=${offset}`
+          : AIRTABLE_BASE_URL;
+        
+        console.log(`SpeakersScreen - Fetching page ${pageCount}${offset ? ` with offset: ${offset}` : ''}`);
+        setLoadingProgress(`Loading page ${pageCount}...`);
+
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${AIRTABLE_TOKEN}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('SpeakersScreen - Airtable API error:', response.status, errorText);
+          throw new Error(`Airtable API error: ${response.status}`);
+        }
+
+        const data: AirtableResponse = await response.json();
+        console.log(`SpeakersScreen - Page ${pageCount} fetched: ${data.records.length} records`);
+        
+        allRecords = allRecords.concat(data.records);
+        offset = data.offset;
+        
+        console.log(`SpeakersScreen - Total records so far: ${allRecords.length}`);
+      } while (offset);
+
+      console.log(`SpeakersScreen - Pagination complete. Total records: ${allRecords.length}`);
+      setLoadingProgress('Processing speakers...');
+
+      // Transform Airtable records to Speaker objects
+      const transformedSpeakers: Speaker[] = allRecords
+        .map(record => {
+          const fields = record.fields;
+          const firstName = fields['First Name'] || '';
+          const lastName = fields['Last Name'] || '';
+          const name = `${firstName} ${lastName}`.trim();
+          
+          return {
+            id: record.id,
+            firstName,
+            lastName,
+            name,
+            title: fields['Title'] || '',
+            photo: fields['Photo']?.[0]?.url || '',
+            topic: fields['Topic'] || '',
+            synopsis: fields['Synopsis'] || '',
+            bio: fields['Bio'] || '',
+          };
+        })
+        .filter(speaker => speaker.firstName || speaker.lastName) // Filter out records without names
+        .sort((a, b) => {
+          // Sort by last name, then first name
+          const lastNameCompare = a.lastName.localeCompare(b.lastName);
+          if (lastNameCompare !== 0) {
+            return lastNameCompare;
+          }
+          return a.firstName.localeCompare(b.firstName);
+        });
+
+      setSpeakers(transformedSpeakers);
+      console.log('SpeakersScreen - Loaded and sorted speakers:', transformedSpeakers.length);
+      if (transformedSpeakers.length > 0) {
+        console.log('SpeakersScreen - First speaker:', transformedSpeakers[0].firstName, transformedSpeakers[0].lastName);
+        console.log('SpeakersScreen - Last speaker:', transformedSpeakers[transformedSpeakers.length - 1].firstName, transformedSpeakers[transformedSpeakers.length - 1].lastName);
       }
     } catch (error) {
       console.error('SpeakersScreen - Error loading speakers:', error);
       setSpeakers([]);
+      setLoadingProgress('');
     } finally {
       setLoading(false);
+      setLoadingProgress('');
     }
   };
 
-  // Filter speakers by search query (backend already sorts by last name)
+  // Filter speakers by search query
   const filteredSpeakers = useMemo(() => {
     if (searchQuery.trim() === '') {
       return speakers;
@@ -307,6 +393,11 @@ export default function SpeakersScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
+              {loadingProgress ? (
+                <Text style={[styles.loadingText, { color: appColors.textSecondary }]}>
+                  {loadingProgress}
+                </Text>
+              ) : null}
             </View>
           ) : filteredSpeakers.length === 0 ? (
             <View style={styles.emptyContainer}>
