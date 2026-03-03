@@ -104,15 +104,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.md,
     alignItems: 'center',
-    justifyContent: 'center',
-    height: 160,
+    minHeight: 180,
   },
   logoContainer: {
-    width: '100%',
-    height: 90,
-    marginBottom: spacing.sm,
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   logo: {
     width: '100%',
@@ -120,8 +122,8 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   logoPlaceholder: {
-    width: 50,
-    height: 50,
+    width: 60,
+    height: 60,
   },
   name: {
     ...typography.h3,
