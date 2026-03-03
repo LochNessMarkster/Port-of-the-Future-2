@@ -209,6 +209,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     lineHeight: 22,
   },
+  modalMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
   modalActions: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -320,7 +325,6 @@ export default function ActivitiesScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
             <IconSymbol
@@ -481,7 +485,6 @@ export default function ActivitiesScreen() {
           )}
         </ScrollView>
 
-        {/* Activity Detail Modal */}
         <Modal
           visible={selectedActivity !== null}
           transparent
@@ -531,25 +534,25 @@ export default function ActivitiesScreen() {
                   <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                     Date & Time
                   </Text>
-                  <View style={styles.activityMeta}>
+                  <View style={styles.modalMetaRow}>
                     <IconSymbol
                       ios_icon_name="calendar"
                       android_material_icon_name="event"
                       size={16}
                       color={appColors.primary}
                     />
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                    <Text style={[styles.modalText, { color: appColors.text, marginLeft: spacing.xs }]}>
                       {selectedActivity?.date}
                     </Text>
                   </View>
-                  <View style={[styles.activityMeta, { marginTop: spacing.xs }]}>
+                  <View style={[styles.modalMetaRow, { marginTop: spacing.xs }]}>
                     <IconSymbol
                       ios_icon_name="clock"
                       android_material_icon_name="access-time"
                       size={16}
                       color={appColors.primary}
                     />
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                    <Text style={[styles.modalText, { color: appColors.text, marginLeft: spacing.xs }]}>
                       {selectedActivity?.time}
                     </Text>
                   </View>
@@ -559,14 +562,14 @@ export default function ActivitiesScreen() {
                   <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                     Location
                   </Text>
-                  <View style={styles.activityMeta}>
+                  <View style={styles.modalMetaRow}>
                     <IconSymbol
                       ios_icon_name="location"
                       android_material_icon_name="place"
                       size={16}
                       color={appColors.primary}
                     />
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                    <Text style={[styles.modalText, { color: appColors.text, marginLeft: spacing.xs }]}>
                       {selectedActivity?.location}
                     </Text>
                   </View>

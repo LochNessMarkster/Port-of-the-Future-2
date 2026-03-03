@@ -2,9 +2,129 @@ import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
+import { user } from '../db/auth-schema.js';
+import { fetchAirtableAttendees, updateAirtableRecord, TABLES, type AirtableRecord, type AttendeeFields } from '../utils/airtable.js';
 
 export function registerProfileRoutes(app: App) {
   const requireAuth = app.requireAuth();
+
+  /**
+   * POST /api/profile/upload-photo - Upload user profile photo
+   */
+  app.fastify.post(
+    '/api/profile/upload-photo',
+    {
+      schema: {
+        description: 'Upload user profile photo',
+        tags: ['profile'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              url: { type: 'string' },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      app.logger.info({ userId }, 'Processing profile photo upload');
+
+      try {
+        // Try to get file with either 'file' or 'photo' field name
+        let data = await request.file({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+        if (!data) {
+          // Try to get any file with 'photo' field name
+          const files = await request.files();
+          for await (const file of files) {
+            if (file.fieldname === 'photo' || file.fieldname === 'file') {
+              data = file;
+              break;
+            }
+          }
+        }
+        if (!data) {
+          app.logger.warn({ userId }, 'No photo file provided');
+          return reply.status(400).send({ error: 'No photo file provided (expected field name: file or photo)' });
+        }
+
+        let buffer: Buffer;
+        try {
+          buffer = await data.toBuffer();
+        } catch (err) {
+          app.logger.error({ err, userId }, 'File upload size exceeded');
+          return reply.status(413).send({ error: 'File too large' });
+        }
+
+        // Upload to storage
+        const key = `profile-photos/${userId}/${Date.now()}-${data.filename}`;
+        const uploadedKey = await app.storage.upload(key, buffer);
+
+        // Get signed URL
+        const { url } = await app.storage.getSignedUrl(uploadedKey);
+
+        // Update user profile image
+        await app.db
+          .update(user)
+          .set({ image: uploadedKey })
+          .where(eq(user.id, userId));
+
+        app.logger.info(
+          { userId, photoKey: uploadedKey },
+          'Profile photo uploaded successfully'
+        );
+
+        // Update Airtable attendee record with image if available
+        try {
+          const userInfo = await app.db
+            .select()
+            .from(user)
+            .where(eq(user.id, userId))
+            .limit(1);
+
+          if (userInfo.length > 0 && userInfo[0].email) {
+            const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+              logger: app.logger,
+            });
+
+            const attendee = attendeesData.records.find(
+              (record) =>
+                record.fields['Email']?.toLowerCase() === userInfo[0].email.toLowerCase()
+            );
+
+            if (attendee) {
+              app.logger.info({ airtableRecordId: attendee.id }, 'Updating Airtable attendee with image');
+              await updateAirtableRecord(
+                TABLES.ATTENDEES,
+                attendee.id,
+                { Image: [{ url }] },
+                app.logger
+              );
+              app.logger.info({ airtableRecordId: attendee.id }, 'Airtable attendee image updated');
+            }
+          }
+        } catch (airtableError) {
+          app.logger.warn({ err: airtableError }, 'Failed to update Airtable with image, continuing');
+          // Continue even if Airtable update fails
+        }
+
+        return { url };
+      } catch (error) {
+        app.logger.error({ err: error, userId }, 'Failed to upload profile photo');
+        throw error;
+      }
+    }
+  );
 
   /**
    * GET /api/profile - Get current user profile
@@ -27,7 +147,12 @@ export function registerProfileRoutes(app: App) {
               phone: { type: ['string', 'null'] },
               image: { type: ['string', 'null'] },
               bio: { type: ['string', 'null'] },
-              emailVerified: { type: ['boolean', 'null'] },
+              linkedin: { type: ['string', 'null'] },
+              emailVerified: { type: 'boolean' },
+              optInNetworking: { type: 'boolean' },
+              shareEmail: { type: 'boolean' },
+              sharePhone: { type: 'boolean' },
+              shareLinkedIn: { type: 'boolean' },
             },
           },
         },
@@ -37,8 +162,67 @@ export function registerProfileRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return;
 
-      app.logger.info({ userId: session.user.id }, 'Fetching user profile');
-      return session.user;
+      const userId = session.user.id;
+      app.logger.info({ userId }, 'Fetching user profile');
+
+      try {
+        const userProfile = await app.db
+          .select()
+          .from(user)
+          .where(eq(user.id, userId))
+          .limit(1);
+
+        if (userProfile.length === 0) {
+          app.logger.warn({ userId }, 'User not found');
+          return reply.status(404).send({ error: 'User not found' });
+        }
+
+        const profile = userProfile[0];
+        let imageUrl: string | null = null;
+
+        // Fetch image URL from Airtable's Image field
+        if (profile.email) {
+          try {
+            const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+              logger: app.logger,
+            });
+
+            const attendee = attendeesData.records.find(
+              (record: AirtableRecord<AttendeeFields>) =>
+                record.fields['Email']?.toLowerCase() === profile.email.toLowerCase()
+            );
+
+            if (attendee?.fields.Image && Array.isArray(attendee.fields.Image) && attendee.fields.Image.length > 0) {
+              imageUrl = attendee.fields.Image[0].url;
+              app.logger.debug({ userId, email: profile.email }, 'Retrieved image URL from Airtable');
+            }
+          } catch (err) {
+            app.logger.debug({ err, userId }, 'Could not fetch image from Airtable');
+          }
+        }
+
+        app.logger.info({ userId }, 'User profile retrieved successfully');
+
+        return {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name,
+          company: profile.company,
+          title: profile.title,
+          phone: profile.phone,
+          image: imageUrl || null,
+          bio: profile.bio,
+          linkedin: profile.linkedin,
+          emailVerified: profile.emailVerified,
+          optInNetworking: profile.optInNetworking,
+          shareEmail: profile.shareEmail,
+          sharePhone: profile.sharePhone,
+          shareLinkedIn: profile.shareLinkedIn,
+        };
+      } catch (error) {
+        app.logger.error({ err: error, userId }, 'Failed to fetch user profile');
+        throw error;
+      }
     }
   );
 
@@ -62,6 +246,9 @@ export function registerProfileRoutes(app: App) {
             bio: { type: 'string' },
             linkedin: { type: 'string' },
             optInNetworking: { type: 'boolean' },
+            shareEmail: { type: 'boolean' },
+            sharePhone: { type: 'boolean' },
+            shareLinkedIn: { type: 'boolean' },
           },
         },
         response: {
@@ -78,7 +265,10 @@ export function registerProfileRoutes(app: App) {
               bio: { type: ['string', 'null'] },
               linkedin: { type: ['string', 'null'] },
               optInNetworking: { type: 'boolean' },
-              emailVerified: { type: ['boolean', 'null'] },
+              shareEmail: { type: 'boolean' },
+              sharePhone: { type: 'boolean' },
+              shareLinkedIn: { type: 'boolean' },
+              emailVerified: { type: 'boolean' },
             },
           },
         },
@@ -88,7 +278,8 @@ export function registerProfileRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return;
 
-      const { name, company, title, phone, image, bio, linkedin, optInNetworking } =
+      const userId = session.user.id;
+      const { name, company, title, phone, image, bio, linkedin, optInNetworking, shareEmail, sharePhone, shareLinkedIn } =
         request.body as {
           name?: string;
           company?: string;
@@ -98,10 +289,13 @@ export function registerProfileRoutes(app: App) {
           bio?: string;
           linkedin?: string;
           optInNetworking?: boolean;
+          shareEmail?: boolean;
+          sharePhone?: boolean;
+          shareLinkedIn?: boolean;
         };
 
       app.logger.info(
-        { userId: session.user.id, body: request.body },
+        { userId, body: request.body },
         'Updating user profile'
       );
 
@@ -115,34 +309,155 @@ export function registerProfileRoutes(app: App) {
         if (bio !== undefined) updateData.bio = bio;
         if (linkedin !== undefined) updateData.linkedin = linkedin;
         if (optInNetworking !== undefined) updateData.optInNetworking = optInNetworking;
+        if (shareEmail !== undefined) updateData.shareEmail = shareEmail;
+        if (sharePhone !== undefined) updateData.sharePhone = sharePhone;
+        if (shareLinkedIn !== undefined) updateData.shareLinkedIn = shareLinkedIn;
 
-        // Use Better Auth's client to update user
-        const response = await fetch('http://localhost/api/auth/update-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Cookie: request.headers.cookie || '',
-          },
-          body: JSON.stringify(updateData),
-        });
+        const [updated] = await app.db
+          .update(user)
+          .set(updateData)
+          .where(eq(user.id, userId))
+          .returning();
 
-        if (!response.ok) {
-          app.logger.error(
-            { userId: session.user.id, status: response.status },
-            'Failed to update user profile'
-          );
-          throw new Error('Failed to update profile');
-        }
+        app.logger.info({ userId }, 'User profile updated successfully');
 
-        const updatedUser = await response.json();
-        app.logger.info({ userId: session.user.id }, 'User profile updated');
-        return updatedUser;
+        return {
+          id: updated.id,
+          email: updated.email,
+          name: updated.name,
+          company: updated.company,
+          title: updated.title,
+          phone: updated.phone,
+          image: updated.image,
+          bio: updated.bio,
+          linkedin: updated.linkedin,
+          optInNetworking: updated.optInNetworking,
+          shareEmail: updated.shareEmail,
+          sharePhone: updated.sharePhone,
+          shareLinkedIn: updated.shareLinkedIn,
+          emailVerified: updated.emailVerified,
+        };
       } catch (error) {
         app.logger.error(
-          { err: error, userId: session.user.id },
+          { err: error, userId },
           'Failed to update user profile'
         );
         throw error;
+      }
+    }
+  );
+
+  /**
+   * POST /api/profile/update-airtable - Update user profile in Airtable
+   */
+  app.fastify.post(
+    '/api/profile/update-airtable',
+    {
+      schema: {
+        description: 'Update user profile information in Airtable',
+        tags: ['profile'],
+        body: {
+          type: 'object',
+          properties: {
+            firstName: { type: 'string' },
+            lastName: { type: 'string' },
+            company: { type: 'string' },
+            title: { type: 'string' },
+            phone: { type: 'string' },
+          },
+          required: ['firstName', 'lastName', 'company', 'title', 'phone'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              error: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      const userEmail = session.user.email;
+      const { firstName, lastName, company, title, phone } = request.body as {
+        firstName?: string;
+        lastName?: string;
+        company?: string;
+        title?: string;
+        phone?: string;
+      };
+
+      app.logger.info(
+        { userId, userEmail, body: request.body },
+        'Updating user profile in Airtable'
+      );
+
+      try {
+        // Fetch attendees to find the user's Airtable record ID
+        const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+          logger: app.logger,
+        });
+
+        const attendee = attendeesData.records.find(
+          (record: AirtableRecord<AttendeeFields>) =>
+            record.fields['Email']?.toLowerCase() === userEmail.toLowerCase()
+        );
+
+        if (!attendee) {
+          app.logger.warn({ userId, userEmail }, 'Airtable record not found for user');
+          return reply.status(400).send({
+            success: false,
+            error: 'Airtable record not found for this user',
+          });
+        }
+
+        const recordId = attendee.id;
+        app.logger.info({ userId, userEmail, airtableRecordId: recordId }, 'Found Airtable record for user');
+
+        // Update the Airtable record
+        const updatedRecord = await updateAirtableRecord(
+          TABLES.ATTENDEES,
+          recordId,
+          {
+            'First Name': firstName,
+            'Last Name': lastName,
+            Company: company,
+            'Job Title': title,
+            Phone: phone,
+          } as any,
+          app.logger
+        );
+
+        app.logger.info(
+          { userId, userEmail, airtableRecordId: recordId },
+          'Successfully updated user profile in Airtable'
+        );
+
+        return {
+          success: true,
+          message: 'Profile updated in Airtable',
+        };
+      } catch (error) {
+        app.logger.error(
+          { err: error, userId, userEmail },
+          'Failed to update user profile in Airtable'
+        );
+        return reply.status(400).send({
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update profile in Airtable',
+        });
       }
     }
   );

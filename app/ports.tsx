@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet } from '@/utils/api';
+import { authenticatedGet } from '@/utils/api';
 import { Stack } from 'expo-router';
 
 interface Port {
@@ -218,7 +218,8 @@ export default function PortsScreen() {
   const loadPorts = async () => {
     try {
       setLoading(true);
-      const data = await apiGet<Port[]>('/api/ports');
+      console.log('PortsScreen - Fetching ports from /api/ports (authenticated)');
+      const data = await authenticatedGet<Port[]>('/api/ports');
       setPorts(data);
       console.log('PortsScreen - Loaded ports:', data.length);
     } catch (error) {

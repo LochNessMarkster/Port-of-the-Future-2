@@ -8,7 +8,6 @@ import {
   ScrollView, 
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   TextInput
@@ -18,24 +17,20 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
+import { InitialsAvatar } from '@/components/InitialsAvatar';
 
 interface Attendee {
   id: string;
   firstName: string;
   lastName: string;
   name: string;
-  email: string;
+  email: string | null;
   company: string | null;
   title: string | null;
   phone: string | null;
+  linkedin: string | null;
   registrationLevel: string | null;
   optInNetworking: 'YES' | 'NO' | null;
-  image: string | null;
-}
-
-function resolveImageSource(source: string | null | undefined) {
-  if (!source) return require('@/assets/images/POF-ICON.png');
-  return { uri: source };
 }
 
 const styles = StyleSheet.create({
@@ -81,12 +76,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  attendeeImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  attendeeAvatarWrapper: {
     marginRight: spacing.md,
-    backgroundColor: '#f0f0f0',
   },
   attendeeInfo: {
     flex: 1,
@@ -156,12 +147,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  modalAvatarWrapper: {
     marginBottom: spacing.md,
-    backgroundColor: '#f0f0f0',
   },
   modalName: {
     ...typography.h2,
@@ -215,6 +202,11 @@ const styles = StyleSheet.create({
     right: spacing.md,
     zIndex: 1,
   },
+  privacyNote: {
+    ...typography.bodySmall,
+    fontStyle: 'italic',
+    marginTop: spacing.xs,
+  },
 });
 
 export default function NetworkingScreen() {
@@ -233,17 +225,17 @@ export default function NetworkingScreen() {
   const loadAttendees = async () => {
     try {
       setLoading(true);
-      console.log('[NetworkingScreen] Fetching attendees who opted in to networking...');
+      console.log('[NetworkingScreen] Fetching attendees in networking directory...');
       const data = await apiGet<Attendee[]>('/api/attendees');
-      setAttendees(data);
-      console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees opted in');
       
-      // Log opt-in status for debugging
+      setAttendees(data);
+      console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees in directory');
+      
       const optedInCount = data.filter(a => a.optInNetworking === 'YES').length;
       console.log('[NetworkingScreen] Opt-in breakdown:', {
         total: data.length,
         optedIn: optedInCount,
-        notOptedIn: data.length - optedInCount
+        notOptedIn: data.length - optedInCount,
       });
     } catch (error) {
       console.error('[NetworkingScreen] Error loading attendees:', error);
@@ -253,26 +245,59 @@ export default function NetworkingScreen() {
     }
   };
 
-  const sendMessage = (attendeeId: string) => {
+  const sendMessage = (attendee: Attendee) => {
     setSelectedAttendee(null);
-    router.push(`/messages?recipientId=${attendeeId}`);
+    
+    if (!attendee.email) {
+      console.warn('[NetworkingScreen] Cannot message attendee without email:', attendee.id);
+      return;
+    }
+    
+    const encodedName = encodeURIComponent(attendee.name || '');
+    const encodedEmail = encodeURIComponent(attendee.email);
+    console.log('[NetworkingScreen] Opening messages with attendee:', attendee.email, attendee.name);
+    router.push(`/messages?recipientId=${encodedEmail}&recipientName=${encodedName}`);
   };
 
-  // Filter attendees by search query
   const filteredAttendees = useMemo(() => {
-    if (searchQuery.trim() === '') return attendees;
+    let result = attendees;
     
-    const query = searchQuery.toLowerCase();
-    return attendees.filter(attendee => {
-      const matchesName = attendee.name.toLowerCase().includes(query);
-      const matchesFirstName = attendee.firstName.toLowerCase().includes(query);
-      const matchesLastName = attendee.lastName.toLowerCase().includes(query);
-      const matchesCompany = attendee.company?.toLowerCase().includes(query);
-      const matchesTitle = attendee.title?.toLowerCase().includes(query);
-      const matchesEmail = attendee.email.toLowerCase().includes(query);
+    // Apply search filter if query exists
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      result = attendees.filter(attendee => {
+        const matchesName = (attendee.name || '').toLowerCase().includes(query);
+        const matchesFirstName = (attendee.firstName || '').toLowerCase().includes(query);
+        const matchesLastName = (attendee.lastName || '').toLowerCase().includes(query);
+        const matchesCompany = attendee.company?.toLowerCase().includes(query);
+        const matchesTitle = attendee.title?.toLowerCase().includes(query);
+        const matchesEmail = attendee.email?.toLowerCase().includes(query);
+        
+        return matchesName || matchesFirstName || matchesLastName || matchesCompany || matchesTitle || matchesEmail;
+      });
+    }
+    
+    // Sort alphabetically by Last Name (A to Z)
+    const sorted = [...result].sort((a, b) => {
+      const lastNameA = (a.lastName || '').toLowerCase();
+      const lastNameB = (b.lastName || '').toLowerCase();
       
-      return matchesName || matchesFirstName || matchesLastName || matchesCompany || matchesTitle || matchesEmail;
+      // Handle empty last names - put them at the end
+      if (!lastNameA && !lastNameB) return 0;
+      if (!lastNameA) return 1;
+      if (!lastNameB) return -1;
+      
+      return lastNameA.localeCompare(lastNameB);
     });
+    
+    console.log('[NetworkingScreen] Filtered and sorted attendees:', {
+      total: attendees.length,
+      filtered: result.length,
+      sorted: sorted.length,
+      searchQuery: searchQuery || 'none'
+    });
+    
+    return sorted;
   }, [attendees, searchQuery]);
 
   const clearSearch = () => {
@@ -282,7 +307,6 @@ export default function NetworkingScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-      {/* Info Card */}
       {!loading && attendees.length > 0 && (
         <View style={[styles.infoCard, { backgroundColor: appColors.card }]}>
           <IconSymbol
@@ -292,12 +316,11 @@ export default function NetworkingScreen() {
             color={appColors.primary}
           />
           <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
-            Only attendees who opted in to networking are shown. Update your profile to opt in.
+            All attendees are automatically opted in to networking. You can opt out or control what contact info you share in your profile settings.
           </Text>
         </View>
       )}
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
           <IconSymbol
@@ -351,50 +374,55 @@ export default function NetworkingScreen() {
               {searchQuery ? 'No attendees found' : 'No attendees available for networking yet'}
             </Text>
             <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-              {searchQuery ? 'Try a different search term' : 'Only attendees who opted in to networking are shown here'}
+              {searchQuery ? 'Try a different search term' : 'Attendees who have opted out of networking will not appear here'}
             </Text>
           </View>
         ) : (
-          filteredAttendees.map((attendee) => (
-            <TouchableOpacity
-              key={attendee.id}
-              style={[styles.attendeeCard, { backgroundColor: appColors.card }]}
-              onPress={() => setSelectedAttendee(attendee)}
-              activeOpacity={0.7}
-            >
-              <Image
-                source={resolveImageSource(attendee.image)}
-                style={styles.attendeeImage}
-              />
-              <View style={styles.attendeeInfo}>
-                <Text style={[styles.attendeeName, { color: appColors.text }]}>
-                  {attendee.name}
-                </Text>
-                {attendee.title && attendee.company && (
-                  <Text style={[styles.attendeeTitle, { color: appColors.textSecondary }]}>
-                    {attendee.title} at {attendee.company}
+          filteredAttendees.map((attendee) => {
+            return (
+              <TouchableOpacity
+                key={attendee.id}
+                style={[styles.attendeeCard, { backgroundColor: appColors.card }]}
+                onPress={() => setSelectedAttendee(attendee)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.attendeeAvatarWrapper}>
+                  <InitialsAvatar
+                    firstName={attendee.firstName}
+                    lastName={attendee.lastName}
+                    size={60}
+                    fontSize={24}
+                  />
+                </View>
+                <View style={styles.attendeeInfo}>
+                  <Text style={[styles.attendeeName, { color: appColors.text }]}>
+                    {attendee.name || [attendee.firstName, attendee.lastName].filter(Boolean).join(' ') || 'Unknown Attendee'}
                   </Text>
-                )}
-                {attendee.optInNetworking === 'YES' && (
-                  <View style={styles.optInBadge}>
-                    <IconSymbol
-                      ios_icon_name="checkmark.circle.fill"
-                      android_material_icon_name="check-circle"
-                      size={14}
-                      color="#4CAF50"
-                    />
-                    <Text style={[styles.optInBadgeText, { color: '#4CAF50' }]}>
-                      Open to networking
+                  {attendee.title && attendee.company && (
+                    <Text style={[styles.attendeeTitle, { color: appColors.textSecondary }]}>
+                      {attendee.title} at {attendee.company}
                     </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))
+                  )}
+                  {attendee.optInNetworking === 'YES' && (
+                    <View style={styles.optInBadge}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={14}
+                        color="#4CAF50"
+                      />
+                      <Text style={[styles.optInBadgeText, { color: '#4CAF50' }]}>
+                        Open to networking
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
 
-      {/* Attendee Detail Modal */}
       <Modal
         visible={selectedAttendee !== null}
         transparent
@@ -423,12 +451,18 @@ export default function NetworkingScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeader}>
-                <Image
-                  source={resolveImageSource(selectedAttendee?.image)}
-                  style={styles.modalImage}
-                />
+                <View style={styles.modalAvatarWrapper}>
+                  {selectedAttendee && (
+                    <InitialsAvatar
+                      firstName={selectedAttendee.firstName}
+                      lastName={selectedAttendee.lastName}
+                      size={120}
+                      fontSize={48}
+                    />
+                  )}
+                </View>
                 <Text style={[styles.modalName, { color: appColors.text }]}>
-                  {selectedAttendee?.name}
+                  {selectedAttendee?.name || [selectedAttendee?.firstName, selectedAttendee?.lastName].filter(Boolean).join(' ') || 'Unknown Attendee'}
                 </Text>
                 {selectedAttendee?.title && selectedAttendee?.company && (
                   <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
@@ -437,13 +471,12 @@ export default function NetworkingScreen() {
                 )}
               </View>
 
-              {/* Contact Information */}
               <View style={styles.modalSection}>
                 <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                   Contact Information
                 </Text>
                 
-                {selectedAttendee?.email && (
+                {selectedAttendee?.email ? (
                   <View style={styles.modalInfoRow}>
                     <IconSymbol
                       ios_icon_name="envelope"
@@ -456,9 +489,9 @@ export default function NetworkingScreen() {
                       {selectedAttendee.email}
                     </Text>
                   </View>
-                )}
+                ) : null}
 
-                {selectedAttendee?.phone && (
+                {selectedAttendee?.phone ? (
                   <View style={styles.modalInfoRow}>
                     <IconSymbol
                       ios_icon_name="phone"
@@ -471,7 +504,22 @@ export default function NetworkingScreen() {
                       {selectedAttendee.phone}
                     </Text>
                   </View>
-                )}
+                ) : null}
+
+                {selectedAttendee?.linkedin ? (
+                  <View style={styles.modalInfoRow}>
+                    <IconSymbol
+                      ios_icon_name="link"
+                      android_material_icon_name="link"
+                      size={20}
+                      color={appColors.textSecondary}
+                      style={styles.modalInfoIcon}
+                    />
+                    <Text style={[styles.modalInfoText, { color: appColors.text }]} numberOfLines={1}>
+                      {selectedAttendee.linkedin}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {selectedAttendee?.company && (
                   <View style={styles.modalInfoRow}>
@@ -502,11 +550,15 @@ export default function NetworkingScreen() {
                     </Text>
                   </View>
                 )}
+
+                <Text style={[styles.privacyNote, { color: appColors.textSecondary }]}>
+                  Contact information shown is based on the attendee&apos;s sharing preferences.
+                </Text>
               </View>
 
               <TouchableOpacity
                 style={[styles.messageButton, { backgroundColor: appColors.primary }]}
-                onPress={() => selectedAttendee && sendMessage(selectedAttendee.id)}
+                onPress={() => selectedAttendee && sendMessage(selectedAttendee)}
                 activeOpacity={0.7}
               >
                 <IconSymbol

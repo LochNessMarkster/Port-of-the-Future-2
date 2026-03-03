@@ -38,12 +38,8 @@ export const messages = pgTable(
   'messages',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    senderId: text('sender_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    recipientId: text('recipient_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    senderId: text('sender_id').notNull(),
+    recipientId: text('recipient_id').notNull(),
     content: text('content').notNull(),
     read: boolean('read').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -54,6 +50,27 @@ export const messages = pgTable(
     index('messages_sender_id_idx').on(table.senderId),
     index('messages_recipient_id_idx').on(table.recipientId),
     index('messages_created_at_idx').on(table.createdAt),
+  ]
+);
+
+/**
+ * Password Reset Codes - Track password reset requests
+ */
+export const passwordResetCodes = pgTable(
+  'password_reset_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    code: text('code').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    used: boolean('used').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('password_reset_codes_email_idx').on(table.email),
+    index('password_reset_codes_code_idx').on(table.code),
   ]
 );
 
@@ -108,21 +125,23 @@ export const floorPlans = pgTable(
 );
 
 /**
- * Password Reset Codes - Track password reset requests
+ * Email Verifications - Track verification codes for registration
  */
-export const passwordResetCodes = pgTable(
-  'password_reset_codes',
+export const emailVerifications = pgTable(
+  'email_verifications',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     email: text('email').notNull(),
     code: text('code').notNull(),
+    verified: boolean('verified').default(false).notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    used: boolean('used').default(false).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [
-    index('password_reset_codes_email_idx').on(table.email),
-    index('password_reset_codes_code_idx').on(table.code),
+    index('email_verifications_email_idx').on(table.email),
+    index('email_verifications_code_idx').on(table.code),
   ]
 );
 
@@ -137,14 +156,8 @@ export const userSchedulesRelations = relations(userSchedules, ({ one }) => ({
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
-  sender: one(user, {
-    fields: [messages.senderId],
-    references: [user.id],
-  }),
-  recipient: one(user, {
-    fields: [messages.recipientId],
-    references: [user.id],
-  }),
+  // Note: senderId and recipientId can reference both registered users and Airtable attendee IDs
+  // Relations are optional since FK constraints were removed
 }));
 
 export const speakerPresentationsRelations = relations(speakerPresentations, ({ one }) => ({

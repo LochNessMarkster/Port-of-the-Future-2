@@ -1,7 +1,47 @@
+
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { BEARER_TOKEN_KEY } from "@/lib/auth";
+
+/**
+ * Set bearer token in platform-specific storage
+ * Web: localStorage
+ * Native: SecureStore
+ */
+export const setBearerToken = async (token: string | null): Promise<void> => {
+  if (!token) {
+    console.log("[API] setBearerToken - Clearing token (null/undefined provided)");
+    await clearAuthTokens();
+    return;
+  }
+  console.log("[API] setBearerToken - Storing token, length:", token.length);
+  try {
+    if (Platform.OS === "web") {
+      localStorage.setItem(BEARER_TOKEN_KEY, token);
+    } else {
+      await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token);
+    }
+  } catch (error) {
+    console.error("[API] Error storing bearer token:", error);
+    throw error;
+  }
+};
+
+/**
+ * Clear all auth tokens from platform-specific storage
+ */
+export const clearAuthTokens = async (): Promise<void> => {
+  try {
+    if (Platform.OS === "web") {
+      localStorage.removeItem(BEARER_TOKEN_KEY);
+    } else {
+      await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY);
+    }
+  } catch (error) {
+    console.error("[API] Error clearing auth tokens:", error);
+  }
+};
 
 /**
  * Backend URL is configured in app.json under expo.extra.backendUrl
@@ -41,12 +81,16 @@ export const getBearerToken = async (): Promise<string | null> => {
  *
  * @param endpoint - API endpoint path (e.g., '/users', '/auth/login')
  * @param options - Fetch options (method, headers, body, etc.)
+ * @param withCredentials - Whether to include cookies (credentials: 'include'). Default false.
+ * @param skipAutoAuth - Skip automatic bearer token injection (for authenticated* functions that handle it themselves)
  * @returns Parsed JSON response
  * @throws Error if backend is not configured or request fails
  */
 export const apiCall = async <T = any>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
+  withCredentials: boolean = false,
+  skipAutoAuth: boolean = false
 ): Promise<T> => {
   if (!isBackendConfigured()) {
     throw new Error("Backend URL not configured. Please rebuild the app.");
@@ -58,33 +102,54 @@ export const apiCall = async <T = any>(
   try {
     const fetchOptions: RequestInit = {
       ...options,
+      credentials: withCredentials ? "include" : (options?.credentials || "omit"),
       headers: {
         "Content-Type": "application/json",
         ...options?.headers,
       },
     };
 
-    console.log("[API] Fetch options:", fetchOptions);
+    console.log("[API] Fetch options:", JSON.stringify(fetchOptions, null, 2));
 
-    // Always send the token if we have it (needed for cross-domain/iframe support)
-    const token = await getBearerToken();
-    if (token) {
-      fetchOptions.headers = {
-        ...fetchOptions.headers,
-        Authorization: `Bearer ${token}`,
-      };
+    // Only add token automatically if skipAutoAuth is false
+    // (authenticated* functions will add it themselves to avoid duplication)
+    if (!skipAutoAuth) {
+      const token = await getBearerToken();
+      if (token) {
+        fetchOptions.headers = {
+          ...fetchOptions.headers,
+          Authorization: `Bearer ${token}`,
+        };
+        console.log("[API] Added bearer token to request");
+      }
     }
 
     const response = await fetch(url, fetchOptions);
+    console.log("[API] Response status:", response.status);
 
     if (!response.ok) {
       const text = await response.text();
       console.error("[API] Error response:", response.status, text);
+      // Try to parse a user-friendly error message from the response body
+      try {
+        const errorJson = JSON.parse(text);
+        if (errorJson.error) {
+          throw new Error(errorJson.error);
+        } else if (errorJson.message) {
+          throw new Error(errorJson.message);
+        }
+      } catch (parseError) {
+        // If it's not JSON or doesn't have error/message, use the raw text
+        if (parseError instanceof SyntaxError) {
+          throw new Error(`API error: ${response.status} - ${text}`);
+        }
+        throw parseError;
+      }
       throw new Error(`API error: ${response.status} - ${text}`);
     }
 
     const data = await response.json();
-    console.log("[API] Success:", data);
+    console.log("[API] Success response:", data);
     return data;
   } catch (error) {
     console.error("[API] Request failed:", error);
@@ -110,6 +175,24 @@ export const apiPost = async <T = any>(
     method: "POST",
     body: JSON.stringify(data),
   });
+};
+
+/**
+ * POST request helper with credentials (cookies) included.
+ * Use this for endpoints that set session cookies (e.g. registration verify-code).
+ */
+export const apiPostWithCredentials = async <T = any>(
+  endpoint: string,
+  data: any
+): Promise<T> => {
+  return apiCall<T>(
+    endpoint,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    true // withCredentials = true
+  );
 };
 
 /**
@@ -165,16 +248,25 @@ export const authenticatedApiCall = async <T = any>(
   const token = await getBearerToken();
 
   if (!token) {
+    console.error("[API] No authentication token found");
     throw new Error("Authentication token not found. Please sign in.");
   }
 
-  return apiCall<T>(endpoint, {
-    ...options,
-    headers: {
-      ...options?.headers,
-      Authorization: `Bearer ${token}`,
+  console.log("[API] Using authenticated request with bearer token");
+
+  // Pass skipAutoAuth=true to prevent apiCall from adding the token again
+  return apiCall<T>(
+    endpoint, 
+    {
+      ...options,
+      headers: {
+        ...options?.headers,
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+    false, // withCredentials
+    true   // skipAutoAuth - we're adding the token ourselves
+  );
 };
 
 /**
@@ -191,6 +283,7 @@ export const authenticatedPost = async <T = any>(
   endpoint: string,
   data: any
 ): Promise<T> => {
+  console.log("[API] authenticatedPost called:", endpoint, data);
   return authenticatedApiCall<T>(endpoint, {
     method: "POST",
     body: JSON.stringify(data),

@@ -46,6 +46,26 @@ export function registerActivitiesRoutes(app: App) {
 
         app.logger.info({ totalRecords: data.records.length }, 'Total activities fetched from Airtable');
 
+        // Log detailed field information for debugging
+        data.records.forEach((record: AirtableRecord<ActivityFields>, index: number) => {
+          app.logger.debug(
+            {
+              recordIndex: index,
+              recordId: record.id,
+              rawFields: record.fields,
+              Name: record.fields.Name,
+              Description: record.fields.Description,
+              Date: record.fields.Date,
+              Time: record.fields.Time,
+              Location: record.fields.Location,
+              url: record.fields.url,
+              imageArray: record.fields.image,
+              imageUrl: record.fields.image?.[0]?.url,
+            },
+            'Activity record field values'
+          );
+        });
+
         const activities = data.records
           .map((record: AirtableRecord<ActivityFields>) => ({
             id: record.id,
@@ -54,8 +74,8 @@ export function registerActivitiesRoutes(app: App) {
             date: record.fields.Date || '',
             time: record.fields.Time || '',
             location: record.fields.Location || '',
-            url: record.fields.URL || '',
-            image: record.fields.Image?.[0]?.url || '',
+            url: record.fields.url || '',
+            image: record.fields.image?.[0]?.url || '',
           }))
           .sort((a, b) => {
             // Sort by date first

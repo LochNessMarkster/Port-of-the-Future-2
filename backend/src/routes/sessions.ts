@@ -74,8 +74,6 @@ async function resolveSpeakerNames(
 }
 
 export function registerSessionsRoutes(app: App) {
-  const requireAuth = app.requireAuth();
-
   /**
    * GET /api/sessions - Get all sessions
    */
@@ -106,8 +104,6 @@ export function registerSessionsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const session = await requireAuth(request, reply);
-      if (!session) return;
 
       app.logger.info('Fetching all sessions from cache');
       try {
@@ -187,8 +183,6 @@ export function registerSessionsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const session = await requireAuth(request, reply);
-      if (!session) return;
 
       const { id } = request.params as { id: string };
       app.logger.info({ sessionId: id }, 'Fetching session details');

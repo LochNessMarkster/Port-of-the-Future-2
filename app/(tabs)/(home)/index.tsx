@@ -21,14 +21,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface Announcement {
   id: string;
   title: string;
   content: string;
-  image?: string | null;
-  date?: string | null;
-  time?: string | null;
+  isAlert: boolean;
+  date: string;
+  time: string;
+  imageUrl: string | null;
   createdAt: string;
 }
 
@@ -149,6 +151,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
   },
+  badgeContainer: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: '0px 2px 3px rgba(0, 0, 0, 0.3)',
+      },
+    }),
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.xl,
@@ -175,6 +208,10 @@ const styles = StyleSheet.create({
         boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.1)',
       },
     }),
+  },
+  alertCard: {
+    borderWidth: 2,
+    borderColor: '#FF3B30',
   },
   announcementImage: {
     width: '100%',
@@ -205,6 +242,17 @@ const styles = StyleSheet.create({
   announcementMetaText: {
     ...typography.caption,
   },
+  alertBadge: {
+    backgroundColor: '#FF3B30',
+    color: '#FFFFFF',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    fontWeight: '700',
+    fontSize: 12,
+  },
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
@@ -221,6 +269,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const { user } = useAuth();
+  const { unreadMessageCount } = useNotifications();
   const router = useRouter();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,7 +286,7 @@ export default function HomeScreen() {
       const { apiGet } = await import('@/utils/api');
       const data = await apiGet<Announcement[]>('/api/announcements');
       setAnnouncements(data || []);
-      console.log('HomeScreen - Loaded announcements:', data?.length || 0);
+      console.log('HomeScreen - Loaded announcements:', data?.length || 0, data);
     } catch (error) {
       console.error('HomeScreen - Error loading announcements:', error);
       setAnnouncements([]);
@@ -272,8 +321,10 @@ export default function HomeScreen() {
   const welcomeText = `Welcome, ${userName}!`;
   const dateText = 'March 24-25, 2026';
   const locationText = 'Houston, Texas';
+  const showBadge = unreadMessageCount > 0;
+  const badgeCountText = unreadMessageCount > 99 ? '99+' : String(unreadMessageCount);
 
-  console.log('HomeScreen - Rendering with user:', userName, 'announcements:', announcements.length);
+  console.log('HomeScreen - Rendering with user:', userName, 'announcements:', announcements.length, 'unread messages:', unreadMessageCount);
 
   return (
     <React.Fragment>
@@ -437,6 +488,11 @@ export default function HomeScreen() {
                   color={appColors.secondary}
                 />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Networking</Text>
+                {showBadge && (
+                  <View style={styles.badgeContainer}>
+                    <Text style={styles.badgeText}>{badgeCountText}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -488,19 +544,22 @@ export default function HomeScreen() {
             ) : (
               <React.Fragment>
                 {announcements.map((announcement, index) => {
-                  const formattedCreatedAt = formatDate(announcement.createdAt);
-                  const hasImage = announcement.image && announcement.image.trim() !== '';
+                  const hasImage = announcement.imageUrl && announcement.imageUrl.trim() !== '';
                   const hasDate = announcement.date && announcement.date.trim() !== '';
                   const hasTime = announcement.time && announcement.time.trim() !== '';
                   
                   return (
                     <View 
                       key={index}
-                      style={[styles.announcementCard, { backgroundColor: appColors.card }]}
+                      style={[
+                        styles.announcementCard, 
+                        { backgroundColor: appColors.card },
+                        announcement.isAlert && styles.alertCard
+                      ]}
                     >
                       {hasImage && (
                         <Image
-                          source={resolveImageSource(announcement.image)}
+                          source={resolveImageSource(announcement.imageUrl)}
                           style={styles.announcementImage}
                         />
                       )}
@@ -510,34 +569,39 @@ export default function HomeScreen() {
                       <Text style={[styles.announcementContent, { color: appColors.textSecondary }]}>
                         {announcement.content}
                       </Text>
-                      <View style={styles.announcementMetaRow}>
-                        {hasDate && (
-                          <View style={styles.announcementMeta}>
-                            <IconSymbol
-                              ios_icon_name="calendar"
-                              android_material_icon_name="event"
-                              size={14}
-                              color={appColors.textSecondary}
-                            />
-                            <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
-                              {announcement.date}
-                            </Text>
-                          </View>
-                        )}
-                        {hasTime && (
-                          <View style={styles.announcementMeta}>
-                            <IconSymbol
-                              ios_icon_name="clock"
-                              android_material_icon_name="access-time"
-                              size={14}
-                              color={appColors.textSecondary}
-                            />
-                            <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
-                              {announcement.time}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+                      {(hasDate || hasTime) ? (
+                        <View style={styles.announcementMetaRow}>
+                          {hasDate ? (
+                            <View style={styles.announcementMeta}>
+                              <IconSymbol
+                                ios_icon_name="calendar"
+                                android_material_icon_name="event"
+                                size={14}
+                                color={appColors.textSecondary}
+                              />
+                              <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
+                                {announcement.date}
+                              </Text>
+                            </View>
+                          ) : null}
+                          {hasTime ? (
+                            <View style={styles.announcementMeta}>
+                              <IconSymbol
+                                ios_icon_name="clock"
+                                android_material_icon_name="access-time"
+                                size={14}
+                                color={appColors.textSecondary}
+                              />
+                              <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
+                                {announcement.time}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : null}
+                      {announcement.isAlert ? (
+                        <Text style={styles.alertBadge}>ALERT</Text>
+                      ) : null}
                     </View>
                   );
                 })}

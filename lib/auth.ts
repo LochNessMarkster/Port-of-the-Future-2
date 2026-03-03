@@ -38,7 +38,14 @@ export const authClient = createAuthClient({
   }),
 });
 
-export async function setBearerToken(token: string) {
+export async function setBearerToken(token: string | null) {
+  if (!token) {
+    console.log("setBearerToken - Clearing token (null/undefined provided)");
+    await clearAuthTokens();
+    return;
+  }
+  
+  console.log("setBearerToken - Storing token, length:", token.length);
   if (Platform.OS === "web") {
     localStorage.setItem(BEARER_TOKEN_KEY, token);
   } else {
