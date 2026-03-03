@@ -12,7 +12,8 @@ import {
   Modal,
   Pressable,
   TextInput,
-  Platform
+  Platform,
+  Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -30,6 +31,10 @@ interface Speaker {
   topic: string;
   synopsis: string;
   bio: string;
+  email?: string;
+  phone?: string;
+  published?: boolean;
+  publicPersonalData?: boolean;
 }
 
 const styles = StyleSheet.create({
@@ -176,6 +181,18 @@ const styles = StyleSheet.create({
     ...typography.body,
     lineHeight: 24,
   },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  contactIcon: {
+    marginRight: spacing.sm,
+  },
+  contactText: {
+    ...typography.body,
+    flex: 1,
+  },
   closeButton: {
     position: 'absolute',
     top: spacing.md,
@@ -203,11 +220,16 @@ export default function SpeakersScreen() {
       setLoading(true);
       console.log('SpeakersScreen - Fetching speakers from /api/speakers (sorted by last name)');
       const data = await apiGet<Speaker[]>('/api/speakers');
-      setSpeakers(data);
-      console.log('SpeakersScreen - Loaded speakers:', data.length);
-      if (data.length > 0) {
-        console.log('SpeakersScreen - First speaker:', data[0].firstName, data[0].lastName);
-        console.log('SpeakersScreen - Last speaker:', data[data.length - 1].firstName, data[data.length - 1].lastName);
+      
+      // Filter to only show published speakers
+      const publishedSpeakers = data.filter(speaker => speaker.published === true);
+      
+      setSpeakers(publishedSpeakers);
+      console.log('SpeakersScreen - Total speakers:', data.length);
+      console.log('SpeakersScreen - Published speakers:', publishedSpeakers.length);
+      if (publishedSpeakers.length > 0) {
+        console.log('SpeakersScreen - First speaker:', publishedSpeakers[0].firstName, publishedSpeakers[0].lastName);
+        console.log('SpeakersScreen - Last speaker:', publishedSpeakers[publishedSpeakers.length - 1].firstName, publishedSpeakers[publishedSpeakers.length - 1].lastName);
       }
     } catch (error) {
       console.error('SpeakersScreen - Error loading speakers:', error);
@@ -242,6 +264,22 @@ export default function SpeakersScreen() {
   const clearSearch = () => {
     console.log('SpeakersScreen - Clearing search');
     setSearchQuery('');
+  };
+
+  const openEmail = (email: string) => {
+    console.log('SpeakersScreen - Opening email:', email);
+    Linking.openURL(`mailto:${email}`);
+  };
+
+  const openPhone = (phone: string) => {
+    console.log('SpeakersScreen - Opening phone:', phone);
+    Linking.openURL(`tel:${phone}`);
+  };
+
+  // Check if speaker has public personal data
+  const shouldShowContactInfo = (speaker: Speaker | null): boolean => {
+    if (!speaker) return false;
+    return speaker.publicPersonalData === true;
   };
 
   return (
@@ -417,6 +455,51 @@ export default function SpeakersScreen() {
                     <Text style={[styles.modalText, { color: appColors.text }]}>
                       {selectedSpeaker.bio}
                     </Text>
+                  </View>
+                ) : null}
+
+                {/* Contact Information - Only show if publicPersonalData is true */}
+                {shouldShowContactInfo(selectedSpeaker) ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Contact Information
+                    </Text>
+                    
+                    {selectedSpeaker?.email ? (
+                      <TouchableOpacity 
+                        style={styles.contactRow}
+                        onPress={() => openEmail(selectedSpeaker.email!)}
+                      >
+                        <IconSymbol
+                          ios_icon_name="envelope.fill"
+                          android_material_icon_name="email"
+                          size={20}
+                          color={appColors.primary}
+                          style={styles.contactIcon}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.primary }]}>
+                          {selectedSpeaker.email}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    {selectedSpeaker?.phone ? (
+                      <TouchableOpacity 
+                        style={styles.contactRow}
+                        onPress={() => openPhone(selectedSpeaker.phone!)}
+                      >
+                        <IconSymbol
+                          ios_icon_name="phone.fill"
+                          android_material_icon_name="phone"
+                          size={20}
+                          color={appColors.primary}
+                          style={styles.contactIcon}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.primary }]}>
+                          {selectedSpeaker.phone}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 ) : null}
               </ScrollView>
