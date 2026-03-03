@@ -233,20 +233,9 @@ export default function NetworkingScreen() {
   const loadAttendees = async () => {
     try {
       setLoading(true);
-      console.log('[NetworkingScreen] Fetching attendees who opted in to networking...');
       const data = await apiGet<Attendee[]>('/api/attendees');
       setAttendees(data);
-      console.log('[NetworkingScreen] Loaded attendees:', data.length, 'attendees opted in');
-      
-      // Log opt-in status for debugging
-      const optedInCount = data.filter(a => a.optInNetworking === 'YES').length;
-      console.log('[NetworkingScreen] Opt-in breakdown:', {
-        total: data.length,
-        optedIn: optedInCount,
-        notOptedIn: data.length - optedInCount
-      });
     } catch (error) {
-      console.error('[NetworkingScreen] Error loading attendees:', error);
       setAttendees([]);
     } finally {
       setLoading(false);
@@ -276,7 +265,6 @@ export default function NetworkingScreen() {
   }, [attendees, searchQuery]);
 
   const clearSearch = () => {
-    console.log('[NetworkingScreen] Clearing search');
     setSearchQuery('');
   };
 

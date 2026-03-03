@@ -58,12 +58,9 @@ export default function ProfileScreen() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      console.log('[ProfileScreen] Fetching profile from /api/profile');
       const data = await apiGet<UserProfile>('/api/profile');
       setProfile(data);
-      console.log('[ProfileScreen] Loaded profile:', data.email, '| Opt-in networking:', data.optInNetworking);
     } catch (error) {
-      console.error('[ProfileScreen] Error loading profile:', error);
       setProfile(null);
     } finally {
       setLoading(false);
@@ -90,7 +87,6 @@ export default function ProfileScreen() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      console.log('[ProfileScreen] Updating profile with opt-in networking:', editOptInNetworking);
       const updatedProfile = await authenticatedPut<UserProfile>('/api/profile', {
         name: editName,
         company: editCompany,
@@ -101,10 +97,9 @@ export default function ProfileScreen() {
         optInNetworking: editOptInNetworking,
       });
       setProfile(updatedProfile);
-      console.log('[ProfileScreen] Profile updated successfully | Opt-in networking:', updatedProfile.optInNetworking);
       closeEditModal();
     } catch (error) {
-      console.error('[ProfileScreen] Error updating profile:', error);
+      // Error handled silently
     } finally {
       setSaving(false);
     }
@@ -112,10 +107,9 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     try {
-      console.log('[ProfileScreen] Signing out');
       await signOut();
     } catch (error) {
-      console.error('[ProfileScreen] Error signing out:', error);
+      // Error handled silently
     }
   };
 
