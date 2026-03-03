@@ -167,7 +167,7 @@ export default function FloatingTabBar({
       backgroundColor: theme.dark
         ? 'rgba(255, 255, 255, 0.08)' // Subtle white overlay in dark mode
         : 'rgba(0, 0, 0, 0.04)', // Subtle black overlay in light mode
-      width: `${tabWidthPercent}%` as `${number}%`, // Dynamic width based on number of tabs
+      width: `${tabWidthPercent}%`, // Dynamic width based on number of tabs
     },
   };
 
