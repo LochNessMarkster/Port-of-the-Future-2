@@ -126,6 +126,31 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     textAlign: 'center',
   },
+  errorContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  errorText: {
+    ...typography.body,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  errorDetail: {
+    ...typography.bodySmall,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  retryButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+  },
+  retryButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -193,6 +218,7 @@ export default function SpeakersScreen() {
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -205,24 +231,31 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
-      console.log('SpeakersScreen - Fetching speakers from /api/speakers (sorted by last name)');
+      setError(null);
+      console.log('SpeakersScreen - Fetching speakers from /api/speakers');
       const data = await apiGet<Speaker[]>('/api/speakers');
-      const publishedSpeakers = data.filter(speaker => speaker.published === true);
+      
+      // Backend handles pagination and Published filter, but filter defensively on frontend too
+      // Only show speakers where published === true
+      const publishedSpeakers = data.filter((s) => s.published === true);
       setSpeakers(publishedSpeakers);
-      console.log('SpeakersScreen - Loaded speakers:', data.length, '| Published:', publishedSpeakers.length);
-      if (data.length > 0) {
-        console.log('SpeakersScreen - First speaker:', data[0].firstName, data[0].lastName);
-        console.log('SpeakersScreen - Last speaker:', data[data.length - 1].firstName, data[data.length - 1].lastName);
+      
+      console.log('SpeakersScreen - Total received:', data.length, '| Published:', publishedSpeakers.length);
+      
+      if (publishedSpeakers.length > 0) {
+        console.log('SpeakersScreen - First speaker:', publishedSpeakers[0].firstName, publishedSpeakers[0].lastName);
+        console.log('SpeakersScreen - Last speaker:', publishedSpeakers[publishedSpeakers.length - 1].firstName, publishedSpeakers[publishedSpeakers.length - 1].lastName);
       }
-    } catch (error) {
-      console.error('SpeakersScreen - Error loading speakers:', error);
+    } catch (err: any) {
+      console.error('SpeakersScreen - Error loading speakers:', err);
+      setError(err.message || 'Failed to load speakers. Please try again.');
       setSpeakers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter speakers by search query (backend already sorts by last name)
+  // Filter speakers by search query (backend already sorts by last name and filters Published)
   const filteredSpeakers = useMemo(() => {
     if (searchQuery.trim() === '') {
       return speakers;
@@ -240,13 +273,24 @@ export default function SpeakersScreen() {
       return matchesFirstName || matchesLastName || matchesFullName || matchesTitle || matchesTopic || matchesBio;
     });
     
-    console.log('SpeakersScreen - Filtered speakers:', filtered.length);
+    console.log('SpeakersScreen - Filtered speakers:', filtered.length, 'from', speakers.length);
     return filtered;
   }, [speakers, searchQuery]);
 
   const clearSearch = () => {
     console.log('SpeakersScreen - Clearing search');
     setSearchQuery('');
+  };
+
+  // Check if contact info should be displayed
+  const shouldShowEmail = (speaker: Speaker) => {
+    const show = speaker.publicPersonalData === true && speaker.email && speaker.email.trim() !== '';
+    return show;
+  };
+
+  const shouldShowPhone = (speaker: Speaker) => {
+    const show = speaker.publicPersonalData === true && speaker.phone && speaker.phone.trim() !== '';
+    return show;
   };
 
   return (
@@ -300,6 +344,35 @@ export default function SpeakersScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
+              <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+                Loading speakers...
+              </Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle"
+                android_material_icon_name="warning"
+                size={48}
+                color={appColors.error}
+              />
+              <Text style={[styles.errorText, { color: appColors.text }]}>
+                Error loading speakers
+              </Text>
+              <Text style={[styles.errorDetail, { color: appColors.textSecondary }]}>
+                {error}
+              </Text>
+              <TouchableOpacity 
+                style={[styles.retryButton, { backgroundColor: appColors.primary }]}
+                onPress={() => {
+                  console.log('SpeakersScreen - Retry button pressed');
+                  loadSpeakers();
+                }}
+              >
+                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>
+                  Retry
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : filteredSpeakers.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -425,7 +498,7 @@ export default function SpeakersScreen() {
                   </View>
                 ) : null}
 
-                {selectedSpeaker?.publicPersonalData && selectedSpeaker?.email ? (
+                {selectedSpeaker && shouldShowEmail(selectedSpeaker) ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                       Email
@@ -436,7 +509,7 @@ export default function SpeakersScreen() {
                   </View>
                 ) : null}
 
-                {selectedSpeaker?.publicPersonalData && selectedSpeaker?.phone ? (
+                {selectedSpeaker && shouldShowPhone(selectedSpeaker) ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
                       Phone
