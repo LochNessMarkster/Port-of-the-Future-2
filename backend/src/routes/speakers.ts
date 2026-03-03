@@ -35,6 +35,10 @@ export function registerSpeakersRoutes(app: App) {
                 topic: { type: 'string' },
                 synopsis: { type: 'string' },
                 bio: { type: 'string' },
+                published: { type: 'boolean' },
+                publicPersonalData: { type: 'boolean' },
+                email: { type: ['string', 'null'] },
+                phone: { type: ['string', 'null'] },
               },
             },
           },
@@ -68,6 +72,10 @@ export function registerSpeakersRoutes(app: App) {
             topic: record.fields['Speaking Topic'] || '',
             synopsis: record.fields['Synopsis of Speaking topic'] || '',
             bio: record.fields.Bio || '',
+            published: record.fields.Published === true,
+            publicPersonalData: record.fields['Public Personal Data'] === true,
+            email: record.fields.Email || null,
+            phone: record.fields.Phone || null,
           };
         }).sort((a, b) => a.lastName.toLowerCase().localeCompare(b.lastName.toLowerCase()));
 
@@ -112,6 +120,10 @@ export function registerSpeakersRoutes(app: App) {
               topic: { type: 'string' },
               synopsis: { type: 'string' },
               bio: { type: 'string' },
+              published: { type: 'boolean' },
+              publicPersonalData: { type: 'boolean' },
+              email: { type: ['string', 'null'] },
+              phone: { type: ['string', 'null'] },
             },
           },
         },
@@ -148,6 +160,10 @@ export function registerSpeakersRoutes(app: App) {
           topic: record.fields['Speaking Topic'] || '',
           synopsis: record.fields['Synopsis of Speaking topic'] || '',
           bio: record.fields.Bio || '',
+          published: record.fields.Published === true,
+          publicPersonalData: record.fields['Public Personal Data'] === true,
+          email: record.fields.Email || null,
+          phone: record.fields.Phone || null,
         };
 
         app.logger.info({ speakerId: id }, 'Speaker details fetched');
