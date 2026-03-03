@@ -14,25 +14,36 @@ import {
   Image,
   Modal,
   Pressable,
+  Switch,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
 
+type Mode = "signin" | "signup";
+
 export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { signInWithEmail, loading: authLoading } = useAuth();
+  const { signInWithEmail, signUpWithEmail, loading: authLoading } = useAuth();
 
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [title, setTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [bio, setBio] = useState("");
+  const [optInNetworking, setOptInNetworking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  console.log('AuthScreen - Rendering sign in screen');
+  console.log('AuthScreen - Mode:', mode);
 
   if (authLoading) {
     return (
@@ -48,36 +59,71 @@ export default function AuthScreen() {
   };
 
   const handleEmailAuth = async () => {
-    console.log('AuthScreen - User tapped sign in button');
+    console.log('AuthScreen - User tapped auth button, mode:', mode);
     
     if (!email || !password) {
       showError("Please enter email and password");
       return;
     }
 
+    if (mode === "signup" && !name) {
+      showError("Please enter your name");
+      return;
+    }
+
     setLoading(true);
     try {
-      console.log('AuthScreen - Signing in with email:', email);
-      await signInWithEmail(email, password);
-      console.log('AuthScreen - Sign in successful');
-      router.replace("/");
+      if (mode === "signin") {
+        console.log('AuthScreen - Signing in with email:', email);
+        await signInWithEmail(email, password);
+        console.log('AuthScreen - Sign in successful');
+        router.replace("/");
+      } else {
+        console.log('AuthScreen - Signing up with email:', email, 'optInNetworking:', optInNetworking);
+        await signUpWithEmail(email, password, name);
+        
+        // Update profile with additional fields after signup
+        try {
+          const { authenticatedPut } = await import('@/utils/api');
+          await authenticatedPut('/api/profile', {
+            name,
+            company: company || null,
+            title: title || null,
+            phone: phone || null,
+            linkedin: linkedin || null,
+            bio: bio || null,
+            optInNetworking: optInNetworking,
+          });
+          console.log('AuthScreen - Profile updated with optInNetworking:', optInNetworking);
+        } catch (profileError) {
+          console.error('AuthScreen - Error updating profile:', profileError);
+        }
+        
+        console.log('AuthScreen - Sign up successful');
+        showError("Account created successfully! You can now sign in.");
+        setMode("signin");
+        setPassword("");
+      }
     } catch (error: any) {
       console.error('AuthScreen - Auth error:', error);
       const errorMsg = error.message || "Authentication failed. Please try again.";
       
+      // Show more specific error messages
       if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
-        showError("Invalid email or password.\n\nIf you haven't registered yet, please tap 'Register for Conference' below.");
+        if (mode === "signin") {
+          showError("Invalid email or password.\n\nIf you don't have an account yet, please tap 'Sign Up' below to create one.");
+        } else {
+          showError("Invalid credentials. Please check your information and try again.");
+        }
+      } else if (errorMsg.toLowerCase().includes("exist")) {
+        showError("An account with this email already exists. Please sign in instead.");
+        setMode("signin");
       } else {
         showError(errorMsg);
       }
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleForgotPassword = () => {
-    console.log('AuthScreen - User tapped Forgot Password');
-    router.push("/forgot-password");
   };
 
   const inputBackgroundColor = colorScheme === 'dark' ? appColors.card : '#FFFFFF';
@@ -94,7 +140,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            {/* Logo */}
+            {/* Logo - Using the conference logo with rectangular aspect ratio (904x377) */}
             <View style={styles.logoContainer}>
               <Image
                 source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
@@ -104,12 +150,125 @@ export default function AuthScreen() {
                 Port of the Future 2026
               </Text>
               <Text style={[styles.appSubtitle, { color: appColors.textSecondary }]}>
-                Welcome Back
+                {mode === "signin" ? "Welcome Back" : "Create Your Account"}
               </Text>
             </View>
 
-            {/* Email & Password */}
-            <Text style={[styles.label, { color: appColors.text }]}>Email</Text>
+            {/* Sign Up Form */}
+            {mode === "signup" && (
+              <React.Fragment>
+                <Text style={[styles.label, { color: appColors.text }]}>Full Name *</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="John Doe"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>Company</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="Acme Corporation"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={company}
+                  onChangeText={setCompany}
+                  autoCapitalize="words"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>Job Title</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="Operations Manager"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={title}
+                  onChangeText={setTitle}
+                  autoCapitalize="words"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>Phone</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="+1 (555) 123-4567"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>LinkedIn Profile</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="https://linkedin.com/in/johndoe"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={linkedin}
+                  onChangeText={setLinkedin}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>Bio</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="Tell us about yourself..."
+                  placeholderTextColor={appColors.textSecondary}
+                  value={bio}
+                  onChangeText={setBio}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+
+                {/* Opt-in Networking Toggle */}
+                <View style={styles.switchContainer}>
+                  <View style={styles.switchTextContainer}>
+                    <Text style={[styles.switchLabel, { color: appColors.text }]}>
+                      Opt-in to Networking
+                    </Text>
+                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
+                      Allow other attendees to see your profile and send you messages
+                    </Text>
+                  </View>
+                  <Switch
+                    value={optInNetworking}
+                    onValueChange={(value) => {
+                      console.log('AuthScreen - User toggled optInNetworking to:', value);
+                      setOptInNetworking(value);
+                    }}
+                    trackColor={{ false: appColors.border, true: appColors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              </React.Fragment>
+            )}
+
+            {/* Email & Password (both modes) */}
+            <Text style={[styles.label, { color: appColors.text }]}>Email *</Text>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: inputBackgroundColor, 
@@ -125,7 +284,7 @@ export default function AuthScreen() {
               autoCorrect={false}
             />
 
-            <Text style={[styles.label, { color: appColors.text }]}>Password</Text>
+            <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: inputBackgroundColor, 
@@ -140,16 +299,6 @@ export default function AuthScreen() {
               autoCapitalize="none"
             />
 
-            {/* Forgot Password Link */}
-            <TouchableOpacity
-              style={styles.forgotPasswordButton}
-              onPress={handleForgotPassword}
-            >
-              <Text style={[styles.forgotPasswordText, { color: appColors.primary }]}>
-                Forgot Password?
-              </Text>
-            </TouchableOpacity>
-
             {/* Submit Button */}
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
@@ -159,33 +308,26 @@ export default function AuthScreen() {
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.primaryButtonText}>Sign In</Text>
+                <Text style={styles.primaryButtonText}>
+                  {mode === "signin" ? "Sign In" : "Create Account"}
+                </Text>
               )}
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={styles.dividerContainer}>
-              <View style={[styles.dividerLine, { backgroundColor: appColors.border }]} />
-              <Text style={[styles.dividerText, { color: appColors.textSecondary }]}>OR</Text>
-              <View style={[styles.dividerLine, { backgroundColor: appColors.border }]} />
-            </View>
-
-            {/* Register Button */}
+            {/* Switch Mode */}
             <TouchableOpacity
-              style={[styles.secondaryButton, { borderColor: appColors.primary }]}
+              style={styles.switchModeButton}
               onPress={() => {
-                console.log('AuthScreen - User tapped Register for Conference');
-                router.push("/register");
+                console.log('AuthScreen - Switching mode from', mode, 'to', mode === 'signin' ? 'signup' : 'signin');
+                setMode(mode === "signin" ? "signup" : "signin");
               }}
             >
-              <Text style={[styles.secondaryButtonText, { color: appColors.primary }]}>
-                Register for Conference
+              <Text style={[styles.switchModeText, { color: appColors.primary }]}>
+                {mode === "signin"
+                  ? "Don't have an account? Sign Up"
+                  : "Already have an account? Sign In"}
               </Text>
             </TouchableOpacity>
-
-            <Text style={[styles.helperText, { color: appColors.textSecondary }]}>
-              First time here? Use the email you registered with for the conference.
-            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -203,7 +345,7 @@ export default function AuthScreen() {
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              Login Failed
+              {mode === "signin" ? "Login Failed" : "Sign Up Failed"}
             </Text>
             <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
@@ -275,21 +417,37 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 16,
   },
-  forgotPasswordButton: {
-    alignSelf: 'flex-end',
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
+  textArea: {
+    height: 100,
+    paddingTop: spacing.md,
   },
-  forgotPasswordText: {
-    ...typography.bodySmall,
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  switchTextContainer: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  switchLabel: {
+    ...typography.body,
     fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  switchDescription: {
+    ...typography.bodySmall,
+    lineHeight: 18,
   },
   primaryButton: {
     height: 50,
     borderRadius: borderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
   primaryButtonText: {
     color: "#FFFFFF",
@@ -299,35 +457,14 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.xl,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    ...typography.bodySmall,
-    marginHorizontal: spacing.md,
-  },
-  secondaryButton: {
-    height: 50,
-    borderRadius: borderRadius.sm,
-    justifyContent: "center",
+  switchModeButton: {
+    marginTop: spacing.lg,
     alignItems: "center",
-    borderWidth: 2,
+    paddingVertical: spacing.md,
   },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  helperText: {
-    ...typography.bodySmall,
-    textAlign: 'center',
-    marginTop: spacing.md,
-    lineHeight: 18,
+  switchModeText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,

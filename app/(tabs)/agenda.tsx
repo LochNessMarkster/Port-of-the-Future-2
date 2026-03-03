@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiCall, authenticatedPost, authenticatedDelete, getBearerToken } from '@/utils/api';
+import { apiGet, authenticatedPost, authenticatedDelete } from '@/utils/api';
 
 interface Session {
   id: string;
@@ -79,81 +79,16 @@ function mapSessionResponse(data: SessionBackendResponse): Session {
   };
 }
 
-// Track color palette - vibrant colors for each track
-const TRACK_COLORS: { [key: string]: string } = {
-  'Break': '#9E9E9E',
-  'Keynote & Plenary': '#FFD700',
-  'Pre-Conference': '#8B4513',
-  'Special Event': '#FF6B6B',
-  'Track 1 - Ensuring America\'s Maritime Security': '#1E88E5',
-  'Track 2 - Developing Ports': '#43A047',
-  'Track 3 - Intermodal Connectivity': '#FB8C00',
-  'Track 4 - Enhancing Ports\' Operational Efficiencies': '#8E24AA',
-  'Track 5 - Port Infrastructure 4.0': '#00ACC1',
-  'Track 6 - Decarbonization and Alternative Fuels': '#7CB342',
-  'Track 7 - Port Energy and Sustainability': '#66BB6A',
-  'Track 8 - Port Security, Cybersecurity, & Emergency Management': '#EF5350',
-  'Track 9 - Advances in Dredging Technology and Methods': '#5C6BC0',
+// Track/Type filters by day
+const TRACK_FILTERS: { [key: string]: string[] } = {
+  '23': ['Pre-Conference', 'Special Event', 'Track 9 - Advances in Dredging Technology and Methods'],
+  '24': ['Break', 'Keynote & Plenary', 'Special Event', 'Track 1 - Ensuring America\'s Maritime Security', 'Track 2 - Developing Ports', 'Track 3 - Intermodal Connectivity'],
+  '25': ['Break', 'Special Event', 'Track 4 - Enhancing Ports\' Operational Efficiencies'],
+  '26': ['Track 5 - Port Infrastructure 4.0'],
+  '27': ['Track 6 - Decarbonization and Alternative Fuels'],
+  '28': ['Track 7 - Port Energy and Sustainability'],
+  '29': ['Track 8 - Port Security, Cybersecurity, & Emergency Management'],
 };
-
-// Get filters available for each day
-const getFiltersForDay = (day: '23' | '24' | '25'): string[] => {
-  switch (day) {
-    case '23': // Monday
-      return ['Pre-Conference', 'Special Event'];
-    case '24': // Tuesday
-      return ['Break', 'Keynote & Plenary', 'Special Event', 'Track 1 - Ensuring America\'s Maritime Security', 'Track 2 - Developing Ports', 'Track 3 - Intermodal Connectivity'];
-    case '25': // Wednesday
-      return ['Break', 'Special Event', 'Track 4 - Enhancing Ports\' Operational Efficiencies', 'Track 5 - Port Infrastructure 4.0', 'Track 6 - Decarbonization and Alternative Fuels', 'Track 7 - Port Energy and Sustainability', 'Track 8 - Port Security, Cybersecurity, & Emergency Management', 'Track 9 - Advances in Dredging Technology and Methods'];
-    default:
-      return [];
-  }
-};
-
-// Extract track number from Type/Track field
-function extractTrackNumber(typeTrack: string): number | null {
-  const match = typeTrack.match(/Track\s+(\d+)/i);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-// Get sort priority for Type/Track field
-function getTypeTrackPriority(typeTrack: string): number {
-  const cleanType = typeTrack.trim();
-  
-  // 1. Keynote & Plenary (and variations)
-  if (cleanType.toLowerCase().includes('keynote') && cleanType.toLowerCase().includes('plenary')) {
-    return 1;
-  }
-  
-  // 2. Pre-Conference (and variations)
-  if (cleanType.toLowerCase().includes('pre-conference')) {
-    return 2;
-  }
-  
-  // 3. Track items (sorted by track number)
-  const trackNumber = extractTrackNumber(cleanType);
-  if (trackNumber !== null) {
-    return 100 + trackNumber; // Track 1 = 101, Track 2 = 102, etc.
-  }
-  
-  // 4. Special Event
-  if (cleanType.toLowerCase().includes('special event')) {
-    return 200;
-  }
-  
-  // 5. Break
-  if (cleanType.toLowerCase() === 'break') {
-    return 300;
-  }
-  
-  // 6. Luncheon
-  if (cleanType.toLowerCase().includes('luncheon')) {
-    return 400;
-  }
-  
-  // 7. Everything else (items without track numbers)
-  return 500;
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -186,99 +121,6 @@ const styles = StyleSheet.create({
   clearButton: {
     padding: spacing.xs,
   },
-  filterContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-  },
-  filterButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    flex: 1,
-  },
-  filterBadge: {
-    backgroundColor: '#FF6B6B',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: spacing.xs,
-  },
-  filterBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  filterModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  filterModalContent: {
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    maxHeight: '70%',
-  },
-  filterModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-  },
-  filterModalTitle: {
-    ...typography.h2,
-  },
-  filterModalScroll: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  filterOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.sm,
-  },
-  filterOptionText: {
-    ...typography.body,
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  filterColorIndicator: {
-    width: 4,
-    height: '100%',
-    position: 'absolute',
-    left: 0,
-    borderTopLeftRadius: borderRadius.md,
-    borderBottomLeftRadius: borderRadius.md,
-  },
-  clearFilterButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-  },
-  clearFilterButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
   tabContainer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
@@ -296,6 +138,66 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
   },
+  filterContainer: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  filterButtonText: {
+    ...typography.body,
+    flex: 1,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterModalContent: {
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    maxHeight: '70%',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+  },
+  filterModalTitle: {
+    ...typography.h2,
+  },
+  filterOption: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+  },
+  filterOptionText: {
+    ...typography.body,
+  },
+  filterClearButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  filterClearButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
   sessionCard: {
     borderRadius: borderRadius.md,
     padding: spacing.md,
@@ -305,16 +207,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    borderLeftWidth: 4,
     ...Platform.select({
       web: {
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       },
     }),
-  },
-  sessionCardPast: {
-    opacity: 0.5,
-    transform: [{ scale: 0.97 }],
   },
   sessionHeader: {
     flexDirection: 'row',
@@ -326,9 +223,6 @@ const styles = StyleSheet.create({
     ...typography.h3,
     flex: 1,
     marginRight: spacing.sm,
-  },
-  sessionTitlePast: {
-    textDecorationLine: 'line-through',
   },
   sessionMeta: {
     flexDirection: 'row',
@@ -346,7 +240,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     alignSelf: 'flex-start',
     marginTop: spacing.xs,
-    fontWeight: '600',
   },
   sessionDateBadge: {
     ...typography.caption,
@@ -356,18 +249,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: spacing.xs,
     marginLeft: spacing.xs,
-  },
-  pastBadge: {
-    ...typography.caption,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    alignSelf: 'flex-start',
-    marginTop: spacing.xs,
-    marginLeft: spacing.xs,
-    backgroundColor: '#9E9E9E',
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
   loadingContainer: {
     padding: spacing.xl,
@@ -517,7 +398,7 @@ export default function AgendaScreen() {
   const [conflictModalVisible, setConflictModalVisible] = useState(false);
   const [conflictingSessions, setConflictingSessions] = useState<Session[]>([]);
   const [pendingBookmarkSession, setPendingBookmarkSession] = useState<Session | null>(null);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   console.log('AgendaScreen - Rendered');
@@ -529,8 +410,8 @@ export default function AgendaScreen() {
 
   // Reset filter when day changes
   useEffect(() => {
-    console.log('AgendaScreen - Day changed to:', selectedDay, '- Resetting filter');
-    setActiveFilter(null);
+    console.log('AgendaScreen - Day changed, resetting filter');
+    setSelectedFilter(null);
   }, [selectedDay]);
 
   const loadSessions = async () => {
@@ -538,19 +419,7 @@ export default function AgendaScreen() {
       setLoading(true);
       setError(null);
       console.log('AgendaScreen - Fetching sessions from /api/sessions');
-      // Try with bearer token first (for authenticated users), fall back to cookie-based auth
-      let data: SessionBackendResponse[];
-      const token = await getBearerToken();
-      if (token) {
-        console.log('AgendaScreen - Using bearer token for sessions request');
-        data = await apiCall<SessionBackendResponse[]>('/api/sessions', {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-        }, false, true);
-      } else {
-        console.log('AgendaScreen - No bearer token, trying with credentials (cookie-based auth)');
-        data = await apiCall<SessionBackendResponse[]>('/api/sessions', { method: 'GET' }, true, true);
-      }
+      const data = await apiGet<SessionBackendResponse[]>('/api/sessions');
       
       // Map backend response to frontend interface
       const mappedSessions = data.map(mapSessionResponse);
@@ -596,22 +465,11 @@ export default function AgendaScreen() {
   const loadBookmarkedSessions = async () => {
     try {
       console.log('AgendaScreen - Fetching bookmarked sessions from /api/schedule');
-      // Schedule endpoint requires auth - try bearer token first, then cookies
-      const token = await getBearerToken();
-      let data: { sessionId: string }[];
-      if (token) {
-        data = await apiCall<{ sessionId: string }[]>('/api/schedule', {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-        }, false, true);
-      } else {
-        data = await apiCall<{ sessionId: string }[]>('/api/schedule', { method: 'GET' }, true, true);
-      }
+      const data = await apiGet<{ sessionId: string }[]>('/api/schedule');
       setBookmarkedSessions(new Set(data.map(item => item.sessionId)));
       console.log('AgendaScreen - Loaded bookmarked sessions:', data.length);
     } catch (err) {
-      console.error('AgendaScreen - Error loading bookmarked sessions (non-critical):', err);
-      // Non-critical - user may not be authenticated for schedule
+      console.error('AgendaScreen - Error loading bookmarked sessions:', err);
     }
   };
 
@@ -668,50 +526,6 @@ export default function AgendaScreen() {
     } catch (err) {
       console.error('AgendaScreen - Error parsing end time:', timeStr, err);
       return parseTime(timeStr) + 60; // Default to 1 hour duration
-    }
-  };
-
-  // Check if a session has passed
-  const isSessionPast = (session: Session): boolean => {
-    try {
-      // Get current date and time
-      const now = new Date();
-      
-      // Parse session date (e.g., "March 24, 2026" or "3/24/2026")
-      let sessionYear = 2026;
-      let sessionMonth = 2; // March (0-indexed)
-      let sessionDay = 24;
-      
-      if (session.date) {
-        const dateStr = session.date.toLowerCase();
-        if (dateStr.includes('23')) {
-          sessionDay = 23;
-        } else if (dateStr.includes('24')) {
-          sessionDay = 24;
-        } else if (dateStr.includes('25')) {
-          sessionDay = 25;
-        }
-      }
-      
-      // Parse session end time
-      const sessionEndMinutes = parseEndTime(session.time);
-      const sessionEndHours = Math.floor(sessionEndMinutes / 60);
-      const sessionEndMins = sessionEndMinutes % 60;
-      
-      // Create session end date object
-      const sessionEndDate = new Date(sessionYear, sessionMonth, sessionDay, sessionEndHours, sessionEndMins);
-      
-      // Compare with current time
-      const hasPassed = now > sessionEndDate;
-      
-      if (hasPassed) {
-        console.log('AgendaScreen - Session has passed:', session.title, '- End time:', sessionEndDate);
-      }
-      
-      return hasPassed;
-    } catch (err) {
-      console.error('AgendaScreen - Error checking if session is past:', err);
-      return false;
     }
   };
 
@@ -829,17 +643,14 @@ export default function AgendaScreen() {
     setConflictingSessions([]);
   };
 
-  // Get track color
-  const getTrackColor = (type: string): string => {
-    return TRACK_COLORS[type] || appColors.textSecondary;
-  };
-
-  // Get available filters for current day
+  // Get available filters for the selected day
   const availableFilters = useMemo(() => {
-    return getFiltersForDay(selectedDay);
+    const filters = TRACK_FILTERS[selectedDay] || [];
+    console.log('AgendaScreen - Available filters for day', selectedDay, ':', filters);
+    return filters;
   }, [selectedDay]);
 
-  // Sort and filter sessions by selected day, time, track order, search query, and active filter
+  // Sort and filter sessions by selected day, time, search query, and filter
   const sortedFilteredSessions = useMemo(() => {
     const filtered = sessions.filter(session => {
       // Determine which day this session belongs to by checking the date field
@@ -855,10 +666,9 @@ export default function AgendaScreen() {
       
       if (!matchesDay) return false;
       
-      // Apply active filter
-      if (activeFilter) {
-        const matchesFilter = session.type === activeFilter;
-        if (!matchesFilter) return false;
+      // Apply filter
+      if (selectedFilter && session.type !== selectedFilter) {
+        return false;
       }
       
       // Apply search filter
@@ -874,26 +684,16 @@ export default function AgendaScreen() {
       return matchesTitle || matchesSpeaker || matchesRoom || matchesType || matchesDescription;
     });
     
-    // Sort by time (earliest to latest), then by track order
+    // Sort by time (earliest to latest)
     const sorted = [...filtered].sort((a, b) => {
       const timeA = parseTime(a.time);
       const timeB = parseTime(b.time);
-      
-      // Primary sort: by time
-      if (timeA !== timeB) {
-        return timeA - timeB;
-      }
-      
-      // Secondary sort: by track order (for sessions at the same time)
-      const priorityA = getTypeTrackPriority(a.type);
-      const priorityB = getTypeTrackPriority(b.type);
-      
-      return priorityA - priorityB;
+      return timeA - timeB;
     });
     
-    console.log('AgendaScreen - Sorted sessions for day', selectedDay, 'with filter', activeFilter, ':', sorted.length);
+    console.log('AgendaScreen - Sorted sessions for day', selectedDay, ':', sorted.length);
     return sorted;
-  }, [sessions, selectedDay, searchQuery, activeFilter]);
+  }, [sessions, selectedDay, searchQuery, selectedFilter]);
 
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -925,17 +725,17 @@ export default function AgendaScreen() {
 
   const selectFilter = (filter: string) => {
     console.log('AgendaScreen - Selected filter:', filter);
-    setActiveFilter(filter);
+    setSelectedFilter(filter);
     closeFilterModal();
   };
 
   const clearFilter = () => {
     console.log('AgendaScreen - Clearing filter');
-    setActiveFilter(null);
+    setSelectedFilter(null);
     closeFilterModal();
   };
 
-  const filterButtonText = activeFilter || 'Filter by Type/Track';
+  const filterButtonText = selectedFilter || 'Filter by Type/Track';
 
   return (
     <React.Fragment>
@@ -978,48 +778,6 @@ export default function AgendaScreen() {
               </TouchableOpacity>
             ) : null}
           </View>
-        </View>
-
-        {/* Filter Button */}
-        <View style={styles.filterContainer}>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              { 
-                backgroundColor: appColors.card,
-                borderColor: activeFilter ? appColors.primary : appColors.border
-              }
-            ]}
-            onPress={openFilterModal}
-            activeOpacity={0.7}
-          >
-            <IconSymbol
-              ios_icon_name="line.3.horizontal.decrease.circle"
-              android_material_icon_name="filter-list"
-              size={20}
-              color={activeFilter ? appColors.primary : appColors.textSecondary}
-            />
-            <Text style={[
-              styles.filterButtonText,
-              { 
-                color: activeFilter ? appColors.primary : appColors.text,
-                marginLeft: spacing.sm
-              }
-            ]}>
-              {filterButtonText}
-            </Text>
-            {activeFilter ? (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>1</Text>
-              </View>
-            ) : null}
-            <IconSymbol
-              ios_icon_name="chevron.down"
-              android_material_icon_name="arrow-drop-down"
-              size={20}
-              color={appColors.textSecondary}
-            />
-          </TouchableOpacity>
         </View>
 
         {/* Day Tabs */}
@@ -1082,6 +840,36 @@ export default function AgendaScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Filter Dropdown */}
+        {availableFilters.length > 0 ? (
+          <View style={styles.filterContainer}>
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                { 
+                  backgroundColor: appColors.card,
+                  borderColor: selectedFilter ? appColors.primary : appColors.border
+                }
+              ]}
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.filterButtonText,
+                { color: selectedFilter ? appColors.primary : appColors.text }
+              ]}>
+                {filterButtonText}
+              </Text>
+              <IconSymbol
+                ios_icon_name="chevron.down"
+                android_material_icon_name="arrow-drop-down"
+                size={24}
+                color={selectedFilter ? appColors.primary : appColors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -1129,30 +917,21 @@ export default function AgendaScreen() {
                 color={appColors.textSecondary}
               />
               <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                {searchQuery || activeFilter ? 'No sessions found' : 'No sessions scheduled'}
+                {searchQuery || selectedFilter ? 'No sessions found' : 'No sessions scheduled'}
               </Text>
               <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                {searchQuery || activeFilter ? 'Try a different search or filter' : `No sessions found for March ${selectedDay}`}
+                {searchQuery || selectedFilter ? 'Try a different search or filter' : `No sessions found for March ${selectedDay}`}
               </Text>
             </View>
           ) : (
             sortedFilteredSessions.map((session, index) => {
               const isBookmarked = bookmarkedSessions.has(session.id);
               const isBookmarkLoading = bookmarkLoading === session.id;
-              const trackColor = getTrackColor(session.type);
-              const isPast = isSessionPast(session);
               
               return (
                 <TouchableOpacity
                   key={index}
-                  style={[
-                    styles.sessionCard,
-                    { 
-                      backgroundColor: appColors.card,
-                      borderLeftColor: trackColor
-                    },
-                    isPast ? styles.sessionCardPast : null
-                  ]}
+                  style={[styles.sessionCard, { backgroundColor: appColors.card }]}
                   onPress={() => {
                     console.log('AgendaScreen - Session card pressed:', session.title);
                     setSelectedSession(session);
@@ -1160,11 +939,7 @@ export default function AgendaScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.sessionHeader}>
-                    <Text style={[
-                      styles.sessionTitle, 
-                      { color: appColors.text },
-                      isPast ? styles.sessionTitlePast : null
-                    ]}>
+                    <Text style={[styles.sessionTitle, { color: appColors.text }]}>
                       {session.title}
                     </Text>
                     <TouchableOpacity
@@ -1243,17 +1018,12 @@ export default function AgendaScreen() {
                     <Text style={[
                       styles.sessionType,
                       { 
-                        backgroundColor: trackColor + '20',
-                        color: trackColor
+                        backgroundColor: getTypeColor(session.type) + '20',
+                        color: getTypeColor(session.type)
                       }
                     ]}>
                       {session.type}
                     </Text>
-                    {isPast ? (
-                      <Text style={styles.pastBadge}>
-                        Ended
-                      </Text>
-                    ) : null}
                   </View>
                 </TouchableOpacity>
               );
@@ -1290,60 +1060,37 @@ export default function AgendaScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.filterModalScroll} showsVerticalScrollIndicator={false}>
-                {availableFilters.map((filter, index) => {
-                  const isSelected = activeFilter === filter;
-                  const filterColor = getTrackColor(filter);
-                  
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.filterOption,
-                        { 
-                          backgroundColor: isSelected ? appColors.primary + '10' : 'transparent'
-                        }
-                      ]}
-                      onPress={() => selectFilter(filter)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.filterColorIndicator, { backgroundColor: filterColor }]} />
-                      {isSelected ? (
-                        <IconSymbol
-                          ios_icon_name="checkmark.circle.fill"
-                          android_material_icon_name="check-circle"
-                          size={24}
-                          color={appColors.primary}
-                        />
-                      ) : (
-                        <IconSymbol
-                          ios_icon_name="circle"
-                          android_material_icon_name="radio-button-unchecked"
-                          size={24}
-                          color={appColors.textSecondary}
-                        />
-                      )}
-                      <Text style={[
-                        styles.filterOptionText,
-                        { 
-                          color: isSelected ? appColors.primary : appColors.text,
-                          fontWeight: isSelected ? '600' : '400'
-                        }
-                      ]}>
-                        {filter}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {availableFilters.map((filter, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.filterOption,
+                      { borderBottomColor: appColors.border }
+                    ]}
+                    onPress={() => selectFilter(filter)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { 
+                        color: selectedFilter === filter ? appColors.primary : appColors.text,
+                        fontWeight: selectedFilter === filter ? '600' : '400'
+                      }
+                    ]}>
+                      {filter}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
 
-              {activeFilter ? (
+              {selectedFilter ? (
                 <TouchableOpacity
-                  style={[styles.clearFilterButton, { backgroundColor: appColors.textSecondary }]}
+                  style={[styles.filterClearButton, { backgroundColor: appColors.error }]}
                   onPress={clearFilter}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.clearFilterButtonText}>
+                  <Text style={[styles.filterClearButtonText, { color: '#FFFFFF' }]}>
                     Clear Filter
                   </Text>
                 </TouchableOpacity>
@@ -1432,8 +1179,8 @@ export default function AgendaScreen() {
                     <Text style={[
                       styles.sessionType,
                       { 
-                        backgroundColor: getTrackColor(selectedSession.type) + '20',
-                        color: getTrackColor(selectedSession.type)
+                        backgroundColor: getTypeColor(selectedSession.type) + '20',
+                        color: getTypeColor(selectedSession.type)
                       }
                     ]}>
                       {selectedSession.type}

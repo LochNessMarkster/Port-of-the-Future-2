@@ -15,9 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet, authenticatedPut, authenticatedPost } from '@/utils/api';
+import { apiGet, authenticatedPut } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { ToastNotification } from '@/components/ToastNotification';
 
 interface UserProfile {
   id: string;
@@ -30,17 +29,13 @@ interface UserProfile {
   bio: string | null;
   linkedin: string | null;
   optInNetworking: boolean;
-  shareEmail: boolean;
-  sharePhone: boolean;
-  shareLinkedIn: boolean;
   emailVerified: boolean | null;
 }
 
 // Helper to resolve image sources
 function resolveImageSource(uri: string | null | undefined) {
   if (uri) {
-    // Use cache: 'reload' to ensure signed URLs are not served from stale cache
-    return { uri, cache: 'reload' as const };
+    return { uri };
   }
   return require('@/assets/images/POF-ICON.png');
 }
@@ -133,7 +128,6 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form fields
   const [name, setName] = useState('');
@@ -142,10 +136,7 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [bio, setBio] = useState('');
-  const [optInNetworking, setOptInNetworking] = useState(true);
-  const [shareEmail, setShareEmail] = useState(true);
-  const [sharePhone, setSharePhone] = useState(true);
-  const [shareLinkedIn, setShareLinkedIn] = useState(true);
+  const [optInNetworking, setOptInNetworking] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -164,10 +155,7 @@ export default function ProfileScreen() {
       setPhone(data.phone || '');
       setLinkedin(data.linkedin || '');
       setBio(data.bio || '');
-      setOptInNetworking(data.optInNetworking ?? true);
-      setShareEmail(data.shareEmail ?? true);
-      setSharePhone(data.sharePhone ?? true);
-      setShareLinkedIn(data.shareLinkedIn ?? true);
+      setOptInNetworking(data.optInNetworking || false);
       
       console.log('ProfileScreen - Loaded profile');
     } catch (error) {
@@ -180,8 +168,7 @@ export default function ProfileScreen() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      // Update local database profile
-      await authenticatedPut<UserProfile>('/api/profile', {
+      const updatedProfile = await authenticatedPut<UserProfile>('/api/profile', {
         name,
         company: company || null,
         title: title || null,
@@ -189,54 +176,12 @@ export default function ProfileScreen() {
         linkedin: linkedin || null,
         bio: bio || null,
         optInNetworking,
-        shareEmail,
-        sharePhone,
-        shareLinkedIn,
       });
-      console.log('[ProfileScreen] Local profile updated');
-
-      // Extract first and last name from full name for Airtable
-      const nameParts = name.trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-
-      // Update Airtable record
-      console.log('[ProfileScreen] Updating Airtable with:', { firstName, lastName, company, title, phone });
-      try {
-        const airtableResponse = await authenticatedPost<{ success: boolean; message?: string; error?: string }>(
-          '/api/profile/update-airtable',
-          {
-            firstName,
-            lastName,
-            company: company || '',
-            title: title || '',
-            phone: phone || '',
-          }
-        );
-
-        if (airtableResponse.success) {
-          console.log('[ProfileScreen] Airtable updated successfully');
-          setToastMessage('Profile saved successfully!');
-        } else {
-          const errorMsg = airtableResponse.error || 'Unknown error';
-          console.warn('[ProfileScreen] Airtable update failed:', errorMsg);
-          setToastMessage(`Airtable sync failed: ${errorMsg}`);
-        }
-      } catch (airtableError: any) {
-        console.error('[ProfileScreen] Airtable update error:', airtableError);
-        const errorMsg = airtableError?.message || airtableError?.error || 'Unknown error';
-        setToastMessage(`Airtable sync failed: ${errorMsg}`);
-      }
-
-      // Reload profile via GET to get fresh signed URL for image
-      // (PUT response returns raw storage key, not a signed URL)
-      await loadProfile();
+      setProfile(updatedProfile);
       await fetchUser(); // Refresh auth context
-      console.log('[ProfileScreen] Profile updated and reloaded with fresh signed URLs');
-    } catch (error: any) {
-      console.error('[ProfileScreen] Error saving profile:', error);
-      const errorMsg = error?.message || 'Unknown error';
-      setToastMessage(`Failed to save profile: ${errorMsg}`);
+      console.log('ProfileScreen - Profile updated');
+    } catch (error) {
+      console.error('ProfileScreen - Error saving profile:', error);
     } finally {
       setSaving(false);
     }
@@ -254,7 +199,6 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
-      <ToastNotification message={toastMessage} onHide={() => setToastMessage(null)} />
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
@@ -364,12 +308,12 @@ export default function ProfileScreen() {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: appColors.text }]}>
-            Networking Settings
+            Privacy Settings
           </Text>
 
           <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
             <Text style={[styles.switchLabel, { color: appColors.text }]}>
-              Show my profile in the networking directory (you are opted in by default)
+              Allow other attendees to see my profile and send me messages
             </Text>
             <Switch
               value={optInNetworking}
@@ -378,50 +322,6 @@ export default function ProfileScreen() {
               thumbColor="#FFFFFF"
             />
           </View>
-
-          {optInNetworking && (
-            <>
-              <Text style={[styles.label, { color: appColors.text, marginTop: spacing.md }]}>
-                Contact Information to Share
-              </Text>
-
-              <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
-                <Text style={[styles.switchLabel, { color: appColors.text }]}>
-                  Share my email address
-                </Text>
-                <Switch
-                  value={shareEmail}
-                  onValueChange={setShareEmail}
-                  trackColor={{ false: appColors.border, true: appColors.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
-              <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
-                <Text style={[styles.switchLabel, { color: appColors.text }]}>
-                  Share my phone number
-                </Text>
-                <Switch
-                  value={sharePhone}
-                  onValueChange={setSharePhone}
-                  trackColor={{ false: appColors.border, true: appColors.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
-              <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
-                <Text style={[styles.switchLabel, { color: appColors.text }]}>
-                  Share my LinkedIn profile
-                </Text>
-                <Switch
-                  value={shareLinkedIn}
-                  onValueChange={setShareLinkedIn}
-                  trackColor={{ false: appColors.border, true: appColors.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-            </>
-          )}
         </View>
 
         <TouchableOpacity
