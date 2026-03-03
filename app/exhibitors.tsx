@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.xl,
     width: '100%',
-    maxWidth: 500,
+    maxWidth: 600,
     maxHeight: '80%',
   },
   modalHeader: {
@@ -178,13 +178,19 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: spacing.sm,
   },
-  modalLogo: {
-    width: 120,
-    height: 120,
-    borderRadius: borderRadius.md,
+  modalLogoContainer: {
+    width: '100%',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     marginBottom: spacing.lg,
-    alignSelf: 'center',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.md,
+  },
+  modalLogo: {
+    width: '100%',
+    height: 150,
+    resizeMode: 'contain',
   },
   sectionTitle: {
     ...typography.h3,
@@ -542,10 +548,13 @@ export default function ExhibitorsScreen() {
                 </View>
 
                 {selectedExhibitor?.logo && (
-                  <Image
-                    source={resolveImageSource(selectedExhibitor.logo)}
-                    style={styles.modalLogo}
-                  />
+                  <View style={styles.modalLogoContainer}>
+                    <Image
+                      source={resolveImageSource(selectedExhibitor.logo)}
+                      style={styles.modalLogo}
+                      resizeMode="contain"
+                    />
+                  </View>
                 )}
 
                 {selectedExhibitor?.boothNumber && (
