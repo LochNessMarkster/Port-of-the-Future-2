@@ -30,6 +30,10 @@ interface Speaker {
   topic: string;
   synopsis: string;
   bio: string;
+  published: boolean;
+  publicPersonalData: boolean;
+  email: string;
+  phone: string;
 }
 
 const styles = StyleSheet.create({
@@ -203,8 +207,9 @@ export default function SpeakersScreen() {
       setLoading(true);
       console.log('SpeakersScreen - Fetching speakers from /api/speakers (sorted by last name)');
       const data = await apiGet<Speaker[]>('/api/speakers');
-      setSpeakers(data);
-      console.log('SpeakersScreen - Loaded speakers:', data.length);
+      const publishedSpeakers = data.filter(speaker => speaker.published === true);
+      setSpeakers(publishedSpeakers);
+      console.log('SpeakersScreen - Loaded speakers:', data.length, '| Published:', publishedSpeakers.length);
       if (data.length > 0) {
         console.log('SpeakersScreen - First speaker:', data[0].firstName, data[0].lastName);
         console.log('SpeakersScreen - Last speaker:', data[data.length - 1].firstName, data[data.length - 1].lastName);
@@ -416,6 +421,28 @@ export default function SpeakersScreen() {
                     </Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>
                       {selectedSpeaker.bio}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {selectedSpeaker?.publicPersonalData && selectedSpeaker?.email ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Email
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSpeaker.email}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {selectedSpeaker?.publicPersonalData && selectedSpeaker?.phone ? (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Phone
+                    </Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>
+                      {selectedSpeaker.phone}
                     </Text>
                   </View>
                 ) : null}
