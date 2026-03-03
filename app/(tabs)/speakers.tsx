@@ -27,6 +27,10 @@ interface Speaker {
   speakingTopic: string;
   bio: string;
   photoUrl: string | null;
+  published?: boolean;
+  publicPersonalData?: boolean;
+  email?: string;
+  phone?: string;
 }
 
 const CACHED_AIRTABLE_URL = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblNp1JZk4ARZZZlT';
@@ -188,6 +192,21 @@ const styles = StyleSheet.create({
     right: spacing.md,
     zIndex: 1,
   },
+  contactSection: {
+    marginBottom: spacing.md,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  contactIcon: {
+    marginRight: spacing.sm,
+  },
+  contactText: {
+    ...typography.body,
+    flex: 1,
+  },
 });
 
 export default function SpeakersScreen() {
@@ -234,7 +253,7 @@ export default function SpeakersScreen() {
         if (!response.ok) {
           const errorText = await response.text();
           console.error('SpeakersScreen - Error response body:', errorText);
-          throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const responseText = await response.text();
@@ -249,15 +268,22 @@ export default function SpeakersScreen() {
         }
         
         // Map Airtable records to Speaker interface
-        const records = (data.records || []).map((record: any) => ({
-          id: record.id,
-          firstName: record.fields['Speaker Name'] || '',
-          lastName: record.fields['Last Name'] || '',
-          title: record.fields['Speaker Title'] || '',
-          speakingTopic: record.fields['Speaking Topic'] || '',
-          bio: record.fields['Bio'] || '',
-          photoUrl: record.fields['Photo']?.[0]?.url || null,
-        }));
+        const records = (data.records || []).map((record: any) => {
+          const fields = record.fields || {};
+          return {
+            id: record.id,
+            firstName: fields['Speaker Name'] || '',
+            lastName: fields['Last Name'] || '',
+            title: fields['Speaker Title'] || '',
+            speakingTopic: fields['Speaking Topic'] || '',
+            bio: fields['Bio'] || '',
+            photoUrl: fields['Photo']?.[0]?.url || null,
+            published: fields['Published'] === true,
+            publicPersonalData: fields['PublicPersonalData'] === true,
+            email: fields['Email'] || '',
+            phone: fields['Phone'] || '',
+          };
+        });
         
         allRecords = allRecords.concat(records);
         offset = data.offset;
@@ -266,15 +292,19 @@ export default function SpeakersScreen() {
 
       console.log('SpeakersScreen - Total speakers loaded:', allRecords.length);
       
+      // Filter to only show published speakers
+      const publishedSpeakers = allRecords.filter(speaker => speaker.published === true);
+      console.log('SpeakersScreen - Published speakers:', publishedSpeakers.length);
+      
       // Sort speakers alphabetically by last name, then first name
-      const sortedSpeakers = allRecords.sort((a, b) => {
+      const sortedSpeakers = publishedSpeakers.sort((a, b) => {
         const lastNameCompare = a.lastName.localeCompare(b.lastName);
         if (lastNameCompare !== 0) return lastNameCompare;
         return a.firstName.localeCompare(b.firstName);
       });
       
       setSpeakers(sortedSpeakers);
-      console.log('SpeakersScreen - Speakers sorted and set');
+      console.log('SpeakersScreen - Speakers filtered, sorted and set');
       if (sortedSpeakers.length > 0) {
         console.log('SpeakersScreen - First speaker:', sortedSpeakers[0].firstName, sortedSpeakers[0].lastName);
         console.log('SpeakersScreen - Last speaker:', sortedSpeakers[sortedSpeakers.length - 1].firstName, sortedSpeakers[sortedSpeakers.length - 1].lastName);
@@ -321,6 +351,7 @@ export default function SpeakersScreen() {
   };
 
   const fullName = selectedSpeaker ? `${selectedSpeaker.firstName} ${selectedSpeaker.lastName}` : '';
+  const showContactInfo = selectedSpeaker?.publicPersonalData === true;
 
   return (
     <React.Fragment>
@@ -523,6 +554,42 @@ export default function SpeakersScreen() {
                     <Text style={[styles.modalText, { color: appColors.text }]}>
                       {selectedSpeaker.bio}
                     </Text>
+                  </View>
+                ) : null}
+
+                {showContactInfo && (selectedSpeaker?.email || selectedSpeaker?.phone) ? (
+                  <View style={styles.contactSection}>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
+                      Contact Information
+                    </Text>
+                    {selectedSpeaker?.email ? (
+                      <View style={styles.contactRow}>
+                        <IconSymbol
+                          ios_icon_name="envelope"
+                          android_material_icon_name="email"
+                          size={20}
+                          color={appColors.textSecondary}
+                          style={styles.contactIcon}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.text }]}>
+                          {selectedSpeaker.email}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {selectedSpeaker?.phone ? (
+                      <View style={styles.contactRow}>
+                        <IconSymbol
+                          ios_icon_name="phone"
+                          android_material_icon_name="phone"
+                          size={20}
+                          color={appColors.textSecondary}
+                          style={styles.contactIcon}
+                        />
+                        <Text style={[styles.contactText, { color: appColors.text }]}>
+                          {selectedSpeaker.phone}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                 ) : null}
               </ScrollView>
