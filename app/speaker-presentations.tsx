@@ -60,6 +60,37 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
   },
+  testButtonContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+    borderWidth: 1,
+  },
+  testButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  testResultContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  testResultBox: {
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+  },
+  testResultText: {
+    ...typography.bodySmall,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
   searchContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
@@ -244,7 +275,7 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.xs,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.sm,
@@ -285,6 +316,8 @@ export default function SpeakerPresentationsScreen() {
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
 
   console.log('SpeakerPresentationsScreen - Rendered');
 
@@ -314,7 +347,6 @@ export default function SpeakerPresentationsScreen() {
     if (presentation.fileUrl) {
       Linking.openURL(presentation.fileUrl).catch(err => {
         console.error('SpeakerPresentationsScreen - Error opening file URL:', err);
-        Alert.alert('Error', 'Unable to download presentation. Please try again.');
       });
     }
   };
@@ -388,6 +420,44 @@ export default function SpeakerPresentationsScreen() {
     }
   };
 
+  const testAirtableConnection = async () => {
+    try {
+      setTesting(true);
+      setTestResult('Testing Airtable connection...');
+      console.log('SpeakerPresentationsScreen - Testing Airtable connection');
+
+      const testBody = {
+        records: [{
+          fields: {
+            "Presentation Title": "Test",
+            "Description": "Test upload"
+          }
+        }]
+      };
+
+      const response = await fetch('https://api.airtable.com/v0/appkKjciinTlnsbkd/tblm5YCpC7ZwRSYWy', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testBody),
+      });
+
+      const responseText = await response.text();
+      const resultText = `Status: ${response.status}\n\nBody:\n${responseText}`;
+      
+      console.log('SpeakerPresentationsScreen - Airtable test result:', resultText);
+      setTestResult(resultText);
+    } catch (err: any) {
+      const errorText = `Test failed: ${err.message}`;
+      console.error('SpeakerPresentationsScreen - Airtable test error:', errorText);
+      setTestResult(errorText);
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const uploadPresentation = async () => {
     if (!uploadTitle.trim() || !uploadSpeakerName.trim() || !selectedFile) {
       setUploadError('Please fill in all required fields and select a file.');
@@ -397,45 +467,72 @@ export default function SpeakerPresentationsScreen() {
     try {
       setUploading(true);
       setUploadError(null);
-      console.log('SpeakerPresentationsScreen - Uploading presentation');
+      console.log('SpeakerPresentationsScreen - Starting upload process');
 
-      const formData = new FormData();
-      formData.append('title', uploadTitle);
-      formData.append('description', uploadDescription);
-      formData.append('speakerName', uploadSpeakerName);
-      formData.append('speakerId', user?.id || 'unknown');
+      // Step 1: Upload file to Cloudinary
+      console.log('SpeakerPresentationsScreen - Step 1: Uploading to Cloudinary');
+      const cloudinaryFormData = new FormData();
       
-      // Add file to form data
       const fileToUpload: any = {
         uri: selectedFile.uri,
         type: selectedFile.mimeType || 'application/pdf',
         name: selectedFile.name,
       };
-      formData.append('file', fileToUpload);
+      
+      cloudinaryFormData.append('file', fileToUpload);
+      cloudinaryFormData.append('upload_preset', 'pof-presentations');
 
-      const token = await getBearerToken();
-      if (!token) {
-        throw new Error('Authentication required. Please sign in.');
-      }
-
-      const response = await fetch(`${BACKEND_URL}/api/speaker-presentations/upload`, {
+      const cloudinaryResponse = await fetch('https://api.cloudinary.com/v1_1/dfekrrnba/auto/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
+        body: cloudinaryFormData,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('SpeakerPresentationsScreen - Upload failed:', response.status, errorText);
-        throw new Error(`Upload failed: ${response.status}`);
+      if (!cloudinaryResponse.ok) {
+        const cloudinaryErrorText = await cloudinaryResponse.text();
+        console.error('SpeakerPresentationsScreen - Cloudinary upload failed:', cloudinaryResponse.status, cloudinaryErrorText);
+        const errorMessage = `Cloudinary failed: ${cloudinaryErrorText}`;
+        setUploadError(errorMessage);
+        return;
       }
 
-      const result = await response.json();
-      console.log('SpeakerPresentationsScreen - Upload successful:', result);
+      const cloudinaryData = await cloudinaryResponse.json();
+      const secureUrl = cloudinaryData.secure_url;
+      console.log('SpeakerPresentationsScreen - Cloudinary upload successful:', secureUrl);
 
-      // Refresh presentations list
+      // Step 2: POST to Airtable with Cloudinary URL
+      console.log('SpeakerPresentationsScreen - Step 2: Posting to Airtable');
+      const airtableBody = {
+        records: [{
+          fields: {
+            "Email": user?.email || 'unknown@example.com',
+            "Presentation Title": uploadTitle,
+            "Description": uploadDescription,
+            "File": [{ url: secureUrl }]
+          }
+        }]
+      };
+
+      const airtableResponse = await fetch('https://api.airtable.com/v0/appkKjciinTlnsbkd/tblm5YCpC7ZwRSYWy', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(airtableBody),
+      });
+
+      if (!airtableResponse.ok) {
+        const airtableErrorText = await airtableResponse.text();
+        console.error('SpeakerPresentationsScreen - Airtable POST failed:', airtableResponse.status, airtableErrorText);
+        const errorMessage = `Airtable failed: ${airtableErrorText}`;
+        setUploadError(errorMessage);
+        return;
+      }
+
+      const airtableData = await airtableResponse.json();
+      console.log('SpeakerPresentationsScreen - Airtable POST successful:', airtableData);
+
+      // Success - refresh presentations list and close modal
       await loadPresentations();
       closeUploadModal();
     } catch (err: any) {
@@ -485,6 +582,49 @@ export default function SpeakerPresentationsScreen() {
                 Upload Presentation
               </Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Test Airtable Button */}
+        <View style={styles.testButtonContainer}>
+          <TouchableOpacity
+            style={[styles.testButton, { 
+              backgroundColor: appColors.background,
+              borderColor: appColors.primary 
+            }]}
+            onPress={testAirtableConnection}
+            disabled={testing}
+            activeOpacity={0.7}
+          >
+            {testing ? (
+              <ActivityIndicator size="small" color={appColors.primary} />
+            ) : (
+              <React.Fragment>
+                <IconSymbol
+                  ios_icon_name="checkmark.circle"
+                  android_material_icon_name="check-circle"
+                  size={20}
+                  color={appColors.primary}
+                />
+                <Text style={[styles.testButtonText, { color: appColors.primary }]}>
+                  Test Airtable
+                </Text>
+              </React.Fragment>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Test Result Display */}
+        {testResult && (
+          <View style={styles.testResultContainer}>
+            <View style={[styles.testResultBox, { 
+              backgroundColor: appColors.card,
+              borderColor: appColors.border 
+            }]}>
+              <Text style={[styles.testResultText, { color: appColors.text }]}>
+                {testResult}
+              </Text>
+            </View>
           </View>
         )}
 
