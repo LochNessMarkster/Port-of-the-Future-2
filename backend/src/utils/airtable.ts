@@ -108,19 +108,21 @@ function getTableName(tableId: string): string {
 }
 
 /**
- * Fetch all records from an Airtable table
+ * Fetch all records from an Airtable table with pagination
  */
 export async function fetchAirtableRecords<T>(
   tableId: string,
   options?: { pageSize?: number; offset?: string; fields?: string[]; logger?: any }
 ): Promise<AirtableListResponse<T>> {
-  const params: any = {};
-  if (options?.pageSize) params.pageSize = options.pageSize;
-  if (options?.offset) params.offset = options.offset;
-  if (options?.fields) params.fields = options.fields;
+  const pageSize = options?.pageSize || 100;
+  const fields = options?.fields;
 
   const client = getAirtableClient();
   const tableName = getTableName(tableId);
+
+  const allRecords: AirtableRecord<T>[] = [];
+  let currentOffset = options?.offset;
+  let pageCount = 0;
 
   if (options?.logger) {
     options.logger.debug(
@@ -129,25 +131,58 @@ export async function fetchAirtableRecords<T>(
         tableId,
         tableName,
         endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+        pageSize,
       },
-      'Fetching records from Airtable'
+      'Starting pagination to fetch all records from Airtable'
     );
   }
 
   try {
-    const response = await client.get<AirtableListResponse<T>>(
-      `/${tableId}`,
-      { params }
-    );
+    // Do-while loop to fetch all pages
+    do {
+      const params: any = { pageSize };
+      if (currentOffset) params.offset = currentOffset;
+      if (fields) params.fields = fields;
+
+      pageCount++;
+
+      const response = await client.get<AirtableListResponse<T>>(
+        `/${tableId}`,
+        { params }
+      );
+
+      allRecords.push(...response.data.records);
+
+      if (options?.logger) {
+        options.logger.info(
+          {
+            tableId,
+            tableName,
+            page: pageCount,
+            pageRecords: response.data.records.length,
+            totalSoFar: allRecords.length,
+            hasNextPage: !!response.data.offset,
+          },
+          'Fetched page of records from Airtable'
+        );
+      }
+
+      currentOffset = response.data.offset;
+    } while (currentOffset);
 
     if (options?.logger) {
       options.logger.info(
-        { tableId, tableName, recordCount: response.data.records.length },
-        'Successfully fetched records from Airtable'
+        {
+          tableId,
+          tableName,
+          totalPages: pageCount,
+          totalRecords: allRecords.length,
+        },
+        'Successfully fetched all records from Airtable'
       );
     }
 
-    return response.data;
+    return { records: allRecords };
   } catch (error: any) {
     const status = error.response?.status;
     const errorMessage = error.response?.data?.error?.message || error.message;
@@ -194,6 +229,8 @@ export async function fetchAirtableRecords<T>(
           errorType,
           errorMessage,
           endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+          pagesAttempted: pageCount,
+          recordsFetchedBeforeError: allRecords.length,
         },
         'Airtable API error while fetching records'
       );
@@ -388,18 +425,20 @@ export async function deleteAirtableRecord(
 }
 
 /**
- * Fetch attendees from Airtable (uses separate base and API key)
+ * Fetch attendees from Airtable with pagination (uses separate base and API key)
  */
 export async function fetchAirtableAttendees(
   tableId: string,
   options?: { pageSize?: number; offset?: string; fields?: string[]; logger?: any }
 ): Promise<AirtableListResponse<AttendeeFields>> {
-  const params: any = {};
-  if (options?.pageSize) params.pageSize = options.pageSize;
-  if (options?.offset) params.offset = options.offset;
-  if (options?.fields) params.fields = options.fields;
+  const pageSize = options?.pageSize || 100;
+  const fields = options?.fields;
 
   const client = getAttendeesClient();
+
+  const allRecords: AirtableRecord<AttendeeFields>[] = [];
+  let currentOffset = options?.offset;
+  let pageCount = 0;
 
   if (options?.logger) {
     options.logger.debug(
@@ -407,25 +446,56 @@ export async function fetchAirtableAttendees(
         baseId: ATTENDEES_BASE_ID,
         tableId,
         endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
+        pageSize,
       },
-      'Fetching attendees from Airtable'
+      'Starting pagination to fetch all attendees from Airtable'
     );
   }
 
   try {
-    const response = await client.get<AirtableListResponse<AttendeeFields>>(
-      `/${tableId}`,
-      { params }
-    );
+    // Do-while loop to fetch all pages
+    do {
+      const params: any = { pageSize };
+      if (currentOffset) params.offset = currentOffset;
+      if (fields) params.fields = fields;
+
+      pageCount++;
+
+      const response = await client.get<AirtableListResponse<AttendeeFields>>(
+        `/${tableId}`,
+        { params }
+      );
+
+      allRecords.push(...response.data.records);
+
+      if (options?.logger) {
+        options.logger.info(
+          {
+            tableId,
+            page: pageCount,
+            pageRecords: response.data.records.length,
+            totalSoFar: allRecords.length,
+            hasNextPage: !!response.data.offset,
+          },
+          'Fetched page of attendees from Airtable'
+        );
+      }
+
+      currentOffset = response.data.offset;
+    } while (currentOffset);
 
     if (options?.logger) {
       options.logger.info(
-        { tableId, recordCount: response.data.records.length },
-        'Successfully fetched attendees from Airtable'
+        {
+          tableId,
+          totalPages: pageCount,
+          totalRecords: allRecords.length,
+        },
+        'Successfully fetched all attendees from Airtable'
       );
     }
 
-    return response.data;
+    return { records: allRecords };
   } catch (error: any) {
     const status = error.response?.status;
     const errorMessage = error.response?.data?.error?.message || error.message;
@@ -470,6 +540,8 @@ export async function fetchAirtableAttendees(
           errorType,
           errorMessage,
           endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
+          pagesAttempted: pageCount,
+          recordsFetchedBeforeError: allRecords.length,
         },
         'Airtable API error while fetching attendees'
       );
