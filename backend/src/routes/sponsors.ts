@@ -18,6 +18,8 @@ const TIER_ORDER = {
 };
 
 export function registerSponsorsRoutes(app: App) {
+  const requireAuth = app.requireAuth();
+
   /**
    * GET /api/sponsors - Get all sponsors grouped by tier
    */
@@ -46,6 +48,8 @@ export function registerSponsorsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
       app.logger.info('Fetching all sponsors and partners from Airtable');
       try {
@@ -82,18 +86,11 @@ export function registerSponsorsRoutes(app: App) {
         // Merge sponsors and partners
         let allSponsors = [...sponsors, ...partners];
 
-        // Sort by tier order, then alphabetically by name within each tier
+        // Sort by tier order
         allSponsors = allSponsors.sort((a, b) => {
           const orderA = TIER_ORDER[a.tier as keyof typeof TIER_ORDER] || 999;
           const orderB = TIER_ORDER[b.tier as keyof typeof TIER_ORDER] || 999;
-
-          // First sort by tier
-          if (orderA !== orderB) {
-            return orderA - orderB;
-          }
-
-          // Then sort alphabetically by name (case-insensitive) within the same tier
-          return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+          return orderA - orderB;
         });
 
         app.logger.info({ count: allSponsors.length, sponsors: sponsors.length, partners: partners.length }, 'Sponsors and partners fetched successfully');
@@ -137,6 +134,8 @@ export function registerSponsorsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
       const { id } = request.params as { id: string };
       app.logger.info({ sponsorId: id }, 'Fetching sponsor details');

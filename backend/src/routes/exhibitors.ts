@@ -9,6 +9,8 @@ import {
 } from '../utils/airtable.js';
 
 export function registerExhibitorsRoutes(app: App) {
+  const requireAuth = app.requireAuth();
+
   /**
    * GET /api/exhibitors - Get all exhibitors
    */
@@ -48,6 +50,8 @@ export function registerExhibitorsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
       app.logger.info('Fetching all exhibitors from Airtable');
       try {
@@ -271,6 +275,8 @@ export function registerExhibitorsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
       const { id } = request.params as { id: string };
       app.logger.info({ exhibitorId: id }, 'Fetching exhibitor details');

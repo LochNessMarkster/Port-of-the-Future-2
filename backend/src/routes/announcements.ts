@@ -1,6 +1,5 @@
 import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import axios from 'axios';
 import {
   fetchAirtableRecords,
   TABLES,
@@ -32,10 +31,6 @@ export function registerAnnouncementsRoutes(app: App) {
                 id: { type: 'string' },
                 title: { type: 'string' },
                 content: { type: 'string' },
-                isAlert: { type: 'boolean' },
-                date: { type: 'string' },
-                time: { type: 'string' },
-                imageUrl: { type: ['string', 'null'] },
                 createdAt: { type: 'string' },
               },
             },
@@ -44,55 +39,23 @@ export function registerAnnouncementsRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      app.logger.info('Fetching all announcements from Airtable cache');
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      app.logger.info('Fetching all announcements from Airtable');
       try {
-        const cacheUrl = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tbl1eqc3UiYaO1pSq/';
-        const response = await axios.get(cacheUrl);
-        const data = response.data;
-
-        app.logger.info({ totalRecords: data.records?.length || 0 }, 'Total announcements fetched from cache');
-
-        // Log detailed field information for debugging
-        data.records?.forEach((record: any, index: number) => {
-          app.logger.debug(
-            {
-              recordIndex: index,
-              recordId: record.id,
-              rawFields: record.fields,
-              Title: record.fields?.Title,
-              Content: record.fields?.Content,
-              Alert: record.fields?.Alert,
-              Date: record.fields?.Date,
-              Time: record.fields?.Time,
-              Image: record.fields?.Image,
-              createdTime: record.createdTime,
-            },
-            'Announcement record field values'
-          );
+        const data = await fetchAirtableRecords<AnnouncementFields>(TABLES.ANNOUNCEMENTS, {
+          logger: app.logger,
         });
 
-        const announcements = (data.records || [])
-          .map((record: any) => ({
-            id: record.id,
-            title: record.fields?.Title || '',
-            content: record.fields?.Content || '',
-            isAlert: record.fields?.Alert === true || false,
-            date: record.fields?.Date || '',
-            time: record.fields?.Time || '',
-            imageUrl: record.fields?.Image?.[0]?.url || null,
-            createdAt: record.createdTime || new Date().toISOString(),
-          }))
-          .sort((a: any, b: any) => {
-            // Sort by date descending (newest first)
-            const dateComparison = (b.date || '').localeCompare(a.date || '');
-            if (dateComparison !== 0) {
-              return dateComparison;
-            }
-            // Then sort by time descending
-            return (b.time || '').localeCompare(a.time || '');
-          });
+        const announcements = data.records.map((record: AirtableRecord<AnnouncementFields>) => ({
+          id: record.id,
+          title: record.fields.Title || '',
+          content: record.fields.Content || '',
+          createdAt: record.fields.CreatedAt || new Date().toISOString(),
+        }));
 
-        app.logger.info({ count: announcements.length }, 'Announcements fetched and sorted successfully');
+        app.logger.info({ count: announcements.length }, 'Announcements fetched');
         return announcements;
       } catch (error) {
         app.logger.error({ err: error }, 'Failed to fetch announcements');

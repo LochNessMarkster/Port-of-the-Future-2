@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiCall, getBearerToken } from '@/utils/api';
+import { apiGet } from '@/utils/api';
 import { Stack } from 'expo-router';
 
 interface Sponsor {
@@ -71,27 +71,20 @@ const styles = StyleSheet.create({
   },
   sponsorCard: {
     borderRadius: borderRadius.md,
+    padding: spacing.md,
     marginBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    overflow: 'hidden',
     ...Platform.select({
       web: {
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       },
     }),
-  },
-  tierColorBar: {
-    height: 6,
-    width: '100%',
-  },
-  sponsorCardContent: {
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   logoWhiteBackground: {
     backgroundColor: '#FFFFFF',
@@ -151,19 +144,12 @@ const styles = StyleSheet.create({
     width: '90%',
     maxHeight: '80%',
     borderRadius: borderRadius.lg,
-    overflow: 'hidden',
+    padding: spacing.lg,
     ...Platform.select({
       web: {
         maxWidth: 600,
       },
     }),
-  },
-  modalTierColorBar: {
-    height: 8,
-    width: '100%',
-  },
-  modalScrollContent: {
-    padding: spacing.lg,
   },
   modalHeader: {
     alignItems: 'center',
@@ -252,19 +238,7 @@ export default function SponsorsScreen() {
     try {
       setLoading(true);
       console.log('[Sponsors] Fetching sponsors from /api/sponsors');
-      // Try with bearer token first, fall back to cookie-based auth
-      const token = await getBearerToken();
-      let data: Sponsor[];
-      if (token) {
-        console.log('[Sponsors] Using bearer token for sponsors request');
-        data = await apiCall<Sponsor[]>('/api/sponsors', {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-        }, false, true);
-      } else {
-        console.log('[Sponsors] No bearer token, trying with credentials (cookie-based auth)');
-        data = await apiCall<Sponsor[]>('/api/sponsors', { method: 'GET' }, true, true);
-      }
+      const data = await apiGet<Sponsor[]>('/api/sponsors');
       console.log('[Sponsors] Received sponsors:', data.length);
       setSponsors(data);
     } catch (error) {
@@ -292,8 +266,6 @@ export default function SponsorsScreen() {
         return '#C0C0C0';
       case 'bronze':
         return '#CD7F32';
-      case 'partner':
-        return '#4A90E2';
       default:
         return appColors.textSecondary;
     }
@@ -420,38 +392,32 @@ export default function SponsorsScreen() {
                     <Text style={[styles.tierTitle, { color: appColors.text }]}>
                       {tier}
                     </Text>
-                    {tierSponsors.map((sponsor) => {
-                      const tierColor = getTierColor(sponsor.tier);
-                      return (
-                        <TouchableOpacity
-                          key={sponsor.id}
-                          style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
-                          onPress={() => {
-                            console.log('[Sponsors] Opening sponsor details:', sponsor.name);
-                            setSelectedSponsor(sponsor);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <View style={[styles.tierColorBar, { backgroundColor: tierColor }]} />
-                          <View style={styles.sponsorCardContent}>
-                            <View style={styles.logoWhiteBackground}>
-                              <Image
-                                source={{ uri: sponsor.logo }}
-                                style={styles.sponsorLogo}
-                              />
-                            </View>
-                            <View style={styles.sponsorInfo}>
-                              <Text style={[styles.sponsorName, { color: appColors.text }]}>
-                                {sponsor.name}
-                              </Text>
-                              <Text style={[styles.sponsorIntro, { color: appColors.textSecondary }]} numberOfLines={2}>
-                                {sponsor.intro || sponsor.bio}
-                              </Text>
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
+                    {tierSponsors.map((sponsor) => (
+                      <TouchableOpacity
+                        key={sponsor.id}
+                        style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
+                        onPress={() => {
+                          console.log('[Sponsors] Opening sponsor details:', sponsor.name);
+                          setSelectedSponsor(sponsor);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.logoWhiteBackground}>
+                          <Image
+                            source={{ uri: sponsor.logo }}
+                            style={styles.sponsorLogo}
+                          />
+                        </View>
+                        <View style={styles.sponsorInfo}>
+                          <Text style={[styles.sponsorName, { color: appColors.text }]}>
+                            {sponsor.name}
+                          </Text>
+                          <Text style={[styles.sponsorIntro, { color: appColors.textSecondary }]} numberOfLines={2}>
+                            {sponsor.intro || sponsor.bio}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 );
               })}
@@ -474,8 +440,6 @@ export default function SponsorsScreen() {
               style={[styles.modalContent, { backgroundColor: appColors.card }]}
               onPress={(e) => e.stopPropagation()}
             >
-              <View style={[styles.modalTierColorBar, { backgroundColor: getTierColor(selectedSponsor?.tier || '') }]} />
-              
               <TouchableOpacity 
                 style={styles.closeButton}
                 onPress={() => setSelectedSponsor(null)}
@@ -488,7 +452,7 @@ export default function SponsorsScreen() {
                 />
               </TouchableOpacity>
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
+              <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
                   <View style={styles.modalLogoWhiteBackground}>
                     <Image

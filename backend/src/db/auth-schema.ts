@@ -12,10 +12,7 @@ export const user = pgTable("user", {
   bio: text("bio"),
   linkedin: text("linkedin"),
   role: text("role").default("attendee").notNull(),
-  optInNetworking: boolean("opt_in_networking").default(true).notNull(),
-  shareEmail: boolean("share_email").default(true).notNull(),
-  sharePhone: boolean("share_phone").default(true).notNull(),
-  shareLinkedIn: boolean("share_linked_in").default(true).notNull(),
+  optInNetworking: boolean("opt_in_networking").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

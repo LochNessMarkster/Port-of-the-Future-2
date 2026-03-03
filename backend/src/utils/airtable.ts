@@ -5,8 +5,8 @@ const BASE_ID = 'appkKjciinTlnsbkd';
 // Primary API key for most tables
 const PRIMARY_API_KEY = process.env.AIRTABLE_API_KEY || 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
-// Secondary API key for Attendees table (write-permission token)
-const SECONDARY_API_KEY = 'patWZPuCxzbpHpLU0.3d9e89a41457f6718bec97347b90fbbf08f6653c9aa7f7167a41708b7761d894';
+// Secondary API key for Attendees table
+const SECONDARY_API_KEY = 'patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c';
 
 // Base ID for Attendees table (if different)
 const ATTENDEES_BASE_ID = 'appkKjciinTlnsbkd';
@@ -388,88 +388,44 @@ export async function deleteAirtableRecord(
 }
 
 /**
- * Fetch attendees from Airtable (uses PRIMARY_API_KEY for read access)
- * Implements pagination to fetch ALL records beyond the 100-record limit
+ * Fetch attendees from Airtable (uses separate base and API key)
  */
 export async function fetchAirtableAttendees(
   tableId: string,
   options?: { pageSize?: number; offset?: string; fields?: string[]; logger?: any }
 ): Promise<AirtableListResponse<AttendeeFields>> {
-  const pageSize = options?.pageSize || 100;
-  const fields = options?.fields;
+  const params: any = {};
+  if (options?.pageSize) params.pageSize = options.pageSize;
+  if (options?.offset) params.offset = options.offset;
+  if (options?.fields) params.fields = options.fields;
 
-  // Use PRIMARY_API_KEY for reading attendee data (has read access to all tables)
-  const client = getAirtableClient();
-
-  const allRecords: AirtableRecord<AttendeeFields>[] = [];
-  let currentOffset = options?.offset;
-  let pageCount = 0;
+  const client = getAttendeesClient();
 
   if (options?.logger) {
     options.logger.debug(
       {
-        baseId: BASE_ID,
+        baseId: ATTENDEES_BASE_ID,
         tableId,
-        endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
-        apiKeyUsed: 'PRIMARY_API_KEY',
-        pageSize,
+        endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
       },
-      'Starting pagination to fetch all attendees from Airtable'
+      'Fetching attendees from Airtable'
     );
   }
 
   try {
-    // Do-while loop to fetch all pages
-    do {
-      const params: any = { pageSize };
-      if (currentOffset) params.offset = currentOffset;
-      if (fields) params.fields = fields;
-
-      pageCount++;
-
-      const response = await client.get<AirtableListResponse<AttendeeFields>>(
-        `/${tableId}`,
-        { params }
-      );
-
-      allRecords.push(...response.data.records);
-
-      if (options?.logger) {
-        options.logger.info(
-          {
-            tableId,
-            page: pageCount,
-            pageRecords: response.data.records.length,
-            totalSoFar: allRecords.length,
-            hasNextPage: !!response.data.offset,
-          },
-          'Fetched page of attendees from Airtable'
-        );
-      }
-
-      currentOffset = response.data.offset;
-    } while (currentOffset);
-
-    // Sort by Last Name alphabetically (A to Z)
-    allRecords.sort((a, b) => {
-      const lastNameA = (a.fields['Last Name'] || '').toLowerCase();
-      const lastNameB = (b.fields['Last Name'] || '').toLowerCase();
-      return lastNameA.localeCompare(lastNameB);
-    });
+    const response = await client.get<AirtableListResponse<AttendeeFields>>(
+      `/${tableId}`,
+      { params }
+    );
 
     if (options?.logger) {
       options.logger.info(
-        {
-          tableId,
-          totalPages: pageCount,
-          totalRecords: allRecords.length,
-          sortedBy: 'Last Name (A-Z)',
-        },
-        'Successfully fetched and sorted all attendees from Airtable'
+        { tableId, recordCount: response.data.records.length },
+        'Successfully fetched attendees from Airtable'
       );
     }
 
-    return { records: allRecords };
+    return response.data;
   } catch (error: any) {
     const status = error.response?.status;
     const errorMessage = error.response?.data?.error?.message || error.message;
@@ -482,14 +438,14 @@ export async function fetchAirtableAttendees(
       if (options?.logger) {
         options.logger.warn(
           {
-            baseId: BASE_ID,
+            baseId: ATTENDEES_BASE_ID,
             tableId,
             status,
             errorType,
             errorMessage,
-            endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
-            apiKeyConfigured: !!PRIMARY_API_KEY,
-            apiKeyMasked: getMaskedApiKey(PRIMARY_API_KEY),
+            endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
+            apiKeyConfigured: !!SECONDARY_API_KEY,
+            apiKeyMasked: getMaskedApiKey(SECONDARY_API_KEY),
             nodeEnv: process.env.NODE_ENV,
           },
           logMsg
@@ -508,14 +464,12 @@ export async function fetchAirtableAttendees(
     if (options?.logger) {
       options.logger.error(
         {
-          baseId: BASE_ID,
+          baseId: ATTENDEES_BASE_ID,
           tableId,
           status,
           errorType,
           errorMessage,
-          endpoint: `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
-          pagesAttempted: pageCount,
-          recordsFetchedBeforeError: allRecords.length,
+          endpoint: `https://api.airtable.com/v0/${ATTENDEES_BASE_ID}/${tableId}`,
         },
         'Airtable API error while fetching attendees'
       );
@@ -608,7 +562,6 @@ export interface AttendeeFields {
   Phone?: string;
   'Registration Level'?: string;
   'Opt In Networking'?: string;
-  Image?: Array<{ id: string; url: string; filename: string; size: number; type: string }>;
 }
 
 export interface ActivityFields {
@@ -617,6 +570,6 @@ export interface ActivityFields {
   Date?: string;
   Time?: string;
   Location?: string;
-  url?: string;
-  image?: Array<{ url: string; id: string; size: number; type: string }>;
+  URL?: string;
+  Image?: Array<{ url: string; id: string; size: number; type: string }>;
 }
