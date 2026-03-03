@@ -211,6 +211,32 @@ const styles = StyleSheet.create({
     right: spacing.md,
     zIndex: 1,
   },
+  debugSection: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: '#FF6B6B',
+    backgroundColor: '#FFF3F3',
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF0000',
+    marginBottom: spacing.sm,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#333333',
+    marginBottom: spacing.xs,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  debugJson: {
+    fontSize: 10,
+    color: '#333333',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginTop: spacing.xs,
+  },
 });
 
 export default function SpeakersScreen() {
@@ -245,6 +271,13 @@ export default function SpeakersScreen() {
       if (publishedSpeakers.length > 0) {
         console.log('SpeakersScreen - First speaker:', publishedSpeakers[0].firstName, publishedSpeakers[0].lastName);
         console.log('SpeakersScreen - Last speaker:', publishedSpeakers[publishedSpeakers.length - 1].firstName, publishedSpeakers[publishedSpeakers.length - 1].lastName);
+        
+        // Log debug info for speakers with publicPersonalData = true
+        const speakersWithPublicData = publishedSpeakers.filter(s => s.publicPersonalData === true);
+        console.log('SpeakersScreen - Speakers with publicPersonalData=true:', speakersWithPublicData.length);
+        if (speakersWithPublicData.length > 0) {
+          console.log('SpeakersScreen - First speaker with public data:', JSON.stringify(speakersWithPublicData[0], null, 2));
+        }
       }
     } catch (err: any) {
       console.error('SpeakersScreen - Error loading speakers:', err);
@@ -397,6 +430,9 @@ export default function SpeakersScreen() {
                   style={[styles.speakerCard, { backgroundColor: appColors.card }]}
                   onPress={() => {
                     console.log('SpeakersScreen - Speaker card pressed:', speaker.firstName, speaker.lastName);
+                    console.log('SpeakersScreen - Speaker publicPersonalData:', speaker.publicPersonalData);
+                    console.log('SpeakersScreen - Speaker email:', speaker.email);
+                    console.log('SpeakersScreen - Speaker phone:', speaker.phone);
                     setSelectedSpeaker(speaker);
                   }}
                   activeOpacity={0.7}
@@ -494,6 +530,28 @@ export default function SpeakersScreen() {
                     </Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>
                       {selectedSpeaker.bio}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* TEMPORARY DEBUG SECTION */}
+                {selectedSpeaker ? (
+                  <View style={styles.debugSection}>
+                    <Text style={styles.debugTitle}>🔍 DEBUG INFO (TEMPORARY)</Text>
+                    <Text style={styles.debugText}>
+                      PublicPersonalData value: {String(selectedSpeaker.publicPersonalData)}
+                    </Text>
+                    <Text style={styles.debugText}>
+                      Email value: {selectedSpeaker.email || 'N/A'}
+                    </Text>
+                    <Text style={styles.debugText}>
+                      Phone value: {selectedSpeaker.phone || 'N/A'}
+                    </Text>
+                    <Text style={styles.debugText}>
+                      All fields:
+                    </Text>
+                    <Text style={styles.debugJson}>
+                      {JSON.stringify(selectedSpeaker, null, 2)}
                     </Text>
                   </View>
                 ) : null}
