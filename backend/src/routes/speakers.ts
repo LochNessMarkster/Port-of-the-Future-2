@@ -35,6 +35,10 @@ export function registerSpeakersRoutes(app: App) {
                 topic: { type: 'string' },
                 synopsis: { type: 'string' },
                 bio: { type: 'string' },
+                published: { type: 'boolean' },
+                publicPersonalData: { type: 'boolean' },
+                email: { type: 'string' },
+                phone: { type: 'string' },
               },
             },
           },
@@ -70,6 +74,7 @@ export function registerSpeakersRoutes(app: App) {
           const firstName = record.fields['Speaker Name'] || '';
           const lastName = record.fields['Last Name'] || '';
           const fullName = `${firstName} ${lastName}`.trim();
+          const isPublicPersonalData = record.fields['Public Personal Data'] === true;
 
           return {
             id: record.id,
@@ -81,6 +86,10 @@ export function registerSpeakersRoutes(app: App) {
             topic: record.fields['Speaking Topic'] || '',
             synopsis: record.fields['Synopsis of Speaking topic'] || '',
             bio: record.fields.Bio || '',
+            published: record.fields.Published === true,
+            publicPersonalData: isPublicPersonalData,
+            email: isPublicPersonalData ? (record.fields.Email || '') : '',
+            phone: isPublicPersonalData ? (record.fields.Phone || '') : '',
           };
         }).sort((a, b) => a.lastName.toLowerCase().localeCompare(b.lastName.toLowerCase()));
 
@@ -125,6 +134,10 @@ export function registerSpeakersRoutes(app: App) {
               topic: { type: 'string' },
               synopsis: { type: 'string' },
               bio: { type: 'string' },
+              published: { type: 'boolean' },
+              publicPersonalData: { type: 'boolean' },
+              email: { type: 'string' },
+              phone: { type: 'string' },
             },
           },
         },
@@ -147,22 +160,10 @@ export function registerSpeakersRoutes(app: App) {
           });
         }
 
-        // Check if speaker is published
-        const isPublished = record.fields.Published === true;
-        if (!isPublished) {
-          const speakerName = record.fields['Speaker Name'] || 'Unknown';
-          app.logger.warn(
-            { speakerId: id, speakerName },
-            'Speaker not published (Published = false)'
-          );
-          return reply.status(404).send({
-            error: 'Speaker not found. This speaker is not yet published.',
-          });
-        }
-
         const firstName = record.fields['Speaker Name'] || '';
         const lastName = record.fields['Last Name'] || '';
         const fullName = `${firstName} ${lastName}`.trim();
+        const isPublicPersonalData = record.fields['Public Personal Data'] === true;
 
         const result = {
           id: record.id,
@@ -174,6 +175,10 @@ export function registerSpeakersRoutes(app: App) {
           topic: record.fields['Speaking Topic'] || '',
           synopsis: record.fields['Synopsis of Speaking topic'] || '',
           bio: record.fields.Bio || '',
+          published: record.fields.Published === true,
+          publicPersonalData: isPublicPersonalData,
+          email: isPublicPersonalData ? (record.fields.Email || '') : '',
+          phone: isPublicPersonalData ? (record.fields.Phone || '') : '',
         };
 
         app.logger.info({ speakerId: id }, 'Speaker details fetched');
