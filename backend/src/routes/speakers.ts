@@ -74,9 +74,23 @@ export function registerSpeakersRoutes(app: App) {
           const firstName = record.fields['Speaker Name'] || '';
           const lastName = record.fields['Last Name'] || '';
           const fullName = `${firstName} ${lastName}`.trim();
-          const isPublicPersonalData = record.fields['Public Personal Data'] === true;
+          const isPublicPersonalData = !!record.fields.PublicPersonalData;
 
-          return {
+          // Debug logging for Dwight Agriel
+          if (firstName === 'Dwight' && lastName === 'Agriel') {
+            app.logger.info(
+              {
+                speakerName: fullName,
+                rawFields: record.fields,
+                publicPersonalDataField: record.fields.PublicPersonalData,
+                emailField: record.fields.Email,
+                phoneField: record.fields.Phone,
+              },
+              'RAW AIRTABLE RECORD - Dwight Agriel BEFORE transformation'
+            );
+          }
+
+          const transformedSpeaker = {
             id: record.id,
             firstName,
             lastName,
@@ -91,6 +105,19 @@ export function registerSpeakersRoutes(app: App) {
             email: isPublicPersonalData ? (record.fields.Email || '') : '',
             phone: isPublicPersonalData ? (record.fields.Phone || '') : '',
           };
+
+          // Debug logging for Dwight Agriel after transformation
+          if (firstName === 'Dwight' && lastName === 'Agriel') {
+            app.logger.info(
+              {
+                speakerName: fullName,
+                transformedSpeaker,
+              },
+              'TRANSFORMED SPEAKER - Dwight Agriel AFTER transformation'
+            );
+          }
+
+          return transformedSpeaker;
         }).sort((a, b) => a.lastName.toLowerCase().localeCompare(b.lastName.toLowerCase()));
 
         app.logger.info(
@@ -163,7 +190,7 @@ export function registerSpeakersRoutes(app: App) {
         const firstName = record.fields['Speaker Name'] || '';
         const lastName = record.fields['Last Name'] || '';
         const fullName = `${firstName} ${lastName}`.trim();
-        const isPublicPersonalData = record.fields['Public Personal Data'] === true;
+        const isPublicPersonalData = !!record.fields.PublicPersonalData;
 
         const result = {
           id: record.id,

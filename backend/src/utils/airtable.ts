@@ -537,7 +537,7 @@ export interface SpeakerFields {
   'Synopsis of Speaking topic': string;
   Bio: string;
   Published?: boolean;
-  'Public Personal Data'?: boolean;
+  PublicPersonalData?: boolean;
   Email?: string;
   Phone?: string;
 }
