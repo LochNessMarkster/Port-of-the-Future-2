@@ -114,6 +114,11 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
   },
+  loadingText: {
+    ...typography.body,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
   emptyContainer: {
     padding: spacing.xl,
     alignItems: 'center',
@@ -126,6 +131,24 @@ const styles = StyleSheet.create({
   emptySubtext: {
     ...typography.bodySmall,
     textAlign: 'center',
+  },
+  errorContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  errorText: {
+    ...typography.body,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  retryButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  retryButtonText: {
+    ...typography.body,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -206,6 +229,7 @@ export default function SpeakersScreen() {
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -218,14 +242,16 @@ export default function SpeakersScreen() {
   const loadSpeakers = async () => {
     try {
       setLoading(true);
-      console.log('SpeakersScreen - Fetching speakers from /api/speakers (sorted by last name)');
+      setError(null);
+      console.log('SpeakersScreen - Fetching all speakers from /api/speakers (with pagination)');
       const data = await apiGet<Speaker[]>('/api/speakers');
+      
+      console.log('SpeakersScreen - Total speakers received from backend:', data.length);
       
       // Filter to only show published speakers
       const publishedSpeakers = data.filter(speaker => speaker.published === true);
       
       setSpeakers(publishedSpeakers);
-      console.log('SpeakersScreen - Total speakers:', data.length);
       console.log('SpeakersScreen - Published speakers:', publishedSpeakers.length);
       if (publishedSpeakers.length > 0) {
         console.log('SpeakersScreen - First speaker:', publishedSpeakers[0].firstName, publishedSpeakers[0].lastName);
@@ -233,6 +259,7 @@ export default function SpeakersScreen() {
       }
     } catch (error) {
       console.error('SpeakersScreen - Error loading speakers:', error);
+      setError('Failed to load speakers. Please try again.');
       setSpeakers([]);
     } finally {
       setLoading(false);
@@ -333,6 +360,32 @@ export default function SpeakersScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
+              <Text style={[styles.loadingText, { color: appColors.textSecondary }]}>
+                Loading all speakers...
+              </Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle"
+                android_material_icon_name="error"
+                size={48}
+                color={appColors.textSecondary}
+              />
+              <Text style={[styles.errorText, { color: appColors.text, marginTop: spacing.md }]}>
+                {error}
+              </Text>
+              <TouchableOpacity
+                style={[styles.retryButton, { backgroundColor: appColors.primary }]}
+                onPress={() => {
+                  console.log('SpeakersScreen - Retry button pressed');
+                  loadSpeakers();
+                }}
+              >
+                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>
+                  Retry
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : filteredSpeakers.length === 0 ? (
             <View style={styles.emptyContainer}>
