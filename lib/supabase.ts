@@ -10,39 +10,36 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 export const AIRTABLE_ATTENDEE_CACHE_ENDPOINT = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
 
 /**
- * Check if email exists in Airtable cache using filter formula
+ * Verify email exists in Airtable cache
+ * Fetches all records and performs local case-insensitive comparison
  */
-export async function checkEmailInAirtableCache(email: string): Promise<boolean> {
+const verifyEmail = async (email: string): Promise<boolean> => {
   try {
-    console.log('Checking email in Airtable cache:', email);
-    
-    // Build the filter formula with proper URL encoding
-    // Format: filterByFormula=Email="user@example.com"
-    const filterFormula = `Email="${email}"`;
-    const encodedFilter = encodeURIComponent(filterFormula);
-    const url = `${AIRTABLE_ATTENDEE_CACHE_ENDPOINT}?filterByFormula=${encodedFilter}`;
-    
-    console.log('Airtable cache request URL:', url);
-    
+    const url = `https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4`;
     const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.error('Airtable cache check failed:', response.status, response.statusText);
-      throw new Error(`Airtable cache check failed: ${response.statusText}`);
-    }
-    
     const data = await response.json();
     
-    // If records array is empty, email is not registered
-    // If it contains at least one record, email is valid
-    const isRegistered = data.records && data.records.length > 0;
-    console.log('Email check result:', isRegistered ? 'Found' : 'Not found', `(${data.records?.length || 0} records)`);
+    const match = data.records.find(
+      (record: any) => record.fields.Email && 
+      record.fields.Email.toLowerCase().trim() === email.toLowerCase().trim()
+    );
     
-    return isRegistered;
+    return !!match;
   } catch (error) {
-    console.error('Error checking email in Airtable cache:', error);
-    throw new Error('Failed to verify email. Please try again.');
+    console.error('Email verification error:', error);
+    return false;
   }
+};
+
+/**
+ * Check if email exists in Airtable cache
+ * Uses the new verifyEmail function for local comparison
+ */
+export async function checkEmailInAirtableCache(email: string): Promise<boolean> {
+  console.log('Checking email in Airtable cache:', email);
+  const isRegistered = await verifyEmail(email);
+  console.log('Email check result:', isRegistered ? 'Found' : 'Not found');
+  return isRegistered;
 }
 
 /**
@@ -62,22 +59,17 @@ export async function fetchUserProfileFromCache(email: string): Promise<UserProf
   try {
     console.log('Fetching user profile from Airtable cache:', email);
     
-    // Build the filter formula with proper URL encoding
-    const filterFormula = `Email="${email}"`;
-    const encodedFilter = encodeURIComponent(filterFormula);
-    const url = `${AIRTABLE_ATTENDEE_CACHE_ENDPOINT}?filterByFormula=${encodedFilter}`;
-    
+    const url = `https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4`;
     const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.error('Airtable cache fetch failed:', response.status, response.statusText);
-      throw new Error(`Airtable cache fetch failed: ${response.statusText}`);
-    }
-    
     const data = await response.json();
     
-    if (data.records && data.records.length > 0) {
-      const fields = data.records[0].fields;
+    const userRecord = data.records.find(
+      (record: any) => record.fields.Email &&
+      record.fields.Email.toLowerCase().trim() === email.toLowerCase().trim()
+    );
+    
+    if (userRecord) {
+      const fields = userRecord.fields;
       console.log('User profile fetched successfully');
       return {
         firstName: fields['First Name'] || '',
@@ -94,6 +86,6 @@ export async function fetchUserProfileFromCache(email: string): Promise<UserProf
     return null;
   } catch (error) {
     console.error('Error fetching user profile from Airtable cache:', error);
-    throw new Error('Failed to load profile data.');
+    return null;
   }
 }

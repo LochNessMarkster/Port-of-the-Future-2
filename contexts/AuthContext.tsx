@@ -25,6 +25,7 @@ interface AuthContextType {
   signInWithApple: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
   signInWithMagicLink: (email: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   fetchUser: () => Promise<void>;
 }
@@ -241,6 +242,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithPassword = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('AuthContext - Signing in with password for:', email);
+      
+      const DEFAULT_PASSWORD = 'POTF2026';
+      
+      // Try to sign in with the provided password
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+      
+      if (error) {
+        // If sign in fails and password is the default, try to create account
+        if (password === DEFAULT_PASSWORD && error.message.includes('Invalid login credentials')) {
+          console.log('AuthContext - First time login detected, creating account with default password');
+          
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: email,
+            password: DEFAULT_PASSWORD,
+          });
+          
+          if (signUpError) {
+            console.error('AuthContext - Failed to create account:', signUpError);
+            return { success: false, error: signUpError.message };
+          }
+          
+          console.log('AuthContext - Account created successfully, signing in');
+          
+          // Now sign in with the newly created account
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: DEFAULT_PASSWORD,
+          });
+          
+          if (signInError) {
+            console.error('AuthContext - Failed to sign in after account creation:', signInError);
+            return { success: false, error: signInError.message };
+          }
+          
+          console.log('AuthContext - Password sign in successful after account creation');
+          return { success: true };
+        }
+        
+        console.error('AuthContext - Password sign in failed:', error);
+        return { success: false, error: error.message };
+      }
+      
+      console.log('AuthContext - Password sign in successful');
+      return { success: true };
+    } catch (error: any) {
+      console.error('AuthContext - Password sign in error:', error);
+      return { success: false, error: error.message || 'Failed to sign in. Please try again.' };
+    }
+  };
+
   const signInWithSocial = async (provider: "google" | "apple" | "github") => {
     try {
       if (Platform.OS === "web") {
@@ -300,6 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithApple,
         signInWithGitHub,
         signInWithMagicLink,
+        signInWithPassword,
         signOut,
         fetchUser,
       }}
