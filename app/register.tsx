@@ -27,13 +27,20 @@ import * as SecureStore from 'expo-secure-store';
  * Registration Screen
  * 
  * Flow:
- * 1. User enters email → Check if email exists in Airtable (prepopulate data if found)
- * 2. User enters password (twice for confirmation) and profile details
- * 3. On "Create Account":
+ * 1. User enters email → Check if email exists in Airtable attendee2 table (tblIwt4FWHtNm01Z4)
+ * 2. If found, prepopulate profile data from Airtable
+ * 3. User enters password (twice for confirmation) and completes/edits profile details
+ * 4. On "Create Account":
  *    - Backend creates Better Auth account with password
- *    - Backend saves hashed password to Airtable "Password" column
+ *    - Backend saves hashed password to Airtable attendee2 "Password" column
+ *    - Backend links the Better Auth user to the Airtable attendee2 record
  *    - If user already exists in Better Auth, backend updates their Airtable profile instead
  *    - User is authenticated and redirected to home screen
+ * 
+ * Airtable Integration:
+ * - Table: attendee2 (tblIwt4FWHtNm01Z4)
+ * - Fields: Email, First Name, Last Name, Company, Job Title, Phone, LinkedIn, Password, Image
+ * - The backend handles all Airtable operations via /api/registration endpoints
  */
 
 type Step = "email" | "details";
@@ -98,12 +105,14 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      console.log('[API] Checking email in Airtable:', email);
+      console.log('[API] Checking email in Airtable attendee2 table (tblIwt4FWHtNm01Z4):', email);
       const response = await apiPost<{ exists: boolean; airtableRecordId?: string; attendeeData?: AttendeeData }>('/api/registration/check-email', { email });
-      console.log('RegisterScreen - Email check result:', response);
+      console.log('RegisterScreen - Email check result from attendee2 table:', response);
       
       if (response.exists && response.attendeeData) {
-        console.log('RegisterScreen - Email found in Airtable, prepopulating data');
+        console.log('RegisterScreen - Email found in attendee2 table, prepopulating data');
+        console.log('RegisterScreen - Airtable Record ID:', response.airtableRecordId);
+        console.log('RegisterScreen - Prepopulated data:', response.attendeeData);
         setAttendeeData(response.attendeeData);
         setAirtableRecordId(response.airtableRecordId || null);
         
@@ -117,7 +126,7 @@ export default function RegisterScreen() {
         
         showSuccess("Email found! Your profile information has been prepopulated from your conference registration.");
       } else {
-        console.log('RegisterScreen - Email not found in Airtable, user will enter details manually');
+        console.log('RegisterScreen - Email not found in attendee2 table, user will enter details manually');
       }
       
       setStep("details");
@@ -151,7 +160,8 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      console.log('[API] Creating account for:', email, 'with Airtable ID:', airtableRecordId);
+      console.log('[API] Creating account for:', email);
+      console.log('[API] Airtable attendee2 Record ID:', airtableRecordId || 'None (new registration)');
       const response = await apiPost<{
         user: {
           id: string;
@@ -267,10 +277,16 @@ export default function RegisterScreen() {
 
             {/* Instructions */}
             <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
+              <IconSymbol 
+                ios_icon_name="info.circle.fill" 
+                android_material_icon_name="info" 
+                size={20} 
+                color={appColors.primary} 
+              />
               <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
                 {step === "email" 
-                  ? "Enter your email address to get started. If you're already registered for the conference, we'll prepopulate your information."
-                  : "Create a password and complete your profile information."}
+                  ? "Enter your email address to get started. If you're already registered for the conference, we'll automatically load your information."
+                  : "Create a password and complete your profile information. Your data is securely stored and synced with your conference registration."}
               </Text>
             </View>
 
@@ -723,15 +739,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   instructionsBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     padding: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
     marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
   instructionsText: {
     ...typography.bodySmall,
     lineHeight: 20,
-    textAlign: 'center',
+    flex: 1,
   },
   prepopulatedBadge: {
     flexDirection: 'row',
