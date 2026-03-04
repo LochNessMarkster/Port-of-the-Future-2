@@ -14,36 +14,27 @@ import {
   Image,
   Modal,
   Pressable,
-  Switch,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-
-type Mode = "signin" | "signup";
+import { IconSymbol } from "@/components/IconSymbol";
 
 export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { signInWithEmail, signUpWithEmail, loading: authLoading } = useAuth();
+  const { signInWithEmail, loading: authLoading } = useAuth();
 
-  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [title, setTitle] = useState("");
-  const [phone, setPhone] = useState("");
-  const [linkedin, setLinkedin] = useState("");
-  const [bio, setBio] = useState("");
-  const [optInNetworking, setOptInNetworking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  console.log('AuthScreen - Mode:', mode);
+  console.log('AuthScreen - Sign In Only Mode');
 
   if (authLoading) {
     return (
@@ -58,72 +49,42 @@ export default function AuthScreen() {
     setErrorModalVisible(true);
   };
 
-  const handleEmailAuth = async () => {
-    console.log('AuthScreen - User tapped auth button, mode:', mode);
+  const handleSignIn = async () => {
+    console.log('AuthScreen - User tapped Sign In button');
     
     if (!email || !password) {
       showError("Please enter email and password");
       return;
     }
 
-    if (mode === "signup" && !name) {
-      showError("Please enter your name");
+    if (!email.includes('@')) {
+      showError("Please enter a valid email address");
       return;
     }
 
     setLoading(true);
     try {
-      if (mode === "signin") {
-        console.log('AuthScreen - Signing in with email:', email);
-        await signInWithEmail(email, password);
-        console.log('AuthScreen - Sign in successful');
-        router.replace("/");
-      } else {
-        console.log('AuthScreen - Signing up with email:', email, 'optInNetworking:', optInNetworking);
-        await signUpWithEmail(email, password, name);
-        
-        // Update profile with additional fields after signup
-        try {
-          const { authenticatedPut } = await import('@/utils/api');
-          await authenticatedPut('/api/profile', {
-            name,
-            company: company || null,
-            title: title || null,
-            phone: phone || null,
-            linkedin: linkedin || null,
-            bio: bio || null,
-            optInNetworking: optInNetworking,
-          });
-          console.log('AuthScreen - Profile updated with optInNetworking:', optInNetworking);
-        } catch (profileError) {
-          console.error('AuthScreen - Error updating profile:', profileError);
-        }
-        
-        console.log('AuthScreen - Sign up successful');
-        showError("Account created successfully! You can now sign in.");
-        setMode("signin");
-        setPassword("");
-      }
+      console.log('AuthScreen - Signing in with email:', email);
+      await signInWithEmail(email, password);
+      console.log('AuthScreen - Sign in successful, navigating to home');
+      router.replace("/(tabs)/(home)/");
     } catch (error: any) {
-      console.error('AuthScreen - Auth error:', error);
+      console.error('AuthScreen - Sign in error:', error);
       const errorMsg = error.message || "Authentication failed. Please try again.";
       
-      // Show more specific error messages
-      if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
-        if (mode === "signin") {
-          showError("Invalid email or password.\n\nIf you don't have an account yet, please tap 'Sign Up' below to create one.");
-        } else {
-          showError("Invalid credentials. Please check your information and try again.");
-        }
-      } else if (errorMsg.toLowerCase().includes("exist")) {
-        showError("An account with this email already exists. Please sign in instead.");
-        setMode("signin");
+      if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password") || errorMsg.toLowerCase().includes("credentials")) {
+        showError("Invalid email or password.\n\nPlease check your credentials and try again. If you're having trouble accessing your account, please contact the conference organizers.");
       } else {
         showError(errorMsg);
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = () => {
+    console.log('AuthScreen - User tapped Forgot Password');
+    router.push("/forgot-password");
   };
 
   const inputBackgroundColor = colorScheme === 'dark' ? appColors.card : '#FFFFFF';
@@ -138,9 +99,10 @@ export default function AuthScreen() {
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
-            {/* Logo - Using the conference logo with rectangular aspect ratio (904x377) */}
+            {/* Logo */}
             <View style={styles.logoContainer}>
               <Image
                 source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
@@ -150,125 +112,25 @@ export default function AuthScreen() {
                 Port of the Future 2026
               </Text>
               <Text style={[styles.appSubtitle, { color: appColors.textSecondary }]}>
-                {mode === "signin" ? "Welcome Back" : "Create Your Account"}
+                Welcome Back
               </Text>
             </View>
 
-            {/* Sign Up Form */}
-            {mode === "signup" && (
-              <React.Fragment>
-                <Text style={[styles.label, { color: appColors.text }]}>Full Name *</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="John Doe"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
-                />
+            {/* Info Box */}
+            <View style={[styles.infoBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
+              <IconSymbol 
+                ios_icon_name="info.circle.fill" 
+                android_material_icon_name="info" 
+                size={20} 
+                color={appColors.primary} 
+              />
+              <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
+                Sign in with the email address you used to register for the conference.
+              </Text>
+            </View>
 
-                <Text style={[styles.label, { color: appColors.text }]}>Company</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Acme Corporation"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={company}
-                  onChangeText={setCompany}
-                  autoCapitalize="words"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Job Title</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Operations Manager"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={title}
-                  onChangeText={setTitle}
-                  autoCapitalize="words"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Phone</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="+1 (555) 123-4567"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>LinkedIn Profile</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="https://linkedin.com/in/johndoe"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={linkedin}
-                  onChangeText={setLinkedin}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Bio</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Tell us about yourself..."
-                  placeholderTextColor={appColors.textSecondary}
-                  value={bio}
-                  onChangeText={setBio}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-
-                {/* Opt-in Networking Toggle */}
-                <View style={styles.switchContainer}>
-                  <View style={styles.switchTextContainer}>
-                    <Text style={[styles.switchLabel, { color: appColors.text }]}>
-                      Opt-in to Networking
-                    </Text>
-                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
-                      Allow other attendees to see your profile and send you messages
-                    </Text>
-                  </View>
-                  <Switch
-                    value={optInNetworking}
-                    onValueChange={(value) => {
-                      console.log('AuthScreen - User toggled optInNetworking to:', value);
-                      setOptInNetworking(value);
-                    }}
-                    trackColor={{ false: appColors.border, true: appColors.primary }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-              </React.Fragment>
-            )}
-
-            {/* Email & Password (both modes) */}
-            <Text style={[styles.label, { color: appColors.text }]}>Email *</Text>
+            {/* Email */}
+            <Text style={[styles.label, { color: appColors.text }]}>Email Address</Text>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: inputBackgroundColor, 
@@ -282,52 +144,81 @@ export default function AuthScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!loading}
             />
 
-            <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: inputBackgroundColor, 
-                borderColor: inputBorderColor,
-                color: appColors.text 
-              }]}
-              placeholder="••••••••"
-              placeholderTextColor={appColors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            {/* Password */}
+            <Text style={[styles.label, { color: appColors.text }]}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[styles.input, styles.passwordInput, { 
+                  backgroundColor: inputBackgroundColor, 
+                  borderColor: inputBorderColor,
+                  color: appColors.text 
+                }]}
+                placeholder="Enter your password"
+                placeholderTextColor={appColors.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+              <TouchableOpacity 
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <IconSymbol 
+                  ios_icon_name={showPassword ? "eye.slash.fill" : "eye.fill"} 
+                  android_material_icon_name={showPassword ? "visibility-off" : "visibility"} 
+                  size={24} 
+                  color={appColors.textSecondary} 
+                />
+              </TouchableOpacity>
+            </View>
 
-            {/* Submit Button */}
+            {/* Forgot Password Link */}
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={handleForgotPassword}
+              disabled={loading}
+            >
+              <Text style={[styles.forgotPasswordText, { color: appColors.primary }]}>
+                Forgot Password?
+              </Text>
+            </TouchableOpacity>
+
+            {/* Sign In Button */}
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
-              onPress={handleEmailAuth}
+              onPress={handleSignIn}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <View style={styles.buttonContent}>
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text style={[styles.primaryButtonText, { marginLeft: spacing.sm }]}>
+                    Signing in...
+                  </Text>
+                </View>
               ) : (
-                <Text style={styles.primaryButtonText}>
-                  {mode === "signin" ? "Sign In" : "Create Account"}
-                </Text>
+                <Text style={styles.primaryButtonText}>Sign In</Text>
               )}
             </TouchableOpacity>
 
-            {/* Switch Mode */}
-            <TouchableOpacity
-              style={styles.switchModeButton}
-              onPress={() => {
-                console.log('AuthScreen - Switching mode from', mode, 'to', mode === 'signin' ? 'signup' : 'signin');
-                setMode(mode === "signin" ? "signup" : "signin");
-              }}
-            >
-              <Text style={[styles.switchModeText, { color: appColors.primary }]}>
-                {mode === "signin"
-                  ? "Don't have an account? Sign Up"
-                  : "Already have an account? Sign In"}
+            {/* Help Text */}
+            <View style={styles.helpContainer}>
+              <IconSymbol 
+                ios_icon_name="questionmark.circle" 
+                android_material_icon_name="help" 
+                size={18} 
+                color={appColors.textSecondary} 
+              />
+              <Text style={[styles.helpText, { color: appColors.textSecondary }]}>
+                Need help? Contact the conference organizers for assistance with your account.
               </Text>
-            </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -344,8 +235,16 @@ export default function AuthScreen() {
           onPress={() => setErrorModalVisible(false)}
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+            <View style={styles.modalIconContainer}>
+              <IconSymbol 
+                ios_icon_name="xmark.circle.fill" 
+                android_material_icon_name="error" 
+                size={48} 
+                color="#FF3B30" 
+              />
+            </View>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              {mode === "signin" ? "Login Failed" : "Sign Up Failed"}
+              Sign In Failed
             </Text>
             <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
@@ -403,6 +302,20 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
   },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  infoText: {
+    ...typography.bodySmall,
+    lineHeight: 20,
+    flex: 1,
+  },
   label: {
     ...typography.bodySmall,
     fontWeight: '600',
@@ -417,37 +330,39 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 16,
   },
-  textArea: {
-    height: 100,
-    paddingTop: spacing.md,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  switchTextContainer: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  switchLabel: {
-    ...typography.body,
-    fontWeight: '600',
+  passwordContainer: {
+    position: 'relative',
     marginBottom: spacing.xs,
   },
-  switchDescription: {
+  passwordInput: {
+    paddingRight: 50,
+    marginBottom: 0,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: spacing.md,
+    top: 13,
+    padding: spacing.xs,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  forgotPasswordText: {
     ...typography.bodySmall,
-    lineHeight: 18,
+    fontWeight: '500',
   },
   primaryButton: {
     height: 50,
     borderRadius: borderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   primaryButtonText: {
     color: "#FFFFFF",
@@ -457,14 +372,17 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  switchModeButton: {
-    marginTop: spacing.lg,
-    alignItems: "center",
-    paddingVertical: spacing.md,
+  helpContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
   },
-  switchModeText: {
-    fontSize: 14,
-    fontWeight: '500',
+  helpText: {
+    ...typography.bodySmall,
+    lineHeight: 20,
+    flex: 1,
   },
   modalOverlay: {
     flex: 1,
@@ -483,6 +401,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  modalIconContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   modalTitle: {
     ...typography.h3,
