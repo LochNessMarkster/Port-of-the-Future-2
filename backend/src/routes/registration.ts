@@ -34,6 +34,7 @@ export function registerRegistrationRoutes(app: App) {
             type: 'object',
             properties: {
               exists: { type: 'boolean' },
+              password: { type: ['string', 'null'] },
               attendeeData: {
                 type: 'object',
                 properties: {
@@ -78,11 +79,16 @@ export function registerRegistrationRoutes(app: App) {
 
         const firstName = attendee.fields['First Name'] || '';
         const lastName = attendee.fields['Last Name'] || '';
+        const airtablePassword = attendee.fields['Password'] || null;
 
-        app.logger.info({ email: normalizedEmail }, 'Email found in Airtable');
+        app.logger.info(
+          { email: normalizedEmail, hasPassword: !!airtablePassword },
+          'Email found in Airtable'
+        );
 
         return {
           exists: true,
+          password: airtablePassword,
           attendeeData: {
             firstName,
             lastName,
@@ -205,6 +211,7 @@ export function registerRegistrationRoutes(app: App) {
         // Fetch attendee details from Airtable if available
         let airtableData: any = {};
         let airtableRecordId: string | null = null;
+        let airtablePassword: string | null = null;
         try {
           const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
             logger: app.logger,
@@ -217,12 +224,28 @@ export function registerRegistrationRoutes(app: App) {
 
           if (attendee) {
             airtableRecordId = attendee.id;
+            airtablePassword = attendee.fields['Password'] || null;
             airtableData = {
               company: attendee.fields['Company'],
               title: attendee.fields['Job Title'],
               phone: attendee.fields['Phone'],
               linkedin: attendee.fields['LinkedIn'],
             };
+
+            // Verify password against Airtable
+            if (airtablePassword) {
+              // If Airtable has a password, verify it matches exactly
+              if (password !== airtablePassword) {
+                app.logger.warn(
+                  { email: normalizedEmail },
+                  'Password does not match Airtable password'
+                );
+                return reply.status(400).send({
+                  error: 'Password is incorrect. Please check your password and try again.',
+                });
+              }
+            }
+            // If Airtable password is empty/null, allow any password
           }
         } catch (airtableError) {
           app.logger.warn({ err: airtableError }, 'Failed to fetch Airtable data');
@@ -233,6 +256,21 @@ export function registerRegistrationRoutes(app: App) {
         if (existingUser.length > 0) {
           const existingUserData = existingUser[0];
           app.logger.info({ email: normalizedEmail }, 'User already exists in DB');
+
+          // Verify password against Airtable password if we have it
+          if (airtableRecordId && airtablePassword) {
+            // If Airtable has a password, verify it matches exactly
+            if (password !== airtablePassword) {
+              app.logger.warn(
+                { email: normalizedEmail },
+                'Password does not match Airtable password for existing user'
+              );
+              return reply.status(400).send({
+                error: 'Password is incorrect. Please check your password and try again.',
+              });
+            }
+          }
+          // If Airtable password is empty/null for existing user, allow login and update password
 
           // If attendee exists in Airtable, update their profile
           if (airtableRecordId) {
@@ -246,6 +284,12 @@ export function registerRegistrationRoutes(app: App) {
               if (title || existingUserData.title) updateFields['Job Title'] = title || existingUserData.title;
               if (phone || existingUserData.phone) updateFields['Phone'] = phone || existingUserData.phone;
               if (linkedin || existingUserData.linkedin) updateFields['LinkedIn'] = linkedin || existingUserData.linkedin;
+
+              // Update password if it was empty
+              if (!airtablePassword) {
+                updateFields['Password'] = password;
+                app.logger.info({ airtableRecordId }, 'Will update Airtable password (was empty)');
+              }
 
               if (Object.keys(updateFields).length > 0) {
                 await updateAirtableRecord(TABLES.ATTENDEES, airtableRecordId, updateFields, app.logger);
@@ -341,14 +385,14 @@ export function registerRegistrationRoutes(app: App) {
 
         app.logger.info({ userId, email: normalizedEmail }, 'User and account created');
 
-        // Update Airtable record with password if attendee exists
-        if (airtableRecordId) {
+        // Update Airtable record with password if attendee exists and password was empty
+        if (airtableRecordId && !airtablePassword) {
           try {
-            app.logger.info({ airtableRecordId }, 'Updating Airtable attendee with password');
+            app.logger.info({ airtableRecordId }, 'Updating Airtable attendee with password (was empty)');
             await updateAirtableRecord(
               TABLES.ATTENDEES,
               airtableRecordId,
-              { Password: hashedPassword },
+              { Password: password },
               app.logger
             );
             app.logger.info({ airtableRecordId }, 'Airtable attendee password updated');
