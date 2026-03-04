@@ -3,7 +3,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
-import { apiPost, BACKEND_URL } from "@/utils/api";
 
 interface User {
   id: string;
@@ -127,87 +126,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      console.log("AuthContext - Attempting sign in with email:", email);
-
-      // Step 1: Check if email exists in Airtable and get the Airtable password
-      console.log("AuthContext - Checking email in Airtable before sign in");
-      let airtablePassword: string | null = null;
-      let attendeeData: any = null;
-      try {
-        const checkResult = await apiPost<{ exists: boolean; password: string | null; attendeeData?: any }>(
-          '/api/registration/check-email',
-          { email }
-        );
-        console.log("AuthContext - Airtable check result:", checkResult.exists ? "Found" : "Not found");
-
-        if (!checkResult.exists) {
-          throw new Error("Email not found in conference registration. Please contact the conference organizers.");
-        }
-
-        airtablePassword = checkResult.password || null;
-        attendeeData = checkResult.attendeeData || null;
-      } catch (checkError: any) {
-        // If check-email fails for network reasons, fall through to normal sign in
-        if (checkError.message?.includes("not found in conference")) {
-          throw checkError;
-        }
-        console.warn("AuthContext - Airtable check failed, proceeding with normal sign in:", checkError.message);
-      }
-
-      // Step 2: Verify password against Airtable password if available
-      if (airtablePassword) {
-        // Airtable has a password set - verify it matches
-        // The backend uses bcrypt for hashed passwords or direct comparison for plain text
-        // We pass the password to the create-account endpoint which handles verification
-        console.log("AuthContext - Airtable has password set, verifying via create-account endpoint");
-      }
-
-      // Step 3: Try to sign in with Better Auth (works if account already exists in DB)
-      console.log("AuthContext - Attempting Better Auth sign in");
       const result = await authClient.signIn.email({ email, password });
-      console.log("AuthContext - Better Auth sign in result:", result);
-
+      console.log("AuthContext - Sign in result:", result);
+      
       if (!result || result.error) {
         const errorMessage = result?.error?.message || "Invalid email or password";
-        console.log("AuthContext - Better Auth sign in failed:", errorMessage);
-
-        // Step 4: If sign in failed, try to create/sync account via registration endpoint
-        // This handles the case where the user exists in Airtable but not in our DB yet
-        console.log("AuthContext - Attempting account creation/sync via registration endpoint");
-        try {
-          const fullName = attendeeData
-            ? `${attendeeData.firstName || ''} ${attendeeData.lastName || ''}`.trim()
-            : email.split('@')[0];
-
-          const createResult = await apiPost<{ user: any; token: string }>(
-            '/api/registration/create-account',
-            {
-              email,
-              password,
-              name: fullName || email.split('@')[0],
-            }
-          );
-
-          console.log("AuthContext - Account created/synced successfully:", createResult.user?.email);
-
-          if (createResult.token) {
-            await setBearerToken(createResult.token);
-          }
-
-          await fetchUser();
-          return;
-        } catch (createError: any) {
-          console.error("AuthContext - Account creation/sync failed:", createError.message);
-          // If the error is about wrong password, surface that clearly
-          if (createError.message?.includes("password") || createError.message?.includes("Password")) {
-            throw new Error("Incorrect password. Please use the password: POTF2026");
-          }
-          // Otherwise throw the original sign in error
-          throw new Error(errorMessage);
-        }
+        console.error("AuthContext - Sign in failed:", errorMessage);
+        throw new Error(errorMessage);
       }
-
-      console.log("AuthContext - Sign in successful");
+      
       await fetchUser();
     } catch (error: any) {
       console.error("AuthContext - Email sign in failed:", error);
@@ -218,40 +145,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
     try {
-      console.log("AuthContext - Attempting sign up with email:", email);
-
-      // Use the registration endpoint which handles Airtable password verification
-      // and creates the account in both our DB and syncs with Airtable
-      const createResult = await apiPost<{ user: any; token: string }>(
-        '/api/registration/create-account',
-        {
-          email,
-          password,
-          name: name || email.split('@')[0],
-        }
-      );
-
-      console.log("AuthContext - Sign up via registration endpoint result:", createResult.user?.email);
-
-      if (createResult.token) {
-        await setBearerToken(createResult.token);
+      const result = await authClient.signUp.email({
+        email,
+        password,
+        name,
+      });
+      console.log("AuthContext - Sign up result:", result);
+      
+      if (!result || result.error) {
+        const errorMessage = result?.error?.message || "Failed to create account";
+        console.error("AuthContext - Sign up failed:", errorMessage);
+        throw new Error(errorMessage);
       }
-
+      
       await fetchUser();
     } catch (error: any) {
       console.error("AuthContext - Email sign up failed:", error);
-
-      // Parse error message for user-friendly display
-      const errorMsg = error.message || "Failed to create account. Please try again.";
-
-      if (errorMsg.includes("password") || errorMsg.includes("Password")) {
-        throw new Error("Incorrect password. The default password is: POTF2026");
-      } else if (errorMsg.includes("not found in conference") || errorMsg.includes("not found in Airtable")) {
-        throw new Error("Email not found in conference registration. Please contact the conference organizers.");
-      }
-
       // Re-throw with a user-friendly message
-      throw new Error(errorMsg);
+      throw new Error(error.message || "Failed to create account. Please try again.");
     }
   };
 
@@ -270,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         // Note: The redirect will reload the app or be handled by deep linking.
         // fetchUser will be called on mount or via event listener if needed.
+        // For simple flow, we might need to listen to URL events.
         // But better-auth expo client handles the redirect and session storage?
         // We typically need to wait or rely on fetchUser on next app load.
         // For now, call fetchUser just in case.

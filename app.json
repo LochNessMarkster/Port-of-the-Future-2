@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Port of the Future Conference",
-    "slug": "port-of-the-future-conference",
+    "slug": "Port of the Future Conference",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/POF-ICON.png",
@@ -36,7 +36,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "portofthefutureconference",
+    "scheme": "Port of the Future Conference",
     "experiments": {
       "typedRoutes": true
     },

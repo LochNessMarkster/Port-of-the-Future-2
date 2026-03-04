@@ -14,16 +14,14 @@ import {
   Image,
   Modal,
   Pressable,
+  Switch,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-import { apiPost } from "@/utils/api";
 
 type Mode = "signin" | "signup";
-
-const DEFAULT_PASSWORD = "POTF2026";
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -33,8 +31,14 @@ export default function AuthScreen() {
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(DEFAULT_PASSWORD);
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [title, setTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [bio, setBio] = useState("");
+  const [optInNetworking, setOptInNetworking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -57,70 +61,57 @@ export default function AuthScreen() {
   const handleEmailAuth = async () => {
     console.log('AuthScreen - User tapped auth button, mode:', mode);
     
-    if (!email) {
-      showError("Please enter your email");
+    if (!email || !password) {
+      showError("Please enter email and password");
       return;
     }
 
-    if (!password) {
-      showError("Please enter a password");
+    if (mode === "signup" && !name) {
+      showError("Please enter your name");
       return;
     }
 
     setLoading(true);
     try {
       if (mode === "signin") {
-        // signInWithEmail handles Airtable email check + password verification internally
         console.log('AuthScreen - Signing in with email:', email);
         await signInWithEmail(email, password);
         console.log('AuthScreen - Sign in successful');
         router.replace("/");
       } else {
-        // For signup, first check email in Airtable to get attendee name
-        console.log('AuthScreen - Checking email in Airtable for signup:', email);
-        let fullName = name;
+        console.log('AuthScreen - Signing up with email:', email, 'optInNetworking:', optInNetworking);
+        await signUpWithEmail(email, password, name);
+        
+        // Update profile with additional fields after signup
         try {
-          const checkResult = await apiPost<{ exists: boolean; password: string | null; attendeeData?: any }>(
-            '/api/registration/check-email',
-            { email }
-          );
-          console.log('AuthScreen - Email check result:', checkResult.exists ? 'Found' : 'Not found');
-
-          if (!checkResult.exists) {
-            showError("Email not found in conference registration. Please contact the conference organizers if you believe this is an error.");
-            setLoading(false);
-            return;
-          }
-
-          // Use Airtable name if no name provided
-          if (!fullName && checkResult.attendeeData) {
-            fullName = `${checkResult.attendeeData.firstName || ''} ${checkResult.attendeeData.lastName || ''}`.trim();
-          }
-        } catch (checkError: any) {
-          console.error('AuthScreen - Email check failed:', checkError);
-          showError(checkError.message || "Failed to verify email. Please try again.");
-          setLoading(false);
-          return;
+          const { authenticatedPut } = await import('@/utils/api');
+          await authenticatedPut('/api/profile', {
+            name,
+            company: company || null,
+            title: title || null,
+            phone: phone || null,
+            linkedin: linkedin || null,
+            bio: bio || null,
+            optInNetworking: optInNetworking,
+          });
+          console.log('AuthScreen - Profile updated with optInNetworking:', optInNetworking);
+        } catch (profileError) {
+          console.error('AuthScreen - Error updating profile:', profileError);
         }
-
-        const finalName = fullName || email.split('@')[0];
-        console.log('AuthScreen - Signing up with email:', email, 'name:', finalName);
-        await signUpWithEmail(email, password, finalName);
+        
         console.log('AuthScreen - Sign up successful');
         showError("Account created successfully! You can now sign in.");
         setMode("signin");
-        setPassword(DEFAULT_PASSWORD);
+        setPassword("");
       }
     } catch (error: any) {
       console.error('AuthScreen - Auth error:', error);
       const errorMsg = error.message || "Authentication failed. Please try again.";
       
       // Show more specific error messages
-      if (errorMsg.toLowerCase().includes("incorrect password") || errorMsg.toLowerCase().includes("potf2026")) {
-        showError(errorMsg);
-      } else if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
+      if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
         if (mode === "signin") {
-          showError("Invalid email or password.\n\nPlease use the password: POTF2026\n\nIf you're having trouble, contact the conference organizers.");
+          showError("Invalid email or password.\n\nIf you don't have an account yet, please tap 'Sign Up' below to create one.");
         } else {
           showError("Invalid credentials. Please check your information and try again.");
         }
@@ -149,7 +140,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            {/* Logo */}
+            {/* Logo - Using the conference logo with rectangular aspect ratio (904x377) */}
             <View style={styles.logoContainer}>
               <Image
                 source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
@@ -163,26 +154,120 @@ export default function AuthScreen() {
               </Text>
             </View>
 
-            {/* Sign Up Form - Name field */}
+            {/* Sign Up Form */}
             {mode === "signup" && (
               <React.Fragment>
-                <Text style={[styles.label, { color: appColors.text }]}>Full Name (Optional)</Text>
+                <Text style={[styles.label, { color: appColors.text }]}>Full Name *</Text>
                 <TextInput
                   style={[styles.input, { 
                     backgroundColor: inputBackgroundColor, 
                     borderColor: inputBorderColor,
                     color: appColors.text 
                   }]}
-                  placeholder="John Doe (will use Airtable data if empty)"
+                  placeholder="John Doe"
                   placeholderTextColor={appColors.textSecondary}
                   value={name}
                   onChangeText={setName}
                   autoCapitalize="words"
                 />
+
+                <Text style={[styles.label, { color: appColors.text }]}>Company</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="Acme Corporation"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={company}
+                  onChangeText={setCompany}
+                  autoCapitalize="words"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>Job Title</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="Operations Manager"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={title}
+                  onChangeText={setTitle}
+                  autoCapitalize="words"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>Phone</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="+1 (555) 123-4567"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>LinkedIn Profile</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="https://linkedin.com/in/johndoe"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={linkedin}
+                  onChangeText={setLinkedin}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+
+                <Text style={[styles.label, { color: appColors.text }]}>Bio</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="Tell us about yourself..."
+                  placeholderTextColor={appColors.textSecondary}
+                  value={bio}
+                  onChangeText={setBio}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+
+                {/* Opt-in Networking Toggle */}
+                <View style={styles.switchContainer}>
+                  <View style={styles.switchTextContainer}>
+                    <Text style={[styles.switchLabel, { color: appColors.text }]}>
+                      Opt-in to Networking
+                    </Text>
+                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
+                      Allow other attendees to see your profile and send you messages
+                    </Text>
+                  </View>
+                  <Switch
+                    value={optInNetworking}
+                    onValueChange={(value) => {
+                      console.log('AuthScreen - User toggled optInNetworking to:', value);
+                      setOptInNetworking(value);
+                    }}
+                    trackColor={{ false: appColors.border, true: appColors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
               </React.Fragment>
             )}
 
-            {/* Email */}
+            {/* Email & Password (both modes) */}
             <Text style={[styles.label, { color: appColors.text }]}>Email *</Text>
             <TextInput
               style={[styles.input, { 
@@ -199,7 +284,6 @@ export default function AuthScreen() {
               autoCorrect={false}
             />
 
-            {/* Password */}
             <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
             <TextInput
               style={[styles.input, { 
@@ -207,18 +291,13 @@ export default function AuthScreen() {
                 borderColor: inputBorderColor,
                 color: appColors.text 
               }]}
-              placeholder="POTF2026"
+              placeholder="••••••••"
               placeholderTextColor={appColors.textSecondary}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
             />
-
-            {/* Password hint */}
-            <Text style={[styles.hint, { color: appColors.textSecondary }]}>
-              Default password for all attendees: POTF2026
-            </Text>
 
             {/* Submit Button */}
             <TouchableOpacity
@@ -241,7 +320,6 @@ export default function AuthScreen() {
               onPress={() => {
                 console.log('AuthScreen - Switching mode from', mode, 'to', mode === 'signin' ? 'signup' : 'signin');
                 setMode(mode === "signin" ? "signup" : "signin");
-                setPassword(DEFAULT_PASSWORD);
               }}
             >
               <Text style={[styles.switchModeText, { color: appColors.primary }]}>
@@ -267,7 +345,7 @@ export default function AuthScreen() {
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              {errorMessage.toLowerCase().includes("successfully") ? "Success" : (mode === "signin" ? "Login Failed" : "Sign Up Failed")}
+              {mode === "signin" ? "Login Failed" : "Sign Up Failed"}
             </Text>
             <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
@@ -339,11 +417,30 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 16,
   },
-  hint: {
-    ...typography.bodySmall,
-    marginTop: -spacing.xs,
+  textArea: {
+    height: 100,
+    paddingTop: spacing.md,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
     marginBottom: spacing.md,
-    fontStyle: 'italic',
+    paddingVertical: spacing.sm,
+  },
+  switchTextContainer: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  switchLabel: {
+    ...typography.body,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  switchDescription: {
+    ...typography.bodySmall,
+    lineHeight: 18,
   },
   primaryButton: {
     height: 50,
