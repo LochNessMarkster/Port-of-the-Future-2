@@ -10,16 +10,42 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 export const AIRTABLE_ATTENDEE_CACHE_ENDPOINT = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
 
 /**
+ * Fetches all pages of records from the Airtable cache endpoint
+ * Handles pagination using the offset parameter to retrieve all records
+ */
+const fetchAllRecords = async () => {
+  let allRecords: any[] = [];
+  let offset: string | null = null;
+  const url = `https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4`;
+
+  console.log('Starting to fetch all records from Airtable cache...');
+
+  do {
+    const fetchUrl = offset ? `${url}?offset=${offset}` : url;
+    console.log(`Fetching page... (current total: ${allRecords.length} records)`);
+    
+    const response = await fetch(fetchUrl);
+    const data = await response.json();
+    
+    allRecords = allRecords.concat(data.records);
+    offset = data.offset || null;
+    
+    console.log(`Fetched ${data.records.length} records. Total so far: ${allRecords.length}`);
+  } while (offset);
+
+  console.log(`Finished fetching all records. Total: ${allRecords.length} records`);
+  return allRecords;
+};
+
+/**
  * Verify email exists in Airtable cache
- * Fetches all records and performs local case-insensitive comparison
+ * Fetches all records using pagination and performs local case-insensitive comparison
  */
 const verifyEmail = async (email: string): Promise<boolean> => {
   try {
-    const url = `https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4`;
-    const response = await fetch(url);
-    const data = await response.json();
+    const allRecords = await fetchAllRecords();
     
-    const match = data.records.find(
+    const match = allRecords.find(
       (record: any) => record.fields.Email && 
       record.fields.Email.toLowerCase().trim() === email.toLowerCase().trim()
     );
@@ -33,7 +59,7 @@ const verifyEmail = async (email: string): Promise<boolean> => {
 
 /**
  * Check if email exists in Airtable cache
- * Uses the new verifyEmail function for local comparison
+ * Uses the new verifyEmail function with pagination for local comparison
  */
 export async function checkEmailInAirtableCache(email: string): Promise<boolean> {
   console.log('Checking email in Airtable cache:', email);
@@ -44,6 +70,7 @@ export async function checkEmailInAirtableCache(email: string): Promise<boolean>
 
 /**
  * Fetch user profile from Airtable cache after authentication
+ * Uses pagination to fetch all records before searching
  */
 export interface UserProfile {
   firstName: string;
@@ -59,11 +86,9 @@ export async function fetchUserProfileFromCache(email: string): Promise<UserProf
   try {
     console.log('Fetching user profile from Airtable cache:', email);
     
-    const url = `https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4`;
-    const response = await fetch(url);
-    const data = await response.json();
+    const allRecords = await fetchAllRecords();
     
-    const userRecord = data.records.find(
+    const userRecord = allRecords.find(
       (record: any) => record.fields.Email &&
       record.fields.Email.toLowerCase().trim() === email.toLowerCase().trim()
     );
