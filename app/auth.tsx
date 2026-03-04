@@ -20,7 +20,6 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { checkEmailInAirtableCache } from "@/lib/supabase";
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -74,21 +73,9 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      console.log('AuthScreen - Checking email in Airtable cache:', email);
+      console.log('AuthScreen - Signing in with password for email:', email);
       
-      // Step 1: Check if email exists in Airtable cache
-      const isRegistered = await checkEmailInAirtableCache(email);
-      
-      if (!isRegistered) {
-        console.log('AuthScreen - Email not found in cache');
-        showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
-        setLoading(false);
-        return;
-      }
-      
-      console.log('AuthScreen - Email found in cache, signing in with password');
-      
-      // Step 2: Sign in with password via Supabase
+      // Sign in directly with password via Supabase (email verification disabled for testing)
       const result = await signInWithPassword(email, password);
       
       if (result.success) {
@@ -122,21 +109,9 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      console.log('AuthScreen - Checking email in Airtable cache:', email);
+      console.log('AuthScreen - Sending magic link to email:', email);
       
-      // Step 1: Check if email exists in Airtable cache
-      const isRegistered = await checkEmailInAirtableCache(email);
-      
-      if (!isRegistered) {
-        console.log('AuthScreen - Email not found in cache');
-        showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
-        setLoading(false);
-        return;
-      }
-      
-      console.log('AuthScreen - Email found in cache, sending magic link');
-      
-      // Step 2: Send magic link via Supabase
+      // Send magic link directly via Supabase (email verification disabled for testing)
       await signInWithMagicLink(email);
       
       console.log('AuthScreen - Magic link sent successfully');
