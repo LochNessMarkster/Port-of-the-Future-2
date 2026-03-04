@@ -14,12 +14,12 @@ import {
   Image,
   Modal,
   Pressable,
-  Switch,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
+import { apiPost } from "@/utils/api";
 
 type Mode = "signin" | "signup";
 
@@ -33,18 +33,11 @@ export default function AuthScreen() {
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(DEFAULT_PASSWORD);
   const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [title, setTitle] = useState("");
-  const [phone, setPhone] = useState("");
-  const [linkedin, setLinkedin] = useState("");
-  const [bio, setBio] = useState("");
-  const [optInNetworking, setOptInNetworking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [useDefaultPassword, setUseDefaultPassword] = useState(false);
 
   console.log('AuthScreen - Mode:', mode);
 
@@ -69,60 +62,65 @@ export default function AuthScreen() {
       return;
     }
 
-    // Use default password if checkbox is checked, otherwise require password input
-    const finalPassword = useDefaultPassword ? DEFAULT_PASSWORD : password;
-
-    if (!finalPassword) {
-      showError("Please enter a password or use the default password");
-      return;
-    }
-
-    if (mode === "signup" && !name) {
-      showError("Please enter your name");
+    if (!password) {
+      showError("Please enter a password");
       return;
     }
 
     setLoading(true);
     try {
       if (mode === "signin") {
-        console.log('AuthScreen - Signing in with email:', email, 'using default password:', useDefaultPassword);
-        await signInWithEmail(email, finalPassword);
+        // signInWithEmail handles Airtable email check + password verification internally
+        console.log('AuthScreen - Signing in with email:', email);
+        await signInWithEmail(email, password);
         console.log('AuthScreen - Sign in successful');
         router.replace("/");
       } else {
-        console.log('AuthScreen - Signing up with email:', email, 'optInNetworking:', optInNetworking);
-        await signUpWithEmail(email, finalPassword, name);
-        
-        // Update profile with additional fields after signup
+        // For signup, first check email in Airtable to get attendee name
+        console.log('AuthScreen - Checking email in Airtable for signup:', email);
+        let fullName = name;
         try {
-          const { authenticatedPut } = await import('@/utils/api');
-          await authenticatedPut('/api/profile', {
-            name,
-            company: company || null,
-            title: title || null,
-            phone: phone || null,
-            linkedin: linkedin || null,
-            bio: bio || null,
-            optInNetworking: optInNetworking,
-          });
-          console.log('AuthScreen - Profile updated with optInNetworking:', optInNetworking);
-        } catch (profileError) {
-          console.error('AuthScreen - Error updating profile:', profileError);
+          const checkResult = await apiPost<{ exists: boolean; password: string | null; attendeeData?: any }>(
+            '/api/registration/check-email',
+            { email }
+          );
+          console.log('AuthScreen - Email check result:', checkResult.exists ? 'Found' : 'Not found');
+
+          if (!checkResult.exists) {
+            showError("Email not found in conference registration. Please contact the conference organizers if you believe this is an error.");
+            setLoading(false);
+            return;
+          }
+
+          // Use Airtable name if no name provided
+          if (!fullName && checkResult.attendeeData) {
+            fullName = `${checkResult.attendeeData.firstName || ''} ${checkResult.attendeeData.lastName || ''}`.trim();
+          }
+        } catch (checkError: any) {
+          console.error('AuthScreen - Email check failed:', checkError);
+          showError(checkError.message || "Failed to verify email. Please try again.");
+          setLoading(false);
+          return;
         }
-        
+
+        const finalName = fullName || email.split('@')[0];
+        console.log('AuthScreen - Signing up with email:', email, 'name:', finalName);
+        await signUpWithEmail(email, password, finalName);
         console.log('AuthScreen - Sign up successful');
         showError("Account created successfully! You can now sign in.");
         setMode("signin");
-        setPassword("");
+        setPassword(DEFAULT_PASSWORD);
       }
     } catch (error: any) {
       console.error('AuthScreen - Auth error:', error);
       const errorMsg = error.message || "Authentication failed. Please try again.";
       
       // Show more specific error messages
-      if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
+      if (errorMsg.toLowerCase().includes("incorrect password") || errorMsg.toLowerCase().includes("potf2026")) {
+        showError(errorMsg);
+      } else if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
         if (mode === "signin") {
-          showError("Invalid email or password.\n\nIf you're registered for the conference, try using the default password option below.");
+          showError("Invalid email or password.\n\nPlease use the password: POTF2026\n\nIf you're having trouble, contact the conference organizers.");
         } else {
           showError("Invalid credentials. Please check your information and try again.");
         }
@@ -151,7 +149,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            {/* Logo - Using the conference logo with rectangular aspect ratio (904x377) */}
+            {/* Logo */}
             <View style={styles.logoContainer}>
               <Image
                 source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
@@ -165,116 +163,22 @@ export default function AuthScreen() {
               </Text>
             </View>
 
-            {/* Sign Up Form */}
+            {/* Sign Up Form - Name field */}
             {mode === "signup" && (
               <React.Fragment>
-                <Text style={[styles.label, { color: appColors.text }]}>Full Name *</Text>
+                <Text style={[styles.label, { color: appColors.text }]}>Full Name (Optional)</Text>
                 <TextInput
                   style={[styles.input, { 
                     backgroundColor: inputBackgroundColor, 
                     borderColor: inputBorderColor,
                     color: appColors.text 
                   }]}
-                  placeholder="John Doe"
+                  placeholder="John Doe (will use Airtable data if empty)"
                   placeholderTextColor={appColors.textSecondary}
                   value={name}
                   onChangeText={setName}
                   autoCapitalize="words"
                 />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Company</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Acme Corporation"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={company}
-                  onChangeText={setCompany}
-                  autoCapitalize="words"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Job Title</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Operations Manager"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={title}
-                  onChangeText={setTitle}
-                  autoCapitalize="words"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Phone</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="+1 (555) 123-4567"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>LinkedIn Profile</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="https://linkedin.com/in/johndoe"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={linkedin}
-                  onChangeText={setLinkedin}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Bio</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Tell us about yourself..."
-                  placeholderTextColor={appColors.textSecondary}
-                  value={bio}
-                  onChangeText={setBio}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-
-                {/* Opt-in Networking Toggle */}
-                <View style={styles.switchContainer}>
-                  <View style={styles.switchTextContainer}>
-                    <Text style={[styles.switchLabel, { color: appColors.text }]}>
-                      Opt-in to Networking
-                    </Text>
-                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
-                      Allow other attendees to see your profile and send you messages
-                    </Text>
-                  </View>
-                  <Switch
-                    value={optInNetworking}
-                    onValueChange={(value) => {
-                      console.log('AuthScreen - User toggled optInNetworking to:', value);
-                      setOptInNetworking(value);
-                    }}
-                    trackColor={{ false: appColors.border, true: appColors.primary }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
               </React.Fragment>
             )}
 
@@ -295,60 +199,26 @@ export default function AuthScreen() {
               autoCorrect={false}
             />
 
-            {/* Default Password Checkbox (Sign In Only) */}
-            {mode === "signin" && (
-              <View style={styles.checkboxContainer}>
-                <TouchableOpacity
-                  style={styles.checkbox}
-                  onPress={() => {
-                    const newValue = !useDefaultPassword;
-                    console.log('AuthScreen - User toggled default password to:', newValue);
-                    setUseDefaultPassword(newValue);
-                    if (newValue) {
-                      setPassword("");
-                    }
-                  }}
-                >
-                  <View style={[
-                    styles.checkboxBox,
-                    { borderColor: appColors.border },
-                    useDefaultPassword && { backgroundColor: appColors.primary, borderColor: appColors.primary }
-                  ]}>
-                    {useDefaultPassword && (
-                      <Text style={styles.checkboxCheck}>✓</Text>
-                    )}
-                  </View>
-                  <View style={styles.checkboxTextContainer}>
-                    <Text style={[styles.checkboxLabel, { color: appColors.text }]}>
-                      Use default password (POTF2026)
-                    </Text>
-                    <Text style={[styles.checkboxDescription, { color: appColors.textSecondary }]}>
-                      For conference attendees registered via Airtable
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            )}
+            {/* Password */}
+            <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: inputBackgroundColor, 
+                borderColor: inputBorderColor,
+                color: appColors.text 
+              }]}
+              placeholder="POTF2026"
+              placeholderTextColor={appColors.textSecondary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
 
-            {/* Password (only show if not using default password) */}
-            {!useDefaultPassword && (
-              <React.Fragment>
-                <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="••••••••"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-              </React.Fragment>
-            )}
+            {/* Password hint */}
+            <Text style={[styles.hint, { color: appColors.textSecondary }]}>
+              Default password for all attendees: POTF2026
+            </Text>
 
             {/* Submit Button */}
             <TouchableOpacity
@@ -371,8 +241,7 @@ export default function AuthScreen() {
               onPress={() => {
                 console.log('AuthScreen - Switching mode from', mode, 'to', mode === 'signin' ? 'signup' : 'signin');
                 setMode(mode === "signin" ? "signup" : "signin");
-                setUseDefaultPassword(false);
-                setPassword("");
+                setPassword(DEFAULT_PASSWORD);
               }}
             >
               <Text style={[styles.switchModeText, { color: appColors.primary }]}>
@@ -398,7 +267,7 @@ export default function AuthScreen() {
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              {mode === "signin" ? "Login Failed" : "Sign Up Failed"}
+              {errorMessage.toLowerCase().includes("successfully") ? "Success" : (mode === "signin" ? "Login Failed" : "Sign Up Failed")}
             </Text>
             <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
@@ -470,65 +339,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 16,
   },
-  textArea: {
-    height: 100,
-    paddingTop: spacing.md,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  switchTextContainer: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  switchLabel: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  switchDescription: {
+  hint: {
     ...typography.bodySmall,
-    lineHeight: 18,
-  },
-  checkboxContainer: {
-    marginTop: spacing.md,
+    marginTop: -spacing.xs,
     marginBottom: spacing.md,
-  },
-  checkbox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  checkboxBox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderRadius: 4,
-    marginRight: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  checkboxCheck: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  checkboxTextContainer: {
-    flex: 1,
-  },
-  checkboxLabel: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  checkboxDescription: {
-    ...typography.bodySmall,
-    lineHeight: 18,
+    fontStyle: 'italic',
   },
   primaryButton: {
     height: 50,

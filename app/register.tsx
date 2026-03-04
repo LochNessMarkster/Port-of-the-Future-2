@@ -18,32 +18,11 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-import { apiPost } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiPost } from "@/utils/api";
 import { IconSymbol } from "@/components/IconSymbol";
-import * as SecureStore from 'expo-secure-store';
 
-/**
- * Registration Screen
- * 
- * Flow:
- * 1. User enters email → Check if email exists in Airtable attendee2 table (tblIwt4FWHtNm01Z4)
- * 2. If found, prepopulate profile data from Airtable
- * 3. User enters password (twice for confirmation) and completes/edits profile details
- * 4. On "Create Account":
- *    - Backend creates Better Auth account with password
- *    - Backend saves hashed password to Airtable attendee2 "Password" column
- *    - Backend links the Better Auth user to the Airtable attendee2 record
- *    - If user already exists in Better Auth, backend updates their Airtable profile instead
- *    - User is authenticated and redirected to home screen
- * 
- * Airtable Integration:
- * - Table: attendee2 (tblIwt4FWHtNm01Z4)
- * - Fields: Email, First Name, Last Name, Company, Job Title, Phone, LinkedIn, Password, Image
- * - The backend handles all Airtable operations via /api/registration endpoints
- */
-
-type Step = "email" | "details";
+type Step = "email" | "create-account";
 
 interface AttendeeData {
   firstName?: string;
@@ -55,33 +34,23 @@ interface AttendeeData {
   registrationLevel?: string;
 }
 
-const AIRTABLE_RECORD_ID_KEY = 'airtableRecordId';
+const AIRTABLE_RECORD_ID_KEY = "airtable_record_id";
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { signUpWithEmail } = useAuth();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { setUserFromToken } = useAuth();
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [title, setTitle] = useState("");
-  const [phone, setPhone] = useState("");
-  const [linkedin, setLinkedin] = useState("");
+  const [password, setPassword] = useState("POTF2026");
+  const [attendeeData, setAttendeeData] = useState<AttendeeData | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const [attendeeData, setAttendeeData] = useState<AttendeeData | null>(null);
-  const [airtableRecordId, setAirtableRecordId] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showSuccessWithSettings, setShowSuccessWithSettings] = useState(false);
 
   console.log('RegisterScreen - Current step:', step);
 
@@ -96,154 +65,81 @@ export default function RegisterScreen() {
   };
 
   const handleCheckEmail = async () => {
-    console.log('RegisterScreen - User tapped Continue, email:', email);
+    console.log('RegisterScreen - User tapped Check Email button');
     
-    if (!email || !email.includes('@')) {
-      showError("Please enter a valid email address");
+    if (!email) {
+      showError("Please enter your email address");
       return;
     }
 
     setLoading(true);
     try {
-      console.log('[API] Checking email in Airtable attendee2 table (tblIwt4FWHtNm01Z4):', email);
-      const response = await apiPost<{ exists: boolean; airtableRecordId?: string; attendeeData?: AttendeeData }>('/api/registration/check-email', { email });
-      console.log('RegisterScreen - Email check result from attendee2 table:', response);
+      console.log('RegisterScreen - Checking email in Airtable:', email);
+      const result = await apiPost<{ exists: boolean; password: string | null; attendeeData?: AttendeeData }>('/api/registration/check-email', { email });
       
-      if (response.exists && response.attendeeData) {
-        console.log('RegisterScreen - Email found in attendee2 table, prepopulating data');
-        console.log('RegisterScreen - Airtable Record ID:', response.airtableRecordId);
-        console.log('RegisterScreen - Prepopulated data:', response.attendeeData);
-        setAttendeeData(response.attendeeData);
-        setAirtableRecordId(response.airtableRecordId || null);
-        
-        // Prepopulate form fields with Airtable data
-        const fullName = `${response.attendeeData.firstName || ''} ${response.attendeeData.lastName || ''}`.trim();
-        if (fullName) setName(fullName);
-        if (response.attendeeData.company) setCompany(response.attendeeData.company);
-        if (response.attendeeData.title) setTitle(response.attendeeData.title);
-        if (response.attendeeData.phone) setPhone(response.attendeeData.phone);
-        if (response.attendeeData.linkedin) setLinkedin(response.attendeeData.linkedin);
-        
-        showSuccess("Email found! Your profile information has been prepopulated from your conference registration.");
-      } else {
-        console.log('RegisterScreen - Email not found in attendee2 table, user will enter details manually');
+      console.log('RegisterScreen - Email check result:', result.exists ? 'Found' : 'Not found');
+      
+      if (!result.exists) {
+        showError("Email not found in conference registration.\n\nPlease contact the conference organizers if you believe this is an error.");
+        setLoading(false);
+        return;
       }
-      
-      setStep("details");
+
+      // Email exists in Airtable
+      console.log('RegisterScreen - Email found, attendee data:', result.attendeeData);
+      setAttendeeData(result.attendeeData || null);
+      setStep("create-account");
     } catch (error: any) {
-      console.error('RegisterScreen - Check email error:', error);
-      const errorMsg = error.message || "Failed to check email. Please try again.";
-      showError(errorMsg);
+      console.error('RegisterScreen - Error checking email:', error);
+      showError(error.message || "Failed to verify email. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreateAccount = async () => {
-    console.log('RegisterScreen - User tapped Create Account');
+    console.log('RegisterScreen - User tapped Create Account button');
     
-    // Validation
-    if (!name.trim()) {
-      showError("Please enter your full name");
-      return;
-    }
-
-    if (!password || password.length < 8) {
-      showError("Password must be at least 8 characters long");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      showError("Passwords do not match");
+    if (!password) {
+      showError("Please enter a password");
       return;
     }
 
     setLoading(true);
     try {
-      console.log('[API] Creating account for:', email);
-      console.log('[API] Airtable attendee2 Record ID:', airtableRecordId || 'None (new registration)');
-      const response = await apiPost<{
-        user: {
-          id: string;
-          email: string;
-          name: string;
-          company: string | null;
-          title: string | null;
-          phone: string | null;
-          emailVerified: boolean;
-          airtableRecordId: string | null;
-        };
-        token: string;
-      }>('/api/registration/create-account', {
-        email,
-        password,
-        name: name.trim(),
-        company: company.trim() || undefined,
-        title: title.trim() || undefined,
-        phone: phone.trim() || undefined,
-        linkedin: linkedin.trim() || undefined,
-        airtableRecordId: airtableRecordId || undefined,
-      });
-
+      const fullName = attendeeData 
+        ? `${attendeeData.firstName || ''} ${attendeeData.lastName || ''}`.trim() 
+        : email.split('@')[0];
+      
+      console.log('RegisterScreen - Creating account with email:', email, 'name:', fullName);
+      await signUpWithEmail(email, password, fullName);
+      
       console.log('RegisterScreen - Account created successfully');
-      console.log('RegisterScreen - Full API response:', JSON.stringify(response, null, 2));
-
-      // Validate that we received both user and token
-      if (!response.user || !response.token || typeof response.token !== 'string' || response.token.length === 0) {
-        console.error('RegisterScreen - Invalid response from server. User:', !!response.user, 'Token:', !!response.token);
-        throw new Error('Invalid response from server: missing user or authentication token. Please try again or contact support.');
-      }
-
-      console.log('RegisterScreen - Token received successfully, length:', response.token.length);
-
-      // Store Airtable record ID locally if available
-      if (response.user.airtableRecordId) {
-        console.log('RegisterScreen - Storing Airtable record ID:', response.user.airtableRecordId);
-        if (Platform.OS === 'web') {
-          localStorage.setItem(AIRTABLE_RECORD_ID_KEY, response.user.airtableRecordId);
-        } else {
-          await SecureStore.setItemAsync(AIRTABLE_RECORD_ID_KEY, response.user.airtableRecordId);
-        }
-      }
-
-      // Authenticate the user with the returned token
-      await setUserFromToken(
-        {
-          id: response.user.id,
-          email: response.user.email,
-          name: response.user.name,
-        },
-        response.token
-      );
-      
-      console.log('RegisterScreen - Registration complete, showing success message with settings link');
-      setShowSuccessWithSettings(true);
+      showSuccess("Account created successfully!\n\nYou can now sign in with your email and password.");
     } catch (error: any) {
-      console.error('RegisterScreen - Create account error:', error);
-      let errorMsg = error.message || "Failed to create account. Please try again.";
+      console.error('RegisterScreen - Error creating account:', error);
+      const errorMsg = error.message || "Failed to create account. Please try again.";
       
-      // The backend now handles existing users gracefully (returns 200 with token).
-      // If we still get an "already exists" error, it means something unexpected happened.
-      if (errorMsg.toLowerCase().includes("already exists") || errorMsg.toLowerCase().includes("duplicate") || errorMsg.toLowerCase().includes("email already registered")) {
-        errorMsg = "This email is already registered. Please sign in using the Sign In screen, or contact support if you need help accessing your account.";
+      if (errorMsg.toLowerCase().includes("exist")) {
+        showError("An account with this email already exists.\n\nPlease sign in instead.");
+      } else if (errorMsg.toLowerCase().includes("password")) {
+        showError("Invalid password.\n\nPlease use the password: POTF2026");
+      } else {
+        showError(errorMsg);
       }
-      
-      showError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   const navigateToHome = () => {
-    console.log('RegisterScreen - Navigating to home after successful registration');
-    setShowSuccessWithSettings(false);
-    router.replace("/(tabs)/(home)/");
+    console.log('RegisterScreen - Navigating to home');
+    router.replace("/");
   };
 
   const navigateToProfileSettings = () => {
     console.log('RegisterScreen - Navigating to profile settings');
-    setShowSuccessWithSettings(false);
-    router.replace("/(tabs)/profile");
+    router.replace("/profile");
   };
 
   const inputBackgroundColor = colorScheme === 'dark' ? appColors.card : '#FFFFFF';
@@ -258,7 +154,6 @@ export default function RegisterScreen() {
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
             {/* Logo */}
@@ -271,29 +166,14 @@ export default function RegisterScreen() {
                 Port of the Future 2026
               </Text>
               <Text style={[styles.appSubtitle, { color: appColors.textSecondary }]}>
-                {step === "email" ? "Create Your Account" : "Complete Your Profile"}
+                Create Your Account
               </Text>
             </View>
 
-            {/* Instructions */}
-            <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
-              <IconSymbol 
-                ios_icon_name="info.circle.fill" 
-                android_material_icon_name="info" 
-                size={20} 
-                color={appColors.primary} 
-              />
-              <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
-                {step === "email" 
-                  ? "Enter your email address to get started. If you're already registered for the conference, we'll automatically load your information."
-                  : "Create a password and complete your profile information. Your data is securely stored and synced with your conference registration."}
-              </Text>
-            </View>
-
-            {/* Email Step */}
+            {/* Step 1: Email Verification */}
             {step === "email" && (
               <React.Fragment>
-                <Text style={[styles.label, { color: appColors.text }]}>Email Address</Text>
+                <Text style={[styles.label, { color: appColors.text }]}>Email Address *</Text>
                 <TextInput
                   style={[styles.input, { 
                     backgroundColor: inputBackgroundColor, 
@@ -307,8 +187,11 @@ export default function RegisterScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={!loading}
                 />
+
+                <Text style={[styles.hint, { color: appColors.textSecondary }]}>
+                  Enter the email address you used to register for the conference
+                </Text>
 
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
@@ -321,200 +204,73 @@ export default function RegisterScreen() {
                     <Text style={styles.primaryButtonText}>Continue</Text>
                   )}
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => router.back()}
+                >
+                  <Text style={[styles.secondaryButtonText, { color: appColors.primary }]}>
+                    Back to Sign In
+                  </Text>
+                </TouchableOpacity>
               </React.Fragment>
             )}
 
-            {/* Details Step */}
-            {step === "details" && (
+            {/* Step 2: Create Account */}
+            {step === "create-account" && (
               <React.Fragment>
-                {/* Show badge if data was prepopulated from Airtable */}
+                {/* Show attendee info if available */}
                 {attendeeData && (
-                  <View style={[styles.prepopulatedBadge, { backgroundColor: appColors.primary + '20', borderColor: appColors.primary }]}>
+                  <View style={[styles.infoCard, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
                     <IconSymbol 
                       ios_icon_name="checkmark.circle.fill" 
                       android_material_icon_name="check-circle" 
-                      size={20} 
+                      size={32} 
                       color={appColors.primary} 
                     />
-                    <Text style={[styles.prepopulatedText, { color: appColors.primary }]}>
-                      Profile data loaded from conference registration
+                    <Text style={[styles.infoTitle, { color: appColors.text }]}>
+                      Email Verified
                     </Text>
+                    <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
+                      {attendeeData.firstName} {attendeeData.lastName}
+                    </Text>
+                    {attendeeData.company && (
+                      <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
+                        {attendeeData.company}
+                      </Text>
+                    )}
                   </View>
                 )}
 
-                {/* Full Name */}
-                <Text style={[styles.label, { color: appColors.text }]}>Full Name *</Text>
+                <Text style={[styles.label, { color: appColors.text }]}>Email</Text>
                 <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
+                  style={[styles.input, styles.inputDisabled, { 
+                    backgroundColor: appColors.border, 
                     borderColor: inputBorderColor,
-                    color: appColors.text 
+                    color: appColors.textSecondary 
                   }]}
-                  placeholder="John Doe"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
-                  editable={!loading}
+                  value={email}
+                  editable={false}
                 />
 
-                {/* Password */}
                 <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={[styles.input, styles.passwordInput, { 
-                      backgroundColor: inputBackgroundColor, 
-                      borderColor: inputBorderColor,
-                      color: appColors.text 
-                    }]}
-                    placeholder="Minimum 8 characters"
-                    placeholderTextColor={appColors.textSecondary}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!loading}
-                  />
-                  <TouchableOpacity 
-                    style={styles.eyeIcon}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <IconSymbol 
-                      ios_icon_name={showPassword ? "eye.slash.fill" : "eye.fill"} 
-                      android_material_icon_name={showPassword ? "visibility-off" : "visibility"} 
-                      size={24} 
-                      color={appColors.textSecondary} 
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Confirm Password */}
-                <Text style={[styles.label, { color: appColors.text }]}>Confirm Password *</Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={[styles.input, styles.passwordInput, { 
-                      backgroundColor: inputBackgroundColor, 
-                      borderColor: inputBorderColor,
-                      color: appColors.text 
-                    }]}
-                    placeholder="Re-enter your password"
-                    placeholderTextColor={appColors.textSecondary}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!loading}
-                  />
-                  <TouchableOpacity 
-                    style={styles.eyeIcon}
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    <IconSymbol 
-                      ios_icon_name={showConfirmPassword ? "eye.slash.fill" : "eye.fill"} 
-                      android_material_icon_name={showConfirmPassword ? "visibility-off" : "visibility"} 
-                      size={24} 
-                      color={appColors.textSecondary} 
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Optional Fields Section */}
-                <View style={styles.optionalSection}>
-                  <Text style={[styles.sectionTitle, { color: appColors.text }]}>
-                    Optional Information
-                  </Text>
-                  <Text style={[styles.sectionSubtitle, { color: appColors.textSecondary }]}>
-                    Help other attendees connect with you
-                  </Text>
-                </View>
-
-                {/* Company */}
-                <Text style={[styles.label, { color: appColors.text }]}>Company</Text>
                 <TextInput
                   style={[styles.input, { 
                     backgroundColor: inputBackgroundColor, 
                     borderColor: inputBorderColor,
                     color: appColors.text 
                   }]}
-                  placeholder="Your company name"
+                  placeholder="POTF2026"
                   placeholderTextColor={appColors.textSecondary}
-                  value={company}
-                  onChangeText={setCompany}
-                  autoCapitalize="words"
-                  editable={!loading}
-                />
-
-                {/* Title */}
-                <Text style={[styles.label, { color: appColors.text }]}>Job Title</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Your job title"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={title}
-                  onChangeText={setTitle}
-                  autoCapitalize="words"
-                  editable={!loading}
-                />
-
-                {/* Phone */}
-                <Text style={[styles.label, { color: appColors.text }]}>Phone Number</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="+1 (555) 123-4567"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  editable={!loading}
-                />
-
-                {/* LinkedIn */}
-                <Text style={[styles.label, { color: appColors.text }]}>LinkedIn Profile</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="https://linkedin.com/in/yourprofile"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={linkedin}
-                  onChangeText={setLinkedin}
-                  keyboardType="url"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
                   autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!loading}
                 />
 
-                {/* Password Strength Indicator */}
-                {password.length > 0 && (
-                  <View style={styles.passwordStrength}>
-                    <View style={styles.strengthBar}>
-                      <View 
-                        style={[
-                          styles.strengthFill,
-                          { 
-                            width: password.length < 8 ? '33%' : password.length < 12 ? '66%' : '100%',
-                            backgroundColor: password.length < 8 ? '#FF3B30' : password.length < 12 ? '#FF9500' : '#34C759'
-                          }
-                        ]} 
-                      />
-                    </View>
-                    <Text style={[styles.strengthText, { color: appColors.textSecondary }]}>
-                      {password.length < 8 ? 'Weak' : password.length < 12 ? 'Good' : 'Strong'}
-                    </Text>
-                  </View>
-                )}
+                <Text style={[styles.hint, { color: appColors.textSecondary }]}>
+                  Default password for all attendees: POTF2026
+                </Text>
 
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
@@ -522,12 +278,7 @@ export default function RegisterScreen() {
                   disabled={loading}
                 >
                   {loading ? (
-                    <View style={styles.buttonContent}>
-                      <ActivityIndicator color="#FFFFFF" />
-                      <Text style={[styles.primaryButtonText, { marginLeft: spacing.sm }]}>
-                        Creating account...
-                      </Text>
-                    </View>
+                    <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text style={styles.primaryButtonText}>Create Account</Text>
                   )}
@@ -536,34 +287,17 @@ export default function RegisterScreen() {
                 <TouchableOpacity
                   style={styles.secondaryButton}
                   onPress={() => {
-                    console.log('RegisterScreen - User tapped Change Email');
+                    console.log('RegisterScreen - User tapped Back button');
                     setStep("email");
-                    setPassword("");
-                    setConfirmPassword("");
                     setAttendeeData(null);
-                    setAirtableRecordId(null);
                   }}
-                  disabled={loading}
                 >
-                  <Text style={[styles.secondaryButtonText, { color: appColors.textSecondary }]}>
-                    Change Email Address
+                  <Text style={[styles.secondaryButtonText, { color: appColors.primary }]}>
+                    Back
                   </Text>
                 </TouchableOpacity>
               </React.Fragment>
             )}
-
-            {/* Back to Sign In */}
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => {
-                console.log('RegisterScreen - User tapped Back to Sign In');
-                router.back();
-              }}
-            >
-              <Text style={[styles.backButtonText, { color: appColors.primary }]}>
-                ← Back to Sign In
-              </Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -580,16 +314,14 @@ export default function RegisterScreen() {
           onPress={() => setErrorModalVisible(false)}
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
-            <View style={styles.modalIconContainer}>
-              <IconSymbol 
-                ios_icon_name="xmark.circle.fill" 
-                android_material_icon_name="error" 
-                size={48} 
-                color="#FF3B30" 
-              />
-            </View>
+            <IconSymbol 
+              ios_icon_name="xmark.circle.fill" 
+              android_material_icon_name="error" 
+              size={48} 
+              color="#EF4444" 
+            />
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              Registration Error
+              Registration Failed
             </Text>
             <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
@@ -609,21 +341,19 @@ export default function RegisterScreen() {
         visible={successModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setSuccessModalVisible(false)}
+        onRequestClose={navigateToHome}
       >
         <Pressable 
           style={styles.modalOverlay}
-          onPress={() => setSuccessModalVisible(false)}
+          onPress={navigateToHome}
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
-            <View style={styles.modalIconContainer}>
-              <IconSymbol 
-                ios_icon_name="checkmark.circle.fill" 
-                android_material_icon_name="check-circle" 
-                size={48} 
-                color="#34C759" 
-              />
-            </View>
+            <IconSymbol 
+              ios_icon_name="checkmark.circle.fill" 
+              android_material_icon_name="check-circle" 
+              size={48} 
+              color="#10B981" 
+            />
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
               Success!
             </Text>
@@ -632,71 +362,11 @@ export default function RegisterScreen() {
             </Text>
             <TouchableOpacity
               style={[styles.modalButton, { backgroundColor: appColors.primary }]}
-              onPress={() => setSuccessModalVisible(false)}
-            >
-              <Text style={styles.modalButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
-
-      {/* Success with Settings Link Modal */}
-      <Modal
-        visible={showSuccessWithSettings}
-        transparent
-        animationType="fade"
-        onRequestClose={navigateToHome}
-      >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={navigateToHome}
-        >
-          <Pressable 
-            style={[styles.modalContent, { backgroundColor: appColors.card }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={styles.modalIconContainer}>
-              <IconSymbol 
-                ios_icon_name="checkmark.circle.fill" 
-                android_material_icon_name="check-circle" 
-                size={48} 
-                color="#34C759" 
-              />
-            </View>
-            <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              Welcome to Port of the Future 2026!
-            </Text>
-            <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
-              Your account has been created successfully. You&apos;re automatically opted in to the networking directory so other attendees can connect with you.
-            </Text>
-            <Text style={[styles.modalMessage, { color: appColors.textSecondary, marginTop: spacing.sm }]}>
-              You can manage your networking visibility and what contact information you share in your profile settings.
-            </Text>
-            
-            <TouchableOpacity
-              style={[styles.modalButton, { backgroundColor: appColors.primary }]}
-              onPress={navigateToProfileSettings}
-            >
-              <IconSymbol 
-                ios_icon_name="gear" 
-                android_material_icon_name="settings" 
-                size={20} 
-                color="#FFFFFF" 
-              />
-              <Text style={[styles.modalButtonText, { marginLeft: spacing.sm }]}>
-                Edit Profile Settings
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.modalSecondaryButton, { borderColor: appColors.border }]}
               onPress={navigateToHome}
             >
-              <Text style={[styles.modalSecondaryButtonText, { color: appColors.text }]}>
-                Continue to Home
-              </Text>
+              <Text style={styles.modalButtonText}>Go to Home</Text>
             </TouchableOpacity>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -738,45 +408,21 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
   },
-  instructionsBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: spacing.md,
+  infoCard: {
+    borderWidth: 1,
     borderRadius: borderRadius.md,
-    borderWidth: 1,
+    padding: spacing.lg,
     marginBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  instructionsText: {
-    ...typography.bodySmall,
-    lineHeight: 20,
-    flex: 1,
-  },
-  prepopulatedBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    marginBottom: spacing.lg,
-    gap: spacing.xs,
   },
-  prepopulatedText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    flex: 1,
-  },
-  sectionTitle: {
-    ...typography.h4,
+  infoTitle: {
+    ...typography.h3,
+    marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
-  sectionSubtitle: {
-    ...typography.bodySmall,
-    marginBottom: spacing.md,
-  },
-  optionalSection: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
+  infoText: {
+    ...typography.body,
+    textAlign: 'center',
   },
   label: {
     ...typography.bodySmall,
@@ -792,37 +438,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 16,
   },
-  passwordContainer: {
-    position: 'relative',
-    marginBottom: spacing.sm,
+  inputDisabled: {
+    opacity: 0.6,
   },
-  passwordInput: {
-    paddingRight: 50,
-    marginBottom: 0,
-  },
-  eyeIcon: {
-    position: 'absolute',
-    right: spacing.md,
-    top: 13,
-    padding: spacing.xs,
-  },
-  passwordStrength: {
-    marginBottom: spacing.md,
-  },
-  strengthBar: {
-    height: 4,
-    backgroundColor: '#E5E5EA',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: spacing.xs,
-  },
-  strengthFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  strengthText: {
+  hint: {
     ...typography.bodySmall,
-    fontSize: 12,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.md,
+    fontStyle: 'italic',
   },
   primaryButton: {
     height: 50,
@@ -830,10 +453,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: spacing.lg,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   primaryButtonText: {
     color: "#FFFFFF",
@@ -846,18 +465,9 @@ const styles = StyleSheet.create({
   secondaryButton: {
     marginTop: spacing.md,
     alignItems: "center",
-    paddingVertical: spacing.sm,
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  backButton: {
-    marginTop: spacing.xl,
-    alignItems: "center",
     paddingVertical: spacing.md,
   },
-  backButtonText: {
+  secondaryButtonText: {
     fontSize: 14,
     fontWeight: '500',
   },
@@ -873,46 +483,31 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     width: '100%',
     maxWidth: 400,
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
   },
-  modalIconContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
   modalTitle: {
     ...typography.h3,
-    marginBottom: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
   modalMessage: {
     ...typography.body,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xl,
     textAlign: 'center',
     lineHeight: 22,
   },
   modalButton: {
-    flexDirection: 'row',
     height: 50,
     borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  modalSecondaryButton: {
-    height: 50,
-    borderRadius: borderRadius.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    borderWidth: 1,
-  },
-  modalSecondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    width: '100%',
   },
   modalButtonText: {
     color: '#FFFFFF',
