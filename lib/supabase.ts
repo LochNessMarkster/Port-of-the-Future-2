@@ -58,14 +58,27 @@ const verifyEmail = async (email: string): Promise<boolean> => {
 };
 
 /**
+ * ⚠️ TEMPORARILY DISABLED FOR TESTING ⚠️
  * Check if email exists in Airtable cache
- * Uses the new verifyEmail function with pagination for local comparison
+ * 
+ * THIS FUNCTION NOW ALWAYS RETURNS TRUE TO BYPASS EMAIL VERIFICATION
+ * This allows direct testing of Supabase authentication without Airtable checks
+ * 
+ * TODO: Re-enable email verification once Supabase login is confirmed working
  */
 export async function checkEmailInAirtableCache(email: string): Promise<boolean> {
-  console.log('Checking email in Airtable cache:', email);
-  const isRegistered = await verifyEmail(email);
-  console.log('Email check result:', isRegistered ? 'Found' : 'Not found');
-  return isRegistered;
+  console.warn('⚠️ AIRTABLE EMAIL VERIFICATION IS TEMPORARILY DISABLED ⚠️');
+  console.log('Bypassing email check for:', email);
+  console.log('Returning TRUE to allow direct Supabase login testing');
+  
+  // TEMPORARILY DISABLED - Always return true to skip verification
+  return true;
+  
+  // Original implementation (commented out for testing):
+  // console.log('Checking email in Airtable cache:', email);
+  // const isRegistered = await verifyEmail(email);
+  // console.log('Email check result:', isRegistered ? 'Found' : 'Not found');
+  // return isRegistered;
 }
 
 /**
