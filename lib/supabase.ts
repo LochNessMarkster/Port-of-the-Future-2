@@ -10,21 +10,34 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 export const AIRTABLE_ATTENDEE_CACHE_ENDPOINT = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
 
 /**
- * Check if email exists in Airtable cache
+ * Check if email exists in Airtable cache using filter formula
  */
 export async function checkEmailInAirtableCache(email: string): Promise<boolean> {
   try {
     console.log('Checking email in Airtable cache:', email);
-    const response = await fetch(`${AIRTABLE_ATTENDEE_CACHE_ENDPOINT}?filterByFormula=({Email}='${encodeURIComponent(email)}')`);
+    
+    // Build the filter formula with proper URL encoding
+    // Format: filterByFormula=Email="user@example.com"
+    const filterFormula = `Email="${email}"`;
+    const encodedFilter = encodeURIComponent(filterFormula);
+    const url = `${AIRTABLE_ATTENDEE_CACHE_ENDPOINT}?filterByFormula=${encodedFilter}`;
+    
+    console.log('Airtable cache request URL:', url);
+    
+    const response = await fetch(url);
     
     if (!response.ok) {
-      console.error('Airtable cache check failed:', response.statusText);
+      console.error('Airtable cache check failed:', response.status, response.statusText);
       throw new Error(`Airtable cache check failed: ${response.statusText}`);
     }
     
     const data = await response.json();
+    
+    // If records array is empty, email is not registered
+    // If it contains at least one record, email is valid
     const isRegistered = data.records && data.records.length > 0;
-    console.log('Email check result:', isRegistered ? 'Found' : 'Not found');
+    console.log('Email check result:', isRegistered ? 'Found' : 'Not found', `(${data.records?.length || 0} records)`);
+    
     return isRegistered;
   } catch (error) {
     console.error('Error checking email in Airtable cache:', error);
@@ -48,10 +61,16 @@ export interface UserProfile {
 export async function fetchUserProfileFromCache(email: string): Promise<UserProfile | null> {
   try {
     console.log('Fetching user profile from Airtable cache:', email);
-    const response = await fetch(`${AIRTABLE_ATTENDEE_CACHE_ENDPOINT}?filterByFormula=({Email}='${encodeURIComponent(email)}')`);
+    
+    // Build the filter formula with proper URL encoding
+    const filterFormula = `Email="${email}"`;
+    const encodedFilter = encodeURIComponent(filterFormula);
+    const url = `${AIRTABLE_ATTENDEE_CACHE_ENDPOINT}?filterByFormula=${encodedFilter}`;
+    
+    const response = await fetch(url);
     
     if (!response.ok) {
-      console.error('Airtable cache fetch failed:', response.statusText);
+      console.error('Airtable cache fetch failed:', response.status, response.statusText);
       throw new Error(`Airtable cache fetch failed: ${response.statusText}`);
     }
     
