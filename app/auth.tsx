@@ -26,15 +26,16 @@ export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { signInWithMagicLink, loading: authLoading } = useAuth();
+  const { signInWithMagicLink, signInWithPassword, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  console.log('AuthScreen - Magic Link Mode');
+  console.log('AuthScreen - Loaded with Magic Link and Password Login options');
 
   if (authLoading) {
     return (
@@ -51,6 +52,59 @@ export default function AuthScreen() {
 
   const showSuccess = () => {
     setSuccessModalVisible(true);
+  };
+
+  const handlePasswordSignIn = async () => {
+    console.log('AuthScreen - User tapped Sign In button (Password Login)');
+    
+    if (!email) {
+      showError("Please enter your email address");
+      return;
+    }
+
+    if (!email.includes('@')) {
+      showError("Please enter a valid email address");
+      return;
+    }
+
+    if (!password) {
+      showError("Please enter your password");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('AuthScreen - Checking email in Airtable cache:', email);
+      
+      // Step 1: Check if email exists in Airtable cache
+      const isRegistered = await checkEmailInAirtableCache(email);
+      
+      if (!isRegistered) {
+        console.log('AuthScreen - Email not found in cache');
+        showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
+        setLoading(false);
+        return;
+      }
+      
+      console.log('AuthScreen - Email found in cache, signing in with password');
+      
+      // Step 2: Sign in with password via Supabase
+      const result = await signInWithPassword(email, password);
+      
+      if (result.success) {
+        console.log('AuthScreen - Password sign in successful, navigating to home');
+        router.replace('/');
+      } else {
+        console.error('AuthScreen - Password sign in failed:', result.error);
+        showError(result.error || "Failed to sign in. Please check your password and try again.");
+      }
+    } catch (error: any) {
+      console.error('AuthScreen - Password sign in error:', error);
+      const errorMsg = error.message || "Failed to sign in. Please try again.";
+      showError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSendMagicLink = async () => {
@@ -121,58 +175,142 @@ export default function AuthScreen() {
                 Port of the Future 2026
               </Text>
               <Text style={[styles.appSubtitle, { color: appColors.textSecondary }]}>
-                Sign In with Magic Link
+                Sign In to Access the Conference
               </Text>
             </View>
 
-            {/* Info Box */}
-            <View style={[styles.infoBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
-              <IconSymbol 
-                ios_icon_name="info.circle.fill" 
-                android_material_icon_name="info" 
-                size={20} 
-                color={appColors.primary} 
+            {/* Password Login Section */}
+            <View style={[styles.section, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
+              <Text style={[styles.sectionTitle, { color: appColors.text }]}>
+                Password Login
+              </Text>
+              
+              <Text style={[styles.label, { color: appColors.text }]}>Email Address</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: inputBackgroundColor, 
+                  borderColor: inputBorderColor,
+                  color: appColors.text 
+                }]}
+                placeholder="john@example.com"
+                placeholderTextColor={appColors.textSecondary}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
               />
-              <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
-                Enter your registered email address and we&apos;ll send you a magic link to sign in instantly.
-              </Text>
+
+              <Text style={[styles.label, { color: appColors.text }]}>Password</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: inputBackgroundColor, 
+                  borderColor: inputBorderColor,
+                  color: appColors.text 
+                }]}
+                placeholder="Enter password"
+                placeholderTextColor={appColors.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+
+              {/* Hint Text for Default Password */}
+              <View style={[styles.hintBox, { backgroundColor: appColors.background, borderColor: appColors.border }]}>
+                <IconSymbol 
+                  ios_icon_name="info.circle" 
+                  android_material_icon_name="info" 
+                  size={16} 
+                  color={appColors.primary} 
+                />
+                <Text style={[styles.hintText, { color: appColors.textSecondary }]}>
+                  Default password: POTF2026
+                </Text>
+              </View>
+
+              {/* Sign In Button */}
+              <TouchableOpacity
+                style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
+                onPress={handlePasswordSignIn}
+                disabled={loading}
+              >
+                {loading ? (
+                  <View style={styles.buttonContent}>
+                    <ActivityIndicator color="#FFFFFF" />
+                    <Text style={[styles.primaryButtonText, { marginLeft: spacing.sm }]}>
+                      Signing In...
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.primaryButtonText}>Sign In</Text>
+                )}
+              </TouchableOpacity>
             </View>
 
-            {/* Email */}
-            <Text style={[styles.label, { color: appColors.text }]}>Email Address</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: inputBackgroundColor, 
-                borderColor: inputBorderColor,
-                color: appColors.text 
-              }]}
-              placeholder="john@example.com"
-              placeholderTextColor={appColors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
+            {/* OR Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={[styles.dividerLine, { backgroundColor: appColors.border }]} />
+              <Text style={[styles.dividerText, { color: appColors.textSecondary }]}>OR</Text>
+              <View style={[styles.dividerLine, { backgroundColor: appColors.border }]} />
+            </View>
 
-            {/* Send Magic Link Button */}
-            <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
-              onPress={handleSendMagicLink}
-              disabled={loading}
-            >
-              {loading ? (
-                <View style={styles.buttonContent}>
-                  <ActivityIndicator color="#FFFFFF" />
-                  <Text style={[styles.primaryButtonText, { marginLeft: spacing.sm }]}>
-                    Sending...
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.primaryButtonText}>Send Magic Link</Text>
-              )}
-            </TouchableOpacity>
+            {/* Magic Link Section */}
+            <View style={[styles.section, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
+              <Text style={[styles.sectionTitle, { color: appColors.text }]}>
+                Magic Link
+              </Text>
+              
+              <View style={[styles.infoBox, { backgroundColor: appColors.background, borderColor: appColors.border }]}>
+                <IconSymbol 
+                  ios_icon_name="info.circle.fill" 
+                  android_material_icon_name="info" 
+                  size={20} 
+                  color={appColors.primary} 
+                />
+                <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
+                  Enter your registered email address and we&apos;ll send you a magic link to sign in instantly.
+                </Text>
+              </View>
+
+              <Text style={[styles.label, { color: appColors.text }]}>Email Address</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: inputBackgroundColor, 
+                  borderColor: inputBorderColor,
+                  color: appColors.text 
+                }]}
+                placeholder="john@example.com"
+                placeholderTextColor={appColors.textSecondary}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+
+              {/* Send Magic Link Button */}
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: appColors.primary }, loading && styles.buttonDisabled]}
+                onPress={handleSendMagicLink}
+                disabled={loading}
+              >
+                {loading ? (
+                  <View style={styles.buttonContent}>
+                    <ActivityIndicator color={appColors.primary} />
+                    <Text style={[styles.secondaryButtonText, { color: appColors.primary, marginLeft: spacing.sm }]}>
+                      Sending...
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.secondaryButtonText, { color: appColors.primary }]}>Send Magic Link</Text>
+                )}
+              </TouchableOpacity>
+            </View>
 
             {/* Help Text */}
             <View style={styles.helpContainer}>
@@ -211,7 +349,7 @@ export default function AuthScreen() {
               />
             </View>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              Unable to Send Magic Link
+              Unable to Sign In
             </Text>
             <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
@@ -305,19 +443,42 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
   },
+  section: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    ...typography.h3,
+    marginBottom: spacing.md,
+  },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     padding: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
     gap: spacing.sm,
   },
   infoText: {
     ...typography.bodySmall,
     lineHeight: 20,
     flex: 1,
+  },
+  hintBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  hintText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
   },
   label: {
     ...typography.bodySmall,
@@ -340,6 +501,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: spacing.md,
   },
+  secondaryButton: {
+    height: 50,
+    borderRadius: borderRadius.sm,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: spacing.md,
+    borderWidth: 2,
+    backgroundColor: 'transparent',
+  },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -349,13 +519,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    ...typography.body,
+    fontWeight: '600',
+    marginHorizontal: spacing.md,
   },
   helpContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
   },
