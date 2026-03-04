@@ -23,6 +23,8 @@ import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles
 
 type Mode = "signin" | "signup";
 
+const DEFAULT_PASSWORD = "POTF2026";
+
 export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -42,6 +44,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [useDefaultPassword, setUseDefaultPassword] = useState(false);
 
   console.log('AuthScreen - Mode:', mode);
 
@@ -61,8 +64,16 @@ export default function AuthScreen() {
   const handleEmailAuth = async () => {
     console.log('AuthScreen - User tapped auth button, mode:', mode);
     
-    if (!email || !password) {
-      showError("Please enter email and password");
+    if (!email) {
+      showError("Please enter your email");
+      return;
+    }
+
+    // Use default password if checkbox is checked, otherwise require password input
+    const finalPassword = useDefaultPassword ? DEFAULT_PASSWORD : password;
+
+    if (!finalPassword) {
+      showError("Please enter a password or use the default password");
       return;
     }
 
@@ -74,13 +85,13 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (mode === "signin") {
-        console.log('AuthScreen - Signing in with email:', email);
-        await signInWithEmail(email, password);
+        console.log('AuthScreen - Signing in with email:', email, 'using default password:', useDefaultPassword);
+        await signInWithEmail(email, finalPassword);
         console.log('AuthScreen - Sign in successful');
         router.replace("/");
       } else {
         console.log('AuthScreen - Signing up with email:', email, 'optInNetworking:', optInNetworking);
-        await signUpWithEmail(email, password, name);
+        await signUpWithEmail(email, finalPassword, name);
         
         // Update profile with additional fields after signup
         try {
@@ -111,7 +122,7 @@ export default function AuthScreen() {
       // Show more specific error messages
       if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
         if (mode === "signin") {
-          showError("Invalid email or password.\n\nIf you don't have an account yet, please tap 'Sign Up' below to create one.");
+          showError("Invalid email or password.\n\nIf you're registered for the conference, try using the default password option below.");
         } else {
           showError("Invalid credentials. Please check your information and try again.");
         }
@@ -267,7 +278,7 @@ export default function AuthScreen() {
               </React.Fragment>
             )}
 
-            {/* Email & Password (both modes) */}
+            {/* Email */}
             <Text style={[styles.label, { color: appColors.text }]}>Email *</Text>
             <TextInput
               style={[styles.input, { 
@@ -284,20 +295,60 @@ export default function AuthScreen() {
               autoCorrect={false}
             />
 
-            <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: inputBackgroundColor, 
-                borderColor: inputBorderColor,
-                color: appColors.text 
-              }]}
-              placeholder="••••••••"
-              placeholderTextColor={appColors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            {/* Default Password Checkbox (Sign In Only) */}
+            {mode === "signin" && (
+              <View style={styles.checkboxContainer}>
+                <TouchableOpacity
+                  style={styles.checkbox}
+                  onPress={() => {
+                    const newValue = !useDefaultPassword;
+                    console.log('AuthScreen - User toggled default password to:', newValue);
+                    setUseDefaultPassword(newValue);
+                    if (newValue) {
+                      setPassword("");
+                    }
+                  }}
+                >
+                  <View style={[
+                    styles.checkboxBox,
+                    { borderColor: appColors.border },
+                    useDefaultPassword && { backgroundColor: appColors.primary, borderColor: appColors.primary }
+                  ]}>
+                    {useDefaultPassword && (
+                      <Text style={styles.checkboxCheck}>✓</Text>
+                    )}
+                  </View>
+                  <View style={styles.checkboxTextContainer}>
+                    <Text style={[styles.checkboxLabel, { color: appColors.text }]}>
+                      Use default password (POTF2026)
+                    </Text>
+                    <Text style={[styles.checkboxDescription, { color: appColors.textSecondary }]}>
+                      For conference attendees registered via Airtable
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Password (only show if not using default password) */}
+            {!useDefaultPassword && (
+              <React.Fragment>
+                <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: inputBackgroundColor, 
+                    borderColor: inputBorderColor,
+                    color: appColors.text 
+                  }]}
+                  placeholder="••••••••"
+                  placeholderTextColor={appColors.textSecondary}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </React.Fragment>
+            )}
 
             {/* Submit Button */}
             <TouchableOpacity
@@ -320,6 +371,8 @@ export default function AuthScreen() {
               onPress={() => {
                 console.log('AuthScreen - Switching mode from', mode, 'to', mode === 'signin' ? 'signup' : 'signin');
                 setMode(mode === "signin" ? "signup" : "signin");
+                setUseDefaultPassword(false);
+                setPassword("");
               }}
             >
               <Text style={[styles.switchModeText, { color: appColors.primary }]}>
@@ -439,6 +492,41 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   switchDescription: {
+    ...typography.bodySmall,
+    lineHeight: 18,
+  },
+  checkboxContainer: {
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  checkbox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  checkboxBox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderRadius: 4,
+    marginRight: spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  checkboxCheck: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  checkboxTextContainer: {
+    flex: 1,
+  },
+  checkboxLabel: {
+    ...typography.body,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  checkboxDescription: {
     ...typography.bodySmall,
     lineHeight: 18,
   },

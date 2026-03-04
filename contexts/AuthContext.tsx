@@ -26,6 +26,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const DEFAULT_PASSWORD = "POTF2026";
+
 function openOAuthPopup(provider: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const popupUrl = `${window.location.origin}/auth-popup?provider=${provider}`;
@@ -126,15 +128,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
+      console.log("AuthContext - Attempting sign in with email:", email);
+      
+      // First, try to sign in with the provided password
       const result = await authClient.signIn.email({ email, password });
       console.log("AuthContext - Sign in result:", result);
       
       if (!result || result.error) {
         const errorMessage = result?.error?.message || "Invalid email or password";
-        console.error("AuthContext - Sign in failed:", errorMessage);
+        console.log("AuthContext - Sign in failed with provided password:", errorMessage);
+        
+        // If sign in failed and the password is the default password, try to create account
+        if (password === DEFAULT_PASSWORD) {
+          console.log("AuthContext - Default password used, attempting to create account for Airtable user");
+          
+          try {
+            // Try to sign up with the default password
+            const signUpResult = await authClient.signUp.email({
+              email,
+              password: DEFAULT_PASSWORD,
+              name: email.split('@')[0], // Use email prefix as temporary name
+            });
+            
+            console.log("AuthContext - Sign up result:", signUpResult);
+            
+            if (!signUpResult || signUpResult.error) {
+              console.error("AuthContext - Sign up also failed:", signUpResult?.error?.message);
+              throw new Error(errorMessage);
+            }
+            
+            console.log("AuthContext - Account created successfully with default password");
+            await fetchUser();
+            return;
+          } catch (signUpError: any) {
+            console.error("AuthContext - Failed to create account with default password:", signUpError);
+            throw new Error(errorMessage);
+          }
+        }
+        
         throw new Error(errorMessage);
       }
       
+      console.log("AuthContext - Sign in successful");
       await fetchUser();
     } catch (error: any) {
       console.error("AuthContext - Email sign in failed:", error);
@@ -181,7 +216,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         // Note: The redirect will reload the app or be handled by deep linking.
         // fetchUser will be called on mount or via event listener if needed.
-        // For simple flow, we might need to listen to URL events.
         // But better-auth expo client handles the redirect and session storage?
         // We typically need to wait or rely on fetchUser on next app load.
         // For now, call fetchUser just in case.
