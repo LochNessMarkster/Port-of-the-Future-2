@@ -58,8 +58,9 @@ export function registerRegistrationRoutes(app: App) {
       app.logger.info({ email: normalizedEmail }, 'Checking email in Airtable');
 
       try {
-        // Fetch attendees from Airtable
-        const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+        // Fetch attendees from Airtable (using ATTENDEES2 table)
+        app.logger.debug({ table: 'ATTENDEES2', tableId: TABLES.ATTENDEES2 }, 'Querying attendees2 table for email check');
+        const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES2, {
           logger: app.logger,
         });
 
@@ -206,7 +207,8 @@ export function registerRegistrationRoutes(app: App) {
         let airtableData: any = {};
         let airtableRecordId: string | null = null;
         try {
-          const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+          app.logger.debug({ table: 'ATTENDEES2', tableId: TABLES.ATTENDEES2 }, 'Querying attendees2 table for attendee details during account creation');
+          const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES2, {
             logger: app.logger,
           });
 
@@ -248,7 +250,7 @@ export function registerRegistrationRoutes(app: App) {
               if (linkedin || existingUserData.linkedin) updateFields['LinkedIn'] = linkedin || existingUserData.linkedin;
 
               if (Object.keys(updateFields).length > 0) {
-                await updateAirtableRecord(TABLES.ATTENDEES, airtableRecordId, updateFields, app.logger);
+                await updateAirtableRecord(TABLES.ATTENDEES2, airtableRecordId, updateFields, app.logger);
                 app.logger.info({ airtableRecordId }, 'Airtable attendee profile updated');
               }
             } catch (updateError) {
@@ -346,7 +348,7 @@ export function registerRegistrationRoutes(app: App) {
           try {
             app.logger.info({ airtableRecordId }, 'Updating Airtable attendee with password');
             await updateAirtableRecord(
-              TABLES.ATTENDEES,
+              TABLES.ATTENDEES2,
               airtableRecordId,
               { Password: hashedPassword },
               app.logger
@@ -502,7 +504,8 @@ export function registerRegistrationRoutes(app: App) {
 
         // Update Airtable attendee record with image URL if available
         try {
-          const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
+          app.logger.debug({ table: 'ATTENDEES2', tableId: TABLES.ATTENDEES2 }, 'Querying attendees2 table to update profile image');
+          const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES2, {
             logger: app.logger,
           });
 
@@ -514,7 +517,7 @@ export function registerRegistrationRoutes(app: App) {
           if (attendee) {
             app.logger.info({ airtableRecordId: attendee.id }, 'Updating Airtable attendee with image');
             await updateAirtableRecord(
-              TABLES.ATTENDEES,
+              TABLES.ATTENDEES2,
               attendee.id,
               { Image: [{ url: imageUrl }] },
               app.logger
