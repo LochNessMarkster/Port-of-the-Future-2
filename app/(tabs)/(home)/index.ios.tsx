@@ -108,21 +108,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
-  loginCodeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.md,
-    borderWidth: 1,
-  },
-  loginCodeButtonText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    marginLeft: spacing.xs,
-  },
   navigationGrid: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.xl,
@@ -262,11 +247,6 @@ export default function HomeScreen() {
     }
   };
 
-  const handleRequestLoginCode = () => {
-    console.log('HomeScreen iOS - User tapped Request Login Code button');
-    router.push('/forgot-password');
-  };
-
   const userName = user?.name || 'Guest';
   const welcomeText = `Welcome, ${userName}!`;
   const dateText = 'March 24-25, 2026';
@@ -315,26 +295,6 @@ export default function HomeScreen() {
             <Text style={[styles.welcomeText, { color: appColors.primary }]}>
               {welcomeText}
             </Text>
-            
-            {/* Request Login Code Button */}
-            <TouchableOpacity
-              style={[styles.loginCodeButton, { 
-                backgroundColor: appColors.card, 
-                borderColor: appColors.primary 
-              }]}
-              onPress={handleRequestLoginCode}
-              activeOpacity={0.7}
-            >
-              <IconSymbol
-                ios_icon_name="envelope.fill"
-                android_material_icon_name="email"
-                size={18}
-                color={appColors.primary}
-              />
-              <Text style={[styles.loginCodeButtonText, { color: appColors.primary }]}>
-                Request Login Code
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* Navigation Grid */}

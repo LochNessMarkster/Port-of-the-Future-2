@@ -3,8 +3,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
-import { supabase, fetchUserProfileFromCache, UserProfile as CachedUserProfile } from "@/lib/supabase";
-import { Session } from "@supabase/supabase-js";
 
 interface User {
   id: string;
@@ -17,15 +15,11 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  supabaseSession: Session | null;
-  userProfile: CachedUserProfile | null;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
-  signInWithMagicLink: (email: string) => Promise<void>;
-  signInWithPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   fetchUser: () => Promise<void>;
 }
@@ -78,37 +72,15 @@ function openOAuthPopup(provider: string): Promise<string> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [supabaseSession, setSupabaseSession] = useState<Session | null>(null);
-  const [userProfile, setUserProfile] = useState<CachedUserProfile | null>(null);
 
   useEffect(() => {
     fetchUser();
-    checkSupabaseSession();
 
     // Listen for deep links (e.g. from social auth redirects)
     const subscription = Linking.addEventListener("url", (event) => {
       console.log("Deep link received, refreshing user session");
       // Allow time for the client to process the token if needed
       setTimeout(() => fetchUser(), 500);
-    });
-
-    // Listen for Supabase auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Supabase auth state changed:', event);
-      setSupabaseSession(session);
-      
-      if (event === 'SIGNED_IN' && session?.user?.email) {
-        console.log('User signed in via Supabase, fetching profile from cache');
-        try {
-          const profile = await fetchUserProfileFromCache(session.user.email);
-          setUserProfile(profile);
-        } catch (error) {
-          console.error('Failed to fetch user profile:', error);
-        }
-      } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out from Supabase');
-        setUserProfile(null);
-      }
     });
 
     // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
@@ -120,29 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       subscription.remove();
-      authListener.subscription.unsubscribe();
       clearInterval(intervalId);
     };
   }, []);
-
-  const checkSupabaseSession = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSupabaseSession(session);
-      
-      if (session?.user?.email) {
-        console.log('Existing Supabase session found, fetching profile');
-        try {
-          const profile = await fetchUserProfileFromCache(session.user.email);
-          setUserProfile(profile);
-        } catch (error) {
-          console.error('Failed to fetch user profile:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to check Supabase session:', error);
-    }
-  };
 
   const fetchUser = async () => {
     try {
@@ -214,124 +166,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithMagicLink = async (email: string) => {
-    try {
-      console.log('🔐 Sending magic link to:', email);
-      console.log('📍 Supabase URL:', 'https://dnwgtaibudkxinhwceox.supabase.co');
-      
-      // Get the redirect URL for the magic link
-      const redirectTo = Platform.OS === 'web' 
-        ? `${window.location.origin}/auth-callback`
-        : Linking.createURL('/auth-callback');
-      
-      console.log('🔗 Redirect URL:', redirectTo);
-      
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email,
-        options: {
-          emailRedirectTo: redirectTo,
-        },
-      });
-      
-      if (error) {
-        console.error('❌ Magic link error:', error);
-        console.error('   Error name:', error.name);
-        console.error('   Error message:', error.message);
-        console.error('   Error status:', error.status);
-        throw new Error(error.message);
-      }
-      
-      console.log('✅ Magic link sent successfully');
-    } catch (error: any) {
-      console.error('❌ Failed to send magic link:', error);
-      console.error('   Error details:', JSON.stringify(error, null, 2));
-      throw new Error(error.message || 'Failed to send magic link. Please try again.');
-    }
-  };
-
-  const signInWithPassword = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      console.log('🔐 AuthContext - Signing in with password for:', email);
-      console.log('📍 Supabase URL:', 'https://dnwgtaibudkxinhwceox.supabase.co');
-      
-      const DEFAULT_PASSWORD = 'POTF2026';
-      
-      // Try to sign in with the provided password
-      console.log('🔄 Attempting sign in...');
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
-      
-      if (error) {
-        console.error('❌ Sign in error:', error);
-        console.error('   Error name:', error.name);
-        console.error('   Error message:', error.message);
-        console.error('   Error status:', error.status);
-        console.error('   Error details:', JSON.stringify(error, null, 2));
-        
-        // If sign in fails and password is the default, try to create account
-        if (password === DEFAULT_PASSWORD && error.message.includes('Invalid login credentials')) {
-          console.log('🆕 First time login detected, creating account with default password');
-          
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: email,
-            password: DEFAULT_PASSWORD,
-          });
-          
-          if (signUpError) {
-            console.error('❌ Failed to create account:', signUpError);
-            console.error('   Error name:', signUpError.name);
-            console.error('   Error message:', signUpError.message);
-            console.error('   Error status:', signUpError.status);
-            return { success: false, error: signUpError.message };
-          }
-          
-          console.log('✅ Account created successfully, signing in');
-          
-          // Now sign in with the newly created account
-          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: DEFAULT_PASSWORD,
-          });
-          
-          if (signInError) {
-            console.error('❌ Failed to sign in after account creation:', signInError);
-            return { success: false, error: signInError.message };
-          }
-          
-          console.log('✅ Password sign in successful after account creation');
-          return { success: true };
-        }
-        
-        // Return the detailed error message
-        const errorMsg = error.message || 'Failed to sign in';
-        return { success: false, error: `${errorMsg} (Status: ${error.status || 'unknown'})` };
-      }
-      
-      console.log('✅ Password sign in successful');
-      return { success: true };
-    } catch (error: any) {
-      console.error('❌ Password sign in exception:', error);
-      console.error('   Error type:', typeof error);
-      console.error('   Error name:', error.name);
-      console.error('   Error message:', error.message);
-      console.error('   Full error:', JSON.stringify(error, null, 2));
-      
-      // Extract meaningful error message
-      let errorMsg = 'Failed to sign in. Please try again.';
-      if (error.message) {
-        errorMsg = error.message;
-      } else if (error.name === 'AuthRetryableFetchError') {
-        errorMsg = 'Network error: Unable to reach authentication server. Please check your internet connection and try again.';
-      } else if (error.status === 0) {
-        errorMsg = 'Network error: Cannot connect to Supabase. Please check your internet connection.';
-      }
-      
-      return { success: false, error: errorMsg };
-    }
-  };
-
   const signInWithSocial = async (provider: "google" | "apple" | "github") => {
     try {
       if (Platform.OS === "web") {
@@ -347,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         // Note: The redirect will reload the app or be handled by deep linking.
         // fetchUser will be called on mount or via event listener if needed.
+        // For simple flow, we might need to listen to URL events.
         // But better-auth expo client handles the redirect and session storage?
         // We typically need to wait or rely on fetchUser on next app load.
         // For now, call fetchUser just in case.
@@ -364,16 +199,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Sign out from both Better Auth and Supabase
       await authClient.signOut();
-      await supabase.auth.signOut();
     } catch (error) {
       console.error("Sign out failed (API):", error);
     } finally {
        // Always clear local state
        setUser(null);
-       setSupabaseSession(null);
-       setUserProfile(null);
        await clearAuthTokens();
     }
   };
@@ -383,15 +214,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         loading,
-        supabaseSession,
-        userProfile,
         signInWithEmail,
         signUpWithEmail,
         signInWithGoogle,
         signInWithApple,
         signInWithGitHub,
-        signInWithMagicLink,
-        signInWithPassword,
         signOut,
         fetchUser,
       }}

@@ -1,77 +1,54 @@
+import React, { useEffect, useState } from "react";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { Platform } from "react-native";
 
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { colors, spacing, typography } from '@/styles/commonStyles';
+type Status = "processing" | "success" | "error";
 
 export default function AuthCallbackScreen() {
-  const router = useRouter();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('Verifying your magic link...');
+  const [status, setStatus] = useState<Status>("processing");
+  const [message, setMessage] = useState("Processing authentication...");
 
   useEffect(() => {
-    handleAuthCallback();
+    if (Platform.OS !== "web") return;
+    handleCallback();
   }, []);
 
-  const handleAuthCallback = async () => {
+  const handleCallback = () => {
     try {
-      console.log('Auth callback - Processing magic link');
-      
-      // Get the current session
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get("better_auth_token");
+      const error = urlParams.get("error");
+
       if (error) {
-        console.error('Auth callback error:', error);
-        setStatus('error');
-        setMessage('Failed to verify magic link. Please try again.');
-        setTimeout(() => router.replace('/auth'), 3000);
+        setStatus("error");
+        setMessage(`Authentication failed: ${error}`);
+        window.opener?.postMessage({ type: "oauth-error", error }, "*");
         return;
       }
-      
-      if (session) {
-        console.log('Auth callback - Session verified, redirecting to home');
-        setStatus('success');
-        setMessage('Successfully authenticated! Redirecting...');
-        setTimeout(() => router.replace('/(tabs)/(home)/'), 1000);
+
+      if (token) {
+        setStatus("success");
+        setMessage("Authentication successful! Closing...");
+        window.opener?.postMessage({ type: "oauth-success", token }, "*");
+        setTimeout(() => window.close(), 1000);
       } else {
-        console.log('Auth callback - No session found');
-        setStatus('error');
-        setMessage('No session found. Please try again.');
-        setTimeout(() => router.replace('/auth'), 3000);
+        setStatus("error");
+        setMessage("No authentication token received");
+        window.opener?.postMessage({ type: "oauth-error", error: "No token" }, "*");
       }
-    } catch (error) {
-      console.error('Auth callback exception:', error);
-      setStatus('error');
-      setMessage('An error occurred. Please try again.');
-      setTimeout(() => router.replace('/auth'), 3000);
+    } catch (err) {
+      setStatus("error");
+      setMessage("Failed to process authentication");
+      console.error("Auth callback error:", err);
     }
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        {status === 'loading' && (
-          <>
-            <ActivityIndicator size="large" color={colors.light.primary} />
-            <Text style={styles.message}>{message}</Text>
-          </>
-        )}
-        
-        {status === 'success' && (
-          <>
-            <Text style={styles.successIcon}>✓</Text>
-            <Text style={styles.message}>{message}</Text>
-          </>
-        )}
-        
-        {status === 'error' && (
-          <>
-            <Text style={styles.errorIcon}>✕</Text>
-            <Text style={styles.message}>{message}</Text>
-          </>
-        )}
-      </View>
+      {status === "processing" && <ActivityIndicator size="large" color="#007AFF" />}
+      {status === "success" && <Text style={styles.successIcon}>✓</Text>}
+      {status === "error" && <Text style={styles.errorIcon}>✗</Text>}
+      <Text style={styles.message}>{message}</Text>
     </View>
   );
 }
@@ -79,26 +56,23 @@ export default function AuthCallbackScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.light.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  message: {
-    ...typography.body,
-    color: colors.light.text,
-    marginTop: spacing.lg,
-    textAlign: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#fff",
   },
   successIcon: {
-    fontSize: 64,
-    color: '#34C759',
+    fontSize: 48,
+    color: "#34C759",
   },
   errorIcon: {
-    fontSize: 64,
-    color: '#FF3B30',
+    fontSize: 48,
+    color: "#FF3B30",
+  },
+  message: {
+    fontSize: 18,
+    marginTop: 20,
+    textAlign: "center",
+    color: "#333",
   },
 });
