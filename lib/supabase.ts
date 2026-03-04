@@ -1,10 +1,43 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+// Supabase configuration
 const SUPABASE_URL = 'https://dnwgtaibudkxinhwceox.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRud2d0YWlidWRreGluaHdjZW94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMzE1NTcsImV4cCI6MjA4NTgwNzU1N30.nM_Un-7c4yokkXysJpcUTiNqiLAbXua_YdDKFYTE6PE';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Log configuration on initialization
+console.log('🔧 Supabase Configuration:');
+console.log('  URL:', SUPABASE_URL);
+console.log('  Anon Key (first 20 chars):', SUPABASE_ANON_KEY.substring(0, 20) + '...');
+
+// Create Supabase client with additional options for better error handling
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'port-of-future-2026',
+    },
+  },
+});
+
+// Test Supabase connection on initialization
+(async () => {
+  try {
+    console.log('🔍 Testing Supabase connection...');
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('❌ Supabase connection test failed:', error.message);
+    } else {
+      console.log('✅ Supabase connection successful');
+    }
+  } catch (err: any) {
+    console.error('❌ Supabase connection test error:', err.message || err);
+  }
+})();
 
 // Airtable cache endpoint for attendee validation
 export const AIRTABLE_ATTENDEE_CACHE_ENDPOINT = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';

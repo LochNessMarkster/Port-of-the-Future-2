@@ -216,12 +216,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithMagicLink = async (email: string) => {
     try {
-      console.log('Sending magic link to:', email);
+      console.log('🔐 Sending magic link to:', email);
+      console.log('📍 Supabase URL:', 'https://dnwgtaibudkxinhwceox.supabase.co');
       
       // Get the redirect URL for the magic link
       const redirectTo = Platform.OS === 'web' 
         ? `${window.location.origin}/auth-callback`
         : Linking.createURL('/auth-callback');
+      
+      console.log('🔗 Redirect URL:', redirectTo);
       
       const { error } = await supabase.auth.signInWithOtp({
         email: email,
@@ -231,33 +234,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       if (error) {
-        console.error('Magic link error:', error);
+        console.error('❌ Magic link error:', error);
+        console.error('   Error name:', error.name);
+        console.error('   Error message:', error.message);
+        console.error('   Error status:', error.status);
         throw new Error(error.message);
       }
       
-      console.log('Magic link sent successfully');
+      console.log('✅ Magic link sent successfully');
     } catch (error: any) {
-      console.error('Failed to send magic link:', error);
+      console.error('❌ Failed to send magic link:', error);
+      console.error('   Error details:', JSON.stringify(error, null, 2));
       throw new Error(error.message || 'Failed to send magic link. Please try again.');
     }
   };
 
   const signInWithPassword = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('AuthContext - Signing in with password for:', email);
+      console.log('🔐 AuthContext - Signing in with password for:', email);
+      console.log('📍 Supabase URL:', 'https://dnwgtaibudkxinhwceox.supabase.co');
       
       const DEFAULT_PASSWORD = 'POTF2026';
       
       // Try to sign in with the provided password
+      console.log('🔄 Attempting sign in...');
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       });
       
       if (error) {
+        console.error('❌ Sign in error:', error);
+        console.error('   Error name:', error.name);
+        console.error('   Error message:', error.message);
+        console.error('   Error status:', error.status);
+        console.error('   Error details:', JSON.stringify(error, null, 2));
+        
         // If sign in fails and password is the default, try to create account
         if (password === DEFAULT_PASSWORD && error.message.includes('Invalid login credentials')) {
-          console.log('AuthContext - First time login detected, creating account with default password');
+          console.log('🆕 First time login detected, creating account with default password');
           
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
             email: email,
@@ -265,11 +280,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           
           if (signUpError) {
-            console.error('AuthContext - Failed to create account:', signUpError);
+            console.error('❌ Failed to create account:', signUpError);
+            console.error('   Error name:', signUpError.name);
+            console.error('   Error message:', signUpError.message);
+            console.error('   Error status:', signUpError.status);
             return { success: false, error: signUpError.message };
           }
           
-          console.log('AuthContext - Account created successfully, signing in');
+          console.log('✅ Account created successfully, signing in');
           
           // Now sign in with the newly created account
           const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -278,23 +296,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           
           if (signInError) {
-            console.error('AuthContext - Failed to sign in after account creation:', signInError);
+            console.error('❌ Failed to sign in after account creation:', signInError);
             return { success: false, error: signInError.message };
           }
           
-          console.log('AuthContext - Password sign in successful after account creation');
+          console.log('✅ Password sign in successful after account creation');
           return { success: true };
         }
         
-        console.error('AuthContext - Password sign in failed:', error);
-        return { success: false, error: error.message };
+        // Return the detailed error message
+        const errorMsg = error.message || 'Failed to sign in';
+        return { success: false, error: `${errorMsg} (Status: ${error.status || 'unknown'})` };
       }
       
-      console.log('AuthContext - Password sign in successful');
+      console.log('✅ Password sign in successful');
       return { success: true };
     } catch (error: any) {
-      console.error('AuthContext - Password sign in error:', error);
-      return { success: false, error: error.message || 'Failed to sign in. Please try again.' };
+      console.error('❌ Password sign in exception:', error);
+      console.error('   Error type:', typeof error);
+      console.error('   Error name:', error.name);
+      console.error('   Error message:', error.message);
+      console.error('   Full error:', JSON.stringify(error, null, 2));
+      
+      // Extract meaningful error message
+      let errorMsg = 'Failed to sign in. Please try again.';
+      if (error.message) {
+        errorMsg = error.message;
+      } else if (error.name === 'AuthRetryableFetchError') {
+        errorMsg = 'Network error: Unable to reach authentication server. Please check your internet connection and try again.';
+      } else if (error.status === 0) {
+        errorMsg = 'Network error: Cannot connect to Supabase. Please check your internet connection.';
+      }
+      
+      return { success: false, error: errorMsg };
     }
   };
 
