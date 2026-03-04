@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
+import { supabase, fetchUserProfileFromCache, UserProfile as CachedUserProfile } from "@/lib/supabase";
+import { Session } from "@supabase/supabase-js";
 
 interface User {
   id: string;
@@ -15,11 +17,14 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  supabaseSession: Session | null;
+  userProfile: CachedUserProfile | null;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
+  signInWithMagicLink: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   fetchUser: () => Promise<void>;
 }
@@ -72,15 +77,37 @@ function openOAuthPopup(provider: string): Promise<string> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [supabaseSession, setSupabaseSession] = useState<Session | null>(null);
+  const [userProfile, setUserProfile] = useState<CachedUserProfile | null>(null);
 
   useEffect(() => {
     fetchUser();
+    checkSupabaseSession();
 
     // Listen for deep links (e.g. from social auth redirects)
     const subscription = Linking.addEventListener("url", (event) => {
       console.log("Deep link received, refreshing user session");
       // Allow time for the client to process the token if needed
       setTimeout(() => fetchUser(), 500);
+    });
+
+    // Listen for Supabase auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Supabase auth state changed:', event);
+      setSupabaseSession(session);
+      
+      if (event === 'SIGNED_IN' && session?.user?.email) {
+        console.log('User signed in via Supabase, fetching profile from cache');
+        try {
+          const profile = await fetchUserProfileFromCache(session.user.email);
+          setUserProfile(profile);
+        } catch (error) {
+          console.error('Failed to fetch user profile:', error);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out from Supabase');
+        setUserProfile(null);
+      }
     });
 
     // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
@@ -92,9 +119,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       subscription.remove();
+      authListener.subscription.unsubscribe();
       clearInterval(intervalId);
     };
   }, []);
+
+  const checkSupabaseSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSupabaseSession(session);
+      
+      if (session?.user?.email) {
+        console.log('Existing Supabase session found, fetching profile');
+        try {
+          const profile = await fetchUserProfileFromCache(session.user.email);
+          setUserProfile(profile);
+        } catch (error) {
+          console.error('Failed to fetch user profile:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check Supabase session:', error);
+    }
+  };
 
   const fetchUser = async () => {
     try {
@@ -166,6 +213,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithMagicLink = async (email: string) => {
+    try {
+      console.log('Sending magic link to:', email);
+      
+      // Get the redirect URL for the magic link
+      const redirectTo = Platform.OS === 'web' 
+        ? `${window.location.origin}/auth-callback`
+        : Linking.createURL('/auth-callback');
+      
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          emailRedirectTo: redirectTo,
+        },
+      });
+      
+      if (error) {
+        console.error('Magic link error:', error);
+        throw new Error(error.message);
+      }
+      
+      console.log('Magic link sent successfully');
+    } catch (error: any) {
+      console.error('Failed to send magic link:', error);
+      throw new Error(error.message || 'Failed to send magic link. Please try again.');
+    }
+  };
+
   const signInWithSocial = async (provider: "google" | "apple" | "github") => {
     try {
       if (Platform.OS === "web") {
@@ -181,7 +256,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         // Note: The redirect will reload the app or be handled by deep linking.
         // fetchUser will be called on mount or via event listener if needed.
-        // For simple flow, we might need to listen to URL events.
         // But better-auth expo client handles the redirect and session storage?
         // We typically need to wait or rely on fetchUser on next app load.
         // For now, call fetchUser just in case.
@@ -199,12 +273,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Sign out from both Better Auth and Supabase
       await authClient.signOut();
+      await supabase.auth.signOut();
     } catch (error) {
       console.error("Sign out failed (API):", error);
     } finally {
        // Always clear local state
        setUser(null);
+       setSupabaseSession(null);
+       setUserProfile(null);
        await clearAuthTokens();
     }
   };
@@ -214,11 +292,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         loading,
+        supabaseSession,
+        userProfile,
         signInWithEmail,
         signUpWithEmail,
         signInWithGoogle,
         signInWithApple,
         signInWithGitHub,
+        signInWithMagicLink,
         signOut,
         fetchUser,
       }}

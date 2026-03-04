@@ -20,21 +20,21 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
+import { checkEmailInAirtableCache } from "@/lib/supabase";
 
 export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { signInWithEmail, loading: authLoading } = useAuth();
+  const { signInWithMagicLink, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
 
-  console.log('AuthScreen - Sign In Only Mode');
+  console.log('AuthScreen - Magic Link Mode');
 
   if (authLoading) {
     return (
@@ -49,11 +49,15 @@ export default function AuthScreen() {
     setErrorModalVisible(true);
   };
 
-  const handleSignIn = async () => {
-    console.log('AuthScreen - User tapped Sign In button');
+  const showSuccess = () => {
+    setSuccessModalVisible(true);
+  };
+
+  const handleSendMagicLink = async () => {
+    console.log('AuthScreen - User tapped Send Magic Link button');
     
-    if (!email || !password) {
-      showError("Please enter email and password");
+    if (!email) {
+      showError("Please enter your email address");
       return;
     }
 
@@ -64,27 +68,32 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      console.log('AuthScreen - Signing in with email:', email);
-      await signInWithEmail(email, password);
-      console.log('AuthScreen - Sign in successful, navigating to home');
-      router.replace("/(tabs)/(home)/");
-    } catch (error: any) {
-      console.error('AuthScreen - Sign in error:', error);
-      const errorMsg = error.message || "Authentication failed. Please try again.";
+      console.log('AuthScreen - Checking email in Airtable cache:', email);
       
-      if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password") || errorMsg.toLowerCase().includes("credentials")) {
-        showError("Invalid email or password.\n\nPlease check your credentials and try again. If you're having trouble accessing your account, please contact the conference organizers.");
-      } else {
-        showError(errorMsg);
+      // Step 1: Check if email exists in Airtable cache
+      const isRegistered = await checkEmailInAirtableCache(email);
+      
+      if (!isRegistered) {
+        console.log('AuthScreen - Email not found in cache');
+        showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
+        setLoading(false);
+        return;
       }
+      
+      console.log('AuthScreen - Email found in cache, sending magic link');
+      
+      // Step 2: Send magic link via Supabase
+      await signInWithMagicLink(email);
+      
+      console.log('AuthScreen - Magic link sent successfully');
+      showSuccess();
+    } catch (error: any) {
+      console.error('AuthScreen - Magic link error:', error);
+      const errorMsg = error.message || "Failed to send magic link. Please try again.";
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleForgotPassword = () => {
-    console.log('AuthScreen - User tapped Forgot Password');
-    router.push("/forgot-password");
   };
 
   const inputBackgroundColor = colorScheme === 'dark' ? appColors.card : '#FFFFFF';
@@ -112,7 +121,7 @@ export default function AuthScreen() {
                 Port of the Future 2026
               </Text>
               <Text style={[styles.appSubtitle, { color: appColors.textSecondary }]}>
-                Welcome Back
+                Sign In with Magic Link
               </Text>
             </View>
 
@@ -125,7 +134,7 @@ export default function AuthScreen() {
                 color={appColors.primary} 
               />
               <Text style={[styles.infoText, { color: appColors.textSecondary }]}>
-                Sign in with the email address you used to register for the conference.
+                Enter your registered email address and we&apos;ll send you a magic link to sign in instantly.
               </Text>
             </View>
 
@@ -147,63 +156,21 @@ export default function AuthScreen() {
               editable={!loading}
             />
 
-            {/* Password */}
-            <Text style={[styles.label, { color: appColors.text }]}>Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={[styles.input, styles.passwordInput, { 
-                  backgroundColor: inputBackgroundColor, 
-                  borderColor: inputBorderColor,
-                  color: appColors.text 
-                }]}
-                placeholder="Enter your password"
-                placeholderTextColor={appColors.textSecondary}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!loading}
-              />
-              <TouchableOpacity 
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <IconSymbol 
-                  ios_icon_name={showPassword ? "eye.slash.fill" : "eye.fill"} 
-                  android_material_icon_name={showPassword ? "visibility-off" : "visibility"} 
-                  size={24} 
-                  color={appColors.textSecondary} 
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Forgot Password Link */}
-            <TouchableOpacity
-              style={styles.forgotPasswordButton}
-              onPress={handleForgotPassword}
-              disabled={loading}
-            >
-              <Text style={[styles.forgotPasswordText, { color: appColors.primary }]}>
-                Forgot Password?
-              </Text>
-            </TouchableOpacity>
-
-            {/* Sign In Button */}
+            {/* Send Magic Link Button */}
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
-              onPress={handleSignIn}
+              onPress={handleSendMagicLink}
               disabled={loading}
             >
               {loading ? (
                 <View style={styles.buttonContent}>
                   <ActivityIndicator color="#FFFFFF" />
                   <Text style={[styles.primaryButtonText, { marginLeft: spacing.sm }]}>
-                    Signing in...
+                    Sending...
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.primaryButtonText}>Sign In</Text>
+                <Text style={styles.primaryButtonText}>Send Magic Link</Text>
               )}
             </TouchableOpacity>
 
@@ -216,7 +183,7 @@ export default function AuthScreen() {
                 color={appColors.textSecondary} 
               />
               <Text style={[styles.helpText, { color: appColors.textSecondary }]}>
-                Need help? Contact the conference organizers for assistance with your account.
+                Only registered attendees can access the app. If you need assistance, please contact the conference organizers.
               </Text>
             </View>
           </View>
@@ -244,7 +211,7 @@ export default function AuthScreen() {
               />
             </View>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              Sign In Failed
+              Unable to Send Magic Link
             </Text>
             <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
@@ -252,6 +219,42 @@ export default function AuthScreen() {
             <TouchableOpacity
               style={[styles.modalButton, { backgroundColor: appColors.primary }]}
               onPress={() => setErrorModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        visible={successModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setSuccessModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+            <View style={styles.modalIconContainer}>
+              <IconSymbol 
+                ios_icon_name="checkmark.circle.fill" 
+                android_material_icon_name="check-circle" 
+                size={48} 
+                color="#34C759" 
+              />
+            </View>
+            <Text style={[styles.modalTitle, { color: appColors.text }]}>
+              Magic Link Sent!
+            </Text>
+            <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
+              Check your email for a magic link to sign in. The link will expire in 1 hour.
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: appColors.primary }]}
+              onPress={() => setSuccessModalVisible(false)}
             >
               <Text style={styles.modalButtonText}>OK</Text>
             </TouchableOpacity>
@@ -329,29 +332,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
     fontSize: 16,
-  },
-  passwordContainer: {
-    position: 'relative',
-    marginBottom: spacing.xs,
-  },
-  passwordInput: {
-    paddingRight: 50,
-    marginBottom: 0,
-  },
-  eyeIcon: {
-    position: 'absolute',
-    right: spacing.md,
-    top: 13,
-    padding: spacing.xs,
-  },
-  forgotPasswordButton: {
-    alignSelf: 'flex-end',
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  forgotPasswordText: {
-    ...typography.bodySmall,
-    fontWeight: '500',
   },
   primaryButton: {
     height: 50,

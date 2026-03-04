@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { 
   View, 
@@ -12,13 +13,13 @@ import {
   Pressable,
   Image
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { IconSymbol } from "@/components/IconSymbol";
 import { GlassView } from "expo-glass-effect";
-import { useTheme } from "@react-navigation/native";
-import { useAuth } from "@/contexts/AuthContext";
 import { apiGet, authenticatedPut } from "@/utils/api";
+import { IconSymbol } from "@/components/IconSymbol";
 import { colors, spacing, typography, borderRadius } from "@/styles/commonStyles";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface UserProfile {
   id: string;
@@ -34,597 +35,359 @@ interface UserProfile {
   emailVerified: boolean | null;
 }
 
-export default function ProfileScreen() {
-  const theme = useTheme();
-  const { user, signOut } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [saving, setSaving] = useState(false);
-  
-  // Edit form state
-  const [editName, setEditName] = useState('');
-  const [editCompany, setEditCompany] = useState('');
-  const [editTitle, setEditTitle] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editBio, setEditBio] = useState('');
-  const [editLinkedin, setEditLinkedin] = useState('');
-  const [editOptInNetworking, setEditOptInNetworking] = useState(false);
-
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
-      const data = await apiGet<UserProfile>('/api/profile');
-      setProfile(data);
-    } catch (error) {
-      setProfile(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openEditModal = () => {
-    if (profile) {
-      setEditName(profile.name || '');
-      setEditCompany(profile.company || '');
-      setEditTitle(profile.title || '');
-      setEditPhone(profile.phone || '');
-      setEditBio(profile.bio || '');
-      setEditLinkedin(profile.linkedin || '');
-      setEditOptInNetworking(profile.optInNetworking || false);
-      setShowEditModal(true);
-    }
-  };
-
-  const closeEditModal = () => {
-    setShowEditModal(false);
-  };
-
-  const saveProfile = async () => {
-    setSaving(true);
-    try {
-      const updatedProfile = await authenticatedPut<UserProfile>('/api/profile', {
-        name: editName,
-        company: editCompany,
-        title: editTitle,
-        phone: editPhone,
-        bio: editBio,
-        linkedin: editLinkedin,
-        optInNetworking: editOptInNetworking,
-      });
-      setProfile(updatedProfile);
-      closeEditModal();
-    } catch (error) {
-      // Error handled silently
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      // Error handled silently
-    }
-  };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.dark ? '#98989D' : '#666' }]}>
-            Loading profile...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
-        <View style={styles.errorContainer}>
-          <IconSymbol 
-            ios_icon_name="exclamationmark.triangle" 
-            android_material_icon_name="warning" 
-            size={48} 
-            color={theme.colors.notification} 
-          />
-          <Text style={[styles.errorText, { color: theme.colors.text }]}>
-            Unable to load profile
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
-            onPress={loadProfile}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={[
-          styles.contentContainer,
-          Platform.OS !== 'ios' && styles.contentContainerWithTabBar
-        ]}
-      >
-        <GlassView style={[
-          styles.profileHeader,
-          Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-        ]} glassEffectStyle="regular">
-          {profile.image ? (
-            <Image
-              source={{ uri: profile.image }}
-              style={styles.profileImage}
-            />
-          ) : (
-            <IconSymbol 
-              ios_icon_name="person.circle.fill" 
-              android_material_icon_name="person" 
-              size={80} 
-              color={theme.colors.primary} 
-            />
-          )}
-          <Text style={[styles.name, { color: theme.colors.text }]}>{profile.name}</Text>
-          <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666' }]}>{profile.email}</Text>
-          {profile.company && profile.title && (
-            <Text style={[styles.jobTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-              {profile.title} at {profile.company}
-            </Text>
-          )}
-        </GlassView>
-
-        {/* Networking Opt-in Status */}
-        <GlassView style={[
-          styles.section,
-          Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-        ]} glassEffectStyle="regular">
-          <View style={styles.infoRow}>
-            <IconSymbol 
-              ios_icon_name={profile.optInNetworking ? "checkmark.circle.fill" : "xmark.circle.fill"}
-              android_material_icon_name={profile.optInNetworking ? "check-circle" : "cancel"}
-              size={20} 
-              color={profile.optInNetworking ? '#4CAF50' : theme.dark ? '#98989D' : '#666'} 
-            />
-            <Text style={[styles.infoText, { color: theme.colors.text }]}>
-              {profile.optInNetworking 
-                ? 'You are visible to other attendees for networking' 
-                : 'You are not visible in the networking directory'}
-            </Text>
-          </View>
-        </GlassView>
-
-        {(profile.phone || profile.bio || profile.linkedin) && (
-          <GlassView style={[
-            styles.section,
-            Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-          ]} glassEffectStyle="regular">
-            {profile.phone && (
-              <View style={styles.infoRow}>
-                <IconSymbol 
-                  ios_icon_name="phone.fill" 
-                  android_material_icon_name="phone" 
-                  size={20} 
-                  color={theme.dark ? '#98989D' : '#666'} 
-                />
-                <Text style={[styles.infoText, { color: theme.colors.text }]}>{profile.phone}</Text>
-              </View>
-            )}
-            {profile.linkedin && (
-              <View style={styles.infoRow}>
-                <IconSymbol 
-                  ios_icon_name="link" 
-                  android_material_icon_name="link" 
-                  size={20} 
-                  color={theme.dark ? '#98989D' : '#666'} 
-                />
-                <Text style={[styles.infoText, { color: theme.colors.text }]}>{profile.linkedin}</Text>
-              </View>
-            )}
-            {profile.bio && (
-              <View style={styles.bioContainer}>
-                <Text style={[styles.bioLabel, { color: theme.dark ? '#98989D' : '#666' }]}>Bio</Text>
-                <Text style={[styles.bioText, { color: theme.colors.text }]}>{profile.bio}</Text>
-              </View>
-            )}
-          </GlassView>
-        )}
-
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
-            onPress={openEditModal}
-          >
-            <IconSymbol 
-              ios_icon_name="pencil" 
-              android_material_icon_name="edit" 
-              size={20} 
-              color="#FFFFFF" 
-            />
-            <Text style={styles.actionButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.signOutButton, { backgroundColor: theme.colors.notification }]}
-            onPress={handleSignOut}
-          >
-            <IconSymbol 
-              ios_icon_name="arrow.right.square" 
-              android_material_icon_name="logout" 
-              size={20} 
-              color="#FFFFFF" 
-            />
-            <Text style={styles.actionButtonText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      {/* Edit Profile Modal */}
-      <Modal
-        visible={showEditModal}
-        transparent
-        animationType="fade"
-        onRequestClose={closeEditModal}
-      >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={closeEditModal}
-        >
-          <Pressable 
-            style={[styles.modalContent, { backgroundColor: theme.colors.card }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-                Edit Profile
-              </Text>
-
-              <Text style={[styles.label, { color: theme.colors.text }]}>Name</Text>
-              <TextInput
-                style={[styles.input, { 
-                  backgroundColor: theme.colors.background, 
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text 
-                }]}
-                placeholder="Your name"
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={editName}
-                onChangeText={setEditName}
-              />
-
-              <Text style={[styles.label, { color: theme.colors.text }]}>Company</Text>
-              <TextInput
-                style={[styles.input, { 
-                  backgroundColor: theme.colors.background, 
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text 
-                }]}
-                placeholder="Company name"
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={editCompany}
-                onChangeText={setEditCompany}
-              />
-
-              <Text style={[styles.label, { color: theme.colors.text }]}>Title</Text>
-              <TextInput
-                style={[styles.input, { 
-                  backgroundColor: theme.colors.background, 
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text 
-                }]}
-                placeholder="Job title"
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={editTitle}
-                onChangeText={setEditTitle}
-              />
-
-              <Text style={[styles.label, { color: theme.colors.text }]}>Phone</Text>
-              <TextInput
-                style={[styles.input, { 
-                  backgroundColor: theme.colors.background, 
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text 
-                }]}
-                placeholder="Phone number"
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={editPhone}
-                onChangeText={setEditPhone}
-                keyboardType="phone-pad"
-              />
-
-              <Text style={[styles.label, { color: theme.colors.text }]}>LinkedIn</Text>
-              <TextInput
-                style={[styles.input, { 
-                  backgroundColor: theme.colors.background, 
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text 
-                }]}
-                placeholder="LinkedIn profile URL"
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={editLinkedin}
-                onChangeText={setEditLinkedin}
-                autoCapitalize="none"
-              />
-
-              <Text style={[styles.label, { color: theme.colors.text }]}>Bio</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, { 
-                  backgroundColor: theme.colors.background, 
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text 
-                }]}
-                placeholder="Tell us about yourself"
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={editBio}
-                onChangeText={setEditBio}
-                multiline
-                numberOfLines={4}
-              />
-
-              <View style={styles.optInSection}>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => setEditOptInNetworking(!editOptInNetworking)}
-                >
-                  <View style={[
-                    styles.checkbox,
-                    { borderColor: theme.colors.border },
-                    editOptInNetworking && { backgroundColor: theme.colors.primary }
-                  ]}>
-                    {editOptInNetworking && (
-                      <IconSymbol 
-                        ios_icon_name="checkmark" 
-                        android_material_icon_name="check" 
-                        size={16} 
-                        color="#FFFFFF" 
-                      />
-                    )}
-                  </View>
-                  <Text style={[styles.checkboxLabel, { color: theme.colors.text }]}>
-                    Opt-in to networking
-                  </Text>
-                </TouchableOpacity>
-                <Text style={[styles.optInDescription, { color: theme.dark ? '#98989D' : '#666' }]}>
-                  When enabled, your profile will be visible to other attendees in the networking directory, making it easier to connect with fellow conference participants.
-                </Text>
-              </View>
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: theme.colors.border }]}
-                  onPress={closeEditModal}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
-                  onPress={saveProfile}
-                  disabled={saving}
-                  activeOpacity={0.7}
-                >
-                  {saving ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
-                      Save
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </SafeAreaView>
-  );
-}
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },
-  contentContainer: {
-    padding: 20,
-  },
-  contentContainerWithTabBar: {
-    paddingBottom: 100,
+  scrollContent: {
+    padding: spacing.lg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
   },
-  loadingText: {
-    ...typography.body,
-    marginTop: spacing.md,
+  header: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
   },
-  errorContainer: {
-    flex: 1,
+  avatarContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+    backgroundColor: colors.light.card,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
-  },
-  errorText: {
-    ...typography.h3,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  retryButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
-  },
-  retryButtonText: {
-    ...typography.body,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  profileHeader: {
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 32,
-    marginBottom: 16,
-    gap: 12,
-  },
-  profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
   },
   name: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...typography.h2,
+    marginBottom: spacing.xs,
   },
   email: {
-    fontSize: 16,
-  },
-  jobTitle: {
-    fontSize: 14,
-    textAlign: 'center',
+    ...typography.body,
+    marginBottom: spacing.sm,
   },
   section: {
-    borderRadius: 12,
-    padding: 20,
-    gap: 12,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    ...typography.h3,
+    marginBottom: spacing.md,
+  },
+  infoCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    marginBottom: spacing.sm,
   },
-  infoText: {
-    fontSize: 16,
-    flex: 1,
-  },
-  bioContainer: {
-    marginTop: spacing.sm,
-  },
-  bioLabel: {
+  infoLabel: {
     ...typography.bodySmall,
     fontWeight: '600',
-    marginBottom: spacing.xs,
+    marginLeft: spacing.sm,
+    flex: 1,
   },
-  bioText: {
+  infoValue: {
     ...typography.body,
-    lineHeight: 22,
+    marginLeft: spacing.xl + spacing.sm,
   },
-  actionsContainer: {
-    gap: spacing.md,
+  button: {
+    height: 50,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: spacing.md,
   },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   signOutButton: {
-    marginTop: spacing.sm,
-  },
-  actionButtonText: {
-    ...typography.body,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    backgroundColor: '#FF3B30',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  modalContent: {
-    width: '90%',
-    maxHeight: '80%',
-    borderRadius: borderRadius.lg,
     padding: spacing.lg,
   },
+  modalContent: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 400,
+  },
   modalTitle: {
-    ...typography.h2,
+    ...typography.h3,
     marginBottom: spacing.lg,
-  },
-  label: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
-    ...typography.body,
-  },
-  textArea: {
-    height: 100,
-    paddingTop: spacing.sm,
-    textAlignVertical: 'top',
-  },
-  optInSection: {
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderRadius: 4,
-    marginRight: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxLabel: {
-    ...typography.body,
-    fontWeight: '600',
-    flex: 1,
-  },
-  optInDescription: {
-    ...typography.bodySmall,
-    lineHeight: 18,
-    marginLeft: 32,
-    marginTop: spacing.xs,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.lg,
+    textAlign: 'center',
   },
   modalButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
+    height: 50,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: spacing.md,
   },
   modalButtonText: {
-    ...typography.body,
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
+  cancelButton: {
+    backgroundColor: colors.light.textSecondary,
+  },
 });
+
+export default function ProfileScreen() {
+  const { colors: themeColors } = useTheme();
+  const { signOut, supabaseSession, userProfile } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [signOutModalVisible, setSignOutModalVisible] = useState(false);
+
+  const firstNameDisplay = userProfile?.firstName || '';
+  const lastNameDisplay = userProfile?.lastName || '';
+  const fullNameDisplay = `${firstNameDisplay} ${lastNameDisplay}`.trim() || 'User';
+  const emailDisplay = userProfile?.email || supabaseSession?.user?.email || '';
+  const companyDisplay = userProfile?.company || '';
+  const titleDisplay = userProfile?.title || '';
+  const phoneDisplay = userProfile?.phone || '';
+  const registrationTypeDisplay = userProfile?.registrationType || '';
+
+  const handleSignOut = () => {
+    setSignOutModalVisible(true);
+  };
+
+  const confirmSignOut = async () => {
+    try {
+      setLoading(true);
+      await signOut();
+      setSignOutModalVisible(false);
+    } catch (error) {
+      console.error('Sign out error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: themeColors.background }]}>
+        <ActivityIndicator size="large" color={colors.light.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['bottom']}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.avatarContainer}>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.light.primary }]}>
+              <Text style={{ fontSize: 48, color: '#FFFFFF' }}>
+                {firstNameDisplay.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.name, { color: themeColors.text }]}>
+            {fullNameDisplay}
+          </Text>
+          <Text style={[styles.email, { color: themeColors.text }]}>
+            {emailDisplay}
+          </Text>
+        </View>
+
+        {/* Personal Information */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+            Personal Information
+          </Text>
+          
+          <GlassView style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
+            <View style={styles.infoRow}>
+              <IconSymbol 
+                ios_icon_name="person.fill" 
+                android_material_icon_name="person" 
+                size={20} 
+                color={colors.light.primary} 
+              />
+              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
+                First Name
+              </Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.text }]}>
+              {firstNameDisplay || 'Not provided'}
+            </Text>
+          </GlassView>
+
+          <GlassView style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
+            <View style={styles.infoRow}>
+              <IconSymbol 
+                ios_icon_name="person.fill" 
+                android_material_icon_name="person" 
+                size={20} 
+                color={colors.light.primary} 
+              />
+              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
+                Last Name
+              </Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.text }]}>
+              {lastNameDisplay || 'Not provided'}
+            </Text>
+          </GlassView>
+
+          <GlassView style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
+            <View style={styles.infoRow}>
+              <IconSymbol 
+                ios_icon_name="envelope.fill" 
+                android_material_icon_name="email" 
+                size={20} 
+                color={colors.light.primary} 
+              />
+              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
+                Email
+              </Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.text }]}>
+              {emailDisplay}
+            </Text>
+          </GlassView>
+
+          <GlassView style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
+            <View style={styles.infoRow}>
+              <IconSymbol 
+                ios_icon_name="phone.fill" 
+                android_material_icon_name="phone" 
+                size={20} 
+                color={colors.light.primary} 
+              />
+              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
+                Phone
+              </Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.text }]}>
+              {phoneDisplay || 'Not provided'}
+            </Text>
+          </GlassView>
+        </View>
+
+        {/* Professional Information */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+            Professional Information
+          </Text>
+          
+          <GlassView style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
+            <View style={styles.infoRow}>
+              <IconSymbol 
+                ios_icon_name="building.2.fill" 
+                android_material_icon_name="business" 
+                size={20} 
+                color={colors.light.primary} 
+              />
+              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
+                Company
+              </Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.text }]}>
+              {companyDisplay || 'Not provided'}
+            </Text>
+          </GlassView>
+
+          <GlassView style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
+            <View style={styles.infoRow}>
+              <IconSymbol 
+                ios_icon_name="briefcase.fill" 
+                android_material_icon_name="work" 
+                size={20} 
+                color={colors.light.primary} 
+              />
+              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
+                Title
+              </Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.text }]}>
+              {titleDisplay || 'Not provided'}
+            </Text>
+          </GlassView>
+
+          <GlassView style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
+            <View style={styles.infoRow}>
+              <IconSymbol 
+                ios_icon_name="ticket.fill" 
+                android_material_icon_name="confirmation-number" 
+                size={20} 
+                color={colors.light.primary} 
+              />
+              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
+                Registration Type
+              </Text>
+            </View>
+            <Text style={[styles.infoValue, { color: themeColors.text }]}>
+              {registrationTypeDisplay || 'Not provided'}
+            </Text>
+          </GlassView>
+        </View>
+
+        {/* Sign Out Button */}
+        <TouchableOpacity
+          style={[styles.button, styles.signOutButton]}
+          onPress={handleSignOut}
+        >
+          <Text style={styles.buttonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Sign Out Confirmation Modal */}
+      <Modal
+        visible={signOutModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSignOutModalVisible(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setSignOutModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: themeColors.card }]}>
+            <Text style={[styles.modalTitle, { color: themeColors.text }]}>
+              Sign Out
+            </Text>
+            <Text style={[{ color: themeColors.text, textAlign: 'center', marginBottom: spacing.lg }]}>
+              Are you sure you want to sign out?
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.signOutButton]}
+              onPress={confirmSignOut}
+            >
+              <Text style={styles.modalButtonText}>Sign Out</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setSignOutModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+    </SafeAreaView>
+  );
+}
