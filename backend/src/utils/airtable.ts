@@ -84,7 +84,8 @@ export const TABLES = {
   EXHIBITORS: 'tblzex4bjwEZh1021',
   SPONSORS: 'tblgWrwRvpdcVG8sB',
   PARTNERS: 'tblxn3Yie523MallN',
-  ATTENDEES: 'tblqe1kPM95Cp4Srn',
+  ATTENDEES: 'tblqe1kPM95Cp4Srn', // Deprecated: Use ATTENDEES2 instead
+  ATTENDEES2: 'tblIwt4FWHtNm01Z4', // New attendees table
   ANNOUNCEMENTS: 'tblGJQ3v4RMIXCP4W',
   ACTIVITIES: 'tblLpuL7Xff2rpdbB',
 };
