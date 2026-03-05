@@ -5,7 +5,7 @@ import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 export const colors = {
   light: {
     background: '#001F3F', // Deep navy (consistent across all versions)
-    card: '#FFFFFF',
+    card: '#233D5F', // FIX: Dark blue-gray for all cards and data entry fields
     text: '#E8F4F8', // Light blue-white for readability on dark background
     textSecondary: '#90CAF9', // Bright blue-gray
     primary: '#0077BE', // Vibrant ocean blue
@@ -19,7 +19,7 @@ export const colors = {
   },
   dark: {
     background: '#001F3F', // Deep navy night
-    card: '#0A3D62', // Rich maritime blue
+    card: '#233D5F', // FIX: Dark blue-gray for all cards and data entry fields
     text: '#E8F4F8', // Light blue-white
     textSecondary: '#90CAF9', // Bright blue-gray
     primary: '#00B4D8', // Bright cyan blue
