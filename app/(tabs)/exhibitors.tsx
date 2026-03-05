@@ -109,6 +109,14 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   emptyText: { ...typography.h3, textAlign: 'center', marginTop: spacing.md },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
+  errorText: { ...typography.body, textAlign: 'center', marginTop: spacing.md, marginBottom: spacing.lg },
+  retryButton: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  retryButtonText: { ...typography.body, fontWeight: '600', color: '#FFFFFF' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -163,33 +171,28 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   linkButtonText: { ...typography.body, marginLeft: spacing.sm },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.lg,
-  },
-  refreshButtonText: { ...typography.body, fontWeight: '600', marginLeft: spacing.sm },
 });
 
 export default function ExhibitorsScreen() {
+  console.log('[Exhibitors Tab] 🚀 Component rendering started');
+  
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const [exhibitors, setExhibitors] = useState<Exhibitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedExhibitor, setSelectedExhibitor] = useState<Exhibitor | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => { 
-    console.log('[Exhibitors Tab] Component mounted');
+    console.log('[Exhibitors Tab] ✅ Component mounted, starting data load');
     loadExhibitors(); 
   }, []);
 
   const loadExhibitors = async (isRefresh = false) => {
+    console.log('[Exhibitors Tab] 📥 loadExhibitors called, isRefresh:', isRefresh);
+    
     if (isRefresh) {
       console.log('[Exhibitors Tab] User triggered refresh');
       setRefreshing(true);
@@ -197,17 +200,24 @@ export default function ExhibitorsScreen() {
       setLoading(true);
     }
     
+    setError(null);
+    
     try {
-      console.log('[Exhibitors Tab] Loading exhibitors from Airtable Cache...');
+      console.log('[Exhibitors Tab] 🔄 Calling fetchFromAirtableCache for exhibitors...');
       const data = await fetchFromAirtableCache<Exhibitor>('exhibitors');
-      console.log(`[Exhibitors Tab] Received ${data.length} exhibitors from Airtable Cache`);
+      console.log(`[Exhibitors Tab] ✅ Received ${data.length} exhibitors from Airtable Cache`);
+      console.log('[Exhibitors Tab] Sample exhibitor data:', data[0]);
       
       const sorted = data.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
-      console.log('[Exhibitors Tab] Sorted exhibitors alphabetically');
+      console.log('[Exhibitors Tab] ✅ Sorted exhibitors alphabetically');
       setExhibitors(sorted);
-    } catch (error) {
-      console.error('[Exhibitors Tab] Failed to load exhibitors:', error);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      console.error('[Exhibitors Tab] ❌ Failed to load exhibitors:', errorMessage);
+      console.error('[Exhibitors Tab] Full error:', err);
+      setError(errorMessage);
     } finally {
+      console.log('[Exhibitors Tab] 🏁 Load complete, updating state');
       setLoading(false);
       setRefreshing(false);
     }
@@ -216,25 +226,27 @@ export default function ExhibitorsScreen() {
   const filteredExhibitors = useMemo(() => {
     if (!searchQuery.trim()) return exhibitors;
     const query = searchQuery.toLowerCase();
-    return exhibitors.filter(e =>
+    const filtered = exhibitors.filter(e =>
       (e.Name || '').toLowerCase().includes(query) ||
       (e['Booth Number'] || '').toLowerCase().includes(query) ||
       (e.Description || '').toLowerCase().includes(query)
     );
+    console.log(`[Exhibitors Tab] 🔍 Filtered ${filtered.length} exhibitors from ${exhibitors.length} total`);
+    return filtered;
   }, [exhibitors, searchQuery]);
 
   const openWebsite = (url: string) => {
-    console.log('[Exhibitors Tab] Opening website:', url);
+    console.log('[Exhibitors Tab] 🌐 Opening website:', url);
     Linking.openURL(url).catch(err => console.error('[Exhibitors Tab] Failed to open URL:', err));
   };
   
   const openEmail = (email: string) => {
-    console.log('[Exhibitors Tab] Opening email:', email);
+    console.log('[Exhibitors Tab] 📧 Opening email:', email);
     Linking.openURL(`mailto:${email}`).catch(err => console.error('[Exhibitors Tab] Failed to open email:', err));
   };
   
   const openPhone = (phone: string) => {
-    console.log('[Exhibitors Tab] Opening phone:', phone);
+    console.log('[Exhibitors Tab] 📞 Opening phone:', phone);
     Linking.openURL(`tel:${phone}`).catch(err => console.error('[Exhibitors Tab] Failed to open phone:', err));
   };
 
@@ -252,6 +264,8 @@ export default function ExhibitorsScreen() {
     return parts.length > 0 ? parts.join(', ') : null;
   };
 
+  console.log('[Exhibitors Tab] 🎨 Rendering UI, loading:', loading, 'error:', error, 'exhibitors count:', exhibitors.length);
+
   if (loading) {
     return (
       <React.Fragment>
@@ -262,6 +276,28 @@ export default function ExhibitorsScreen() {
             <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>
               Loading exhibitors...
             </Text>
+          </View>
+        </SafeAreaView>
+      </React.Fragment>
+    );
+  }
+
+  if (error) {
+    return (
+      <React.Fragment>
+        <Stack.Screen options={{ headerShown: true, title: 'Exhibitors', headerBackTitle: 'Back' }} />
+        <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+          <View style={styles.errorContainer}>
+            <IconSymbol ios_icon_name="exclamationmark.triangle" android_material_icon_name="error" size={64} color={appColors.error || '#FF3B30'} />
+            <Text style={[styles.errorText, { color: appColors.text }]}>
+              Failed to load exhibitors: {error}
+            </Text>
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: appColors.primary }]}
+              onPress={() => loadExhibitors()}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </React.Fragment>
@@ -326,9 +362,9 @@ export default function ExhibitorsScreen() {
                 return (
                   <View key={exhibitor.id} style={styles.card}>
                     <TouchableOpacity
-                      style={styles.cardInner}
+                      style={[styles.cardInner, { backgroundColor: appColors.card }]}
                       onPress={() => {
-                        console.log('[Exhibitors Tab] User tapped exhibitor card:', exhibitorName);
+                        console.log('[Exhibitors Tab] 👆 User tapped exhibitor card:', exhibitorName);
                         setSelectedExhibitor(exhibitor);
                       }}
                       activeOpacity={0.7}
@@ -391,7 +427,7 @@ export default function ExhibitorsScreen() {
                   <TouchableOpacity 
                     style={styles.closeButton} 
                     onPress={() => {
-                      console.log('[Exhibitors Tab] User closed exhibitor modal');
+                      console.log('[Exhibitors Tab] ❌ User closed exhibitor modal');
                       setSelectedExhibitor(null);
                     }}
                   >
