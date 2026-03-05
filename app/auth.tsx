@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   View,
@@ -45,93 +46,108 @@ export default function AuthScreen() {
 
     do {
       const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
-      try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Airtable API returned status ${response.status}: ${response.statusText}. Response: ${errorText}`);
-        }
-        const data = await response.json();
-        allRecords = allRecords.concat(data.records || []);
-        offset = data.offset || null;
-      } catch (fetchError: any) {
-        throw fetchError;
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Airtable API returned status ${response.status}: ${response.statusText}. Response: ${errorText}`);
       }
+      const data = await response.json();
+      allRecords = allRecords.concat(data.records || []);
+      offset = data.offset || null;
     } while (offset);
 
     return allRecords;
   };
 
   const handleSignIn = async () => {
+    console.log('🔐 Sign In - Starting authentication process');
+    
     if (!email || !email.includes('@')) {
+      console.log('❌ Sign In - Invalid email format');
       showError("Please enter a valid email address");
       return;
     }
     if (!password) {
+      console.log('❌ Sign In - Password is empty');
       showError("Please enter a password");
       return;
     }
 
     setLoading(true);
-    try {
-      // Step 1: Verify email exists in Airtable
-      let allRecords;
-      try {
-        allRecords = await fetchAllRecords();
-      } catch (fetchError: any) {
-        let userErrorMessage = "Unable to connect to verification server.\n\n";
-        userErrorMessage += `Error: ${fetchError.message || 'No message available'}\n\n`;
-        userErrorMessage += "Please check your internet connection and try again.";
-        showError(userErrorMessage);
-        return;
-      }
+    console.log('🔐 Sign In - Loading state set to true');
 
-      const normalizedEmail = email.toLowerCase().trim();
-      const emailExists = allRecords.some((record: any) => {
-        const recordEmail = record.fields?.Email || record.fields?.email;
-        if (!recordEmail) return false;
-        return recordEmail.toLowerCase().trim() === normalizedEmail;
+    let allRecords;
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log('🔐 Sign In - Normalized email:', normalizedEmail);
+
+    // Step 1: Verify email exists in Airtable
+    try {
+      console.log('📋 Sign In - Fetching Airtable records...');
+      allRecords = await fetchAllRecords();
+      console.log('✅ Sign In - Fetched', allRecords.length, 'Airtable records');
+    } catch (fetchError: any) {
+      console.error('❌ Sign In - Airtable fetch failed:', fetchError);
+      let userErrorMessage = "Unable to connect to verification server.\n\n";
+      userErrorMessage += `Error: ${fetchError.message || 'No message available'}\n\n`;
+      userErrorMessage += "Please check your internet connection and try again.";
+      showError(userErrorMessage);
+      setLoading(false);
+      return;
+    }
+
+    const emailExists = allRecords.some((record: any) => {
+      const recordEmail = record.fields?.Email || record.fields?.email;
+      if (!recordEmail) return false;
+      return recordEmail.toLowerCase().trim() === normalizedEmail;
+    });
+
+    console.log('🔐 Sign In - Email exists in Airtable:', emailExists);
+
+    if (!emailExists) {
+      console.log('❌ Sign In - Email not found in Airtable');
+      showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
+      setLoading(false);
+      return;
+    }
+
+    // Step 2: Sign in via backend
+    try {
+      console.log('🔐 Sign In - Calling backend API /api/registration/create-account');
+      const response = await apiPost<{
+        user: {
+          id: string;
+          email: string;
+          name: string;
+          company: string | null;
+          title: string | null;
+          phone: string | null;
+          registrationType: string | null;
+          emailVerified: boolean;
+        };
+        token: string;
+      }>('/api/registration/create-account', {
+        email: normalizedEmail,
+        password: password,
       });
 
-      if (!emailExists) {
-        showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
-        return;
-      }
-
-      // Step 2: Sign in via backend
-      let response;
-      try {
-        response = await apiPost<{
-          user: {
-            id: string;
-            email: string;
-            name: string;
-            company: string | null;
-            title: string | null;
-            phone: string | null;
-            registrationType: string | null;
-            emailVerified: boolean;
-          };
-          token: string;
-        }>('/api/registration/create-account', {
-          email: normalizedEmail,
-          password: password,
-        });
-      } catch (apiError: any) {
-        throw apiError;
-      }
+      console.log('✅ Sign In - Backend API response received');
 
       if (!response.token || !response.user) {
+        console.error('❌ Sign In - Invalid response from backend (missing token or user)');
         showError("Authentication failed. Please try again.");
+        setLoading(false);
         return;
       }
 
+      console.log('✅ Sign In - Setting user from token');
       await setUserFromToken(response.user, response.token);
+      console.log('✅ Sign In - Redirecting to home screen');
       router.replace("/(tabs)/(home)/");
-    } catch (error: any) {
+    } catch (apiError: any) {
+      console.error('❌ Sign In - Backend API error:', apiError);
       let errorMsg = "Authentication failed. Please try again.";
-      if (error && error.message) {
-        errorMsg = error.message;
+      if (apiError && apiError.message) {
+        errorMsg = apiError.message;
         try {
           const jsonMatch = errorMsg.match(/API error: \d+ - (.+)$/s);
           if (jsonMatch) {
@@ -139,11 +155,10 @@ export default function AuthScreen() {
             if (parsed.error) errorMsg = parsed.error;
           }
         } catch (parseError) {
-          // use original message
+          console.log('⚠️ Sign In - Could not parse error message, using original');
         }
       }
       showError(errorMsg);
-    } finally {
       setLoading(false);
     }
   };
@@ -176,7 +191,7 @@ export default function AuthScreen() {
               </Text>
             </View>
 
-            {/* FIX: updated instructions — removed auto-account creation note */}
+            {/* Instructions */}
             <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
               <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
                 Enter the email address you used to register to sign in.

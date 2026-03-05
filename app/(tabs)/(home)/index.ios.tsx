@@ -193,6 +193,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: spacing.xl,
   },
+  wifiCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  wifiTextContainer: {
+    flex: 1,
+  },
+  wifiTitle: {
+    ...typography.bodySmall,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  wifiNetwork: {
+    ...typography.body,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
 });
 
 export default function HomeScreen() {
@@ -523,6 +545,28 @@ export default function HomeScreen() {
               </React.Fragment>
             )}
           </View>
+
+          {/* WiFi Notice */}
+          <View style={[styles.wifiCard, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="wifi"
+              android_material_icon_name="wifi"
+              size={24}
+              color={appColors.primary}
+            />
+            <View style={styles.wifiTextContainer}>
+              <Text style={[styles.wifiTitle, { color: appColors.textSecondary }]}>
+                CONFERENCE WiFi
+              </Text>
+              <Text style={[styles.wifiNetwork, { color: appColors.text }]}>
+                UH GUEST
+              </Text>
+              <Text style={[styles.wifiTitle, { color: appColors.textSecondary, marginTop: spacing.xs }]}>
+                Through the University of Houston Network
+              </Text>
+            </View>
+          </View>
+
         </ScrollView>
       </SafeAreaView>
     </React.Fragment>
