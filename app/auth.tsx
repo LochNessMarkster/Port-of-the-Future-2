@@ -18,7 +18,7 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-import { apiPost } from "@/utils/api";
+import { apiPost, apiGet } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthScreen() {
@@ -34,29 +34,9 @@ export default function AuthScreen() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const showError = (message: string) => {
+    console.log('❌ Sign In - Showing error:', message);
     setErrorMessage(message);
     setErrorModalVisible(true);
-  };
-
-  // Fetch all Airtable records with pagination
-  const fetchAllRecords = async () => {
-    let allRecords: any[] = [];
-    let offset: string | null = null;
-    const baseUrl = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
-
-    do {
-      const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Airtable API returned status ${response.status}: ${response.statusText}. Response: ${errorText}`);
-      }
-      const data = await response.json();
-      allRecords = allRecords.concat(data.records || []);
-      offset = data.offset || null;
-    } while (offset);
-
-    return allRecords;
   };
 
   const handleSignIn = async () => {
@@ -76,36 +56,35 @@ export default function AuthScreen() {
     setLoading(true);
     console.log('🔐 Sign In - Loading state set to true');
 
-    let allRecords;
     const normalizedEmail = email.toLowerCase().trim();
     console.log('🔐 Sign In - Normalized email:', normalizedEmail);
 
-    // Step 1: Verify email exists in Airtable
+    // Step 1: Verify email exists in Airtable via backend API
     try {
-      console.log('📋 Sign In - Fetching Airtable records...');
-      allRecords = await fetchAllRecords();
-      console.log('✅ Sign In - Fetched', allRecords.length, 'Airtable records');
-    } catch (fetchError: any) {
-      console.error('❌ Sign In - Airtable fetch failed:', fetchError);
-      let userErrorMessage = "Unable to connect to verification server.\n\n";
-      userErrorMessage += `Error: ${fetchError.message || 'No message available'}\n\n`;
+      console.log('📋 Sign In - Verifying email with backend API...');
+      const attendees = await apiGet<Array<{ fields: { Email?: string; email?: string } }>>('/api/attendees');
+      console.log('✅ Sign In - Fetched', attendees.length, 'attendee records from backend');
+
+      const emailExists = attendees.some((record: any) => {
+        const recordEmail = record.fields?.Email || record.fields?.email;
+        if (!recordEmail) return false;
+        return recordEmail.toLowerCase().trim() === normalizedEmail;
+      });
+
+      console.log('🔐 Sign In - Email exists in attendees:', emailExists);
+
+      if (!emailExists) {
+        console.log('❌ Sign In - Email not found in attendees list');
+        showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
+        setLoading(false);
+        return;
+      }
+    } catch (verifyError: any) {
+      console.error('❌ Sign In - Email verification failed:', verifyError);
+      let userErrorMessage = "Unable to verify your registration.\n\n";
+      userErrorMessage += `Error: ${verifyError.message || 'No message available'}\n\n`;
       userErrorMessage += "Please check your internet connection and try again.";
       showError(userErrorMessage);
-      setLoading(false);
-      return;
-    }
-
-    const emailExists = allRecords.some((record: any) => {
-      const recordEmail = record.fields?.Email || record.fields?.email;
-      if (!recordEmail) return false;
-      return recordEmail.toLowerCase().trim() === normalizedEmail;
-    });
-
-    console.log('🔐 Sign In - Email exists in Airtable:', emailExists);
-
-    if (!emailExists) {
-      console.log('❌ Sign In - Email not found in Airtable');
-      showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
       setLoading(false);
       return;
     }
@@ -247,6 +226,13 @@ export default function AuthScreen() {
               )}
             </TouchableOpacity>
 
+            {/* WiFi Info */}
+            <View style={[styles.wifiBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
+              <Text style={[styles.wifiText, { color: appColors.text }]}>
+                WIFI THROUGH THE UNIVERSITY OF HOUSTON NETWORK FOUND AT UH GUEST
+              </Text>
+            </View>
+
             {/* Help Text */}
             <View style={styles.helpContainer}>
               <Text style={[styles.helpText, { color: appColors.textSecondary }]}>
@@ -357,8 +343,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   buttonDisabled: { opacity: 0.6 },
-  helpContainer: {
+  wifiBox: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
     marginTop: spacing.xl,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+  },
+  wifiText: {
+    ...typography.bodySmall,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  helpContainer: {
+    marginTop: spacing.lg,
     alignItems: 'center',
   },
   helpText: {
