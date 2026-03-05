@@ -1,3 +1,4 @@
+
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -14,7 +15,7 @@ export const AIRTABLE_TABLES: Record<string, string> = {
   exhibitors:    "tblzex4bjwEZh1021",
   agenda:        "tblhUTXC3XHVGssO4",
   sessions:      "tblhUTXC3XHVGssO4",
-  attendees:     "tblIwt4FWHtNm01Z4",
+  attendees:     "tblqe1kPM95Cp4Srn", // FIX: Updated to match auth.tsx
   sponsors:      "tblgWrwRvpdcVG8sB",
   activities:    "tblLpuL7Xff2rpdbB",
   announcements: "tbl1eqc3UiYaO1pSq",
@@ -64,6 +65,7 @@ export const fetchFromAirtableCache = async <T = any>(
     throw new Error(`Unknown Airtable table: ${tableName}`);
   }
 
+  console.log(`[API] Fetching from Airtable cache: ${tableName} (${tableId})`);
   let allRecords: T[] = [];
   let offset: string | null = null;
 
@@ -72,10 +74,12 @@ export const fetchFromAirtableCache = async <T = any>(
       ? `${AIRTABLE_CACHE_BASE_URL}/${tableId}?offset=${offset}`
       : `${AIRTABLE_CACHE_BASE_URL}/${tableId}`;
 
+    console.log(`[API] Fetching URL: ${url}`);
     const response = await fetch(url);
 
     if (!response.ok) {
       const text = await response.text();
+      console.error(`[API] Airtable error for ${tableName}: ${response.status} - ${text}`);
       throw new Error(`Airtable error for ${tableName}: ${response.status} - ${text}`);
     }
 
@@ -87,11 +91,13 @@ export const fetchFromAirtableCache = async <T = any>(
         ...record.fields,
       }));
       allRecords = allRecords.concat(transformed);
+      console.log(`[API] Fetched ${transformed.length} records (total: ${allRecords.length})`);
     }
 
     offset = data.offset || null;
   } while (offset);
 
+  console.log(`[API] Successfully fetched ${allRecords.length} records from ${tableName}`);
   return allRecords;
 };
 
@@ -102,10 +108,12 @@ export const fetchFromAirtableCache = async <T = any>(
 export const apiGet = async <T = any>(endpoint: string): Promise<T> => {
   const tableKey = ENDPOINT_TO_TABLE[endpoint];
   if (tableKey) {
+    console.log(`[API] Intercepting ${endpoint} -> fetching from Airtable table: ${tableKey}`);
     const records = await fetchFromAirtableCache<any>(tableKey);
     return records as unknown as T;
   }
   // Not a known Airtable endpoint — fall through to backend
+  console.log(`[API] No Airtable mapping for ${endpoint}, calling backend`);
   return apiCall<T>(endpoint, { method: "GET" });
 };
 
@@ -121,6 +129,7 @@ export const apiCall = async <T = any>(
   }
 
   const url = `${BACKEND_URL}${endpoint}`;
+  console.log(`[API] Calling backend: ${options?.method || 'GET'} ${url}`);
 
   const fetchOptions: RequestInit = {
     ...options,
@@ -142,6 +151,7 @@ export const apiCall = async <T = any>(
 
   if (!response.ok) {
     const text = await response.text();
+    console.error(`[API] Backend error: ${response.status} - ${text}`);
     if (response.status === 429) {
       throw new Error(`429 Rate limit exceeded. Please try again later.`);
     }
