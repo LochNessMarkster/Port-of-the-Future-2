@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { randomBytes } from 'crypto';
 import { user, account, session } from '../db/auth-schema.js';
-import { fetchAirtableAttendees, updateAirtableRecord, TABLES } from '../utils/airtable.js';
+import { fetchAirtableCacheAttendees, updateAirtableRecord, TABLES } from '../utils/airtable.js';
 
 // Shared password for all users
 const SHARED_PASSWORD = 'POTF2026';
@@ -60,10 +60,12 @@ export function registerRegistrationRoutes(app: App) {
       app.logger.info({ email: normalizedEmail }, 'Checking email in Airtable');
 
       try {
-        // Fetch attendees from Airtable
-        const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
-          logger: app.logger,
-        });
+        // Fetch attendees from Airtable Cache
+        const attendeesData = await fetchAirtableCacheAttendees(
+          'appkKjciinTlnsbkd',
+          'tblIwt4FWHtNm01Z4',
+          { logger: app.logger }
+        );
 
         // Check if email exists in attendees (case-insensitive)
         const attendee = attendeesData.records.find(
@@ -72,7 +74,7 @@ export function registerRegistrationRoutes(app: App) {
         );
 
         if (!attendee) {
-          app.logger.info({ email: normalizedEmail }, 'Email not found in Airtable');
+          app.logger.info({ email: normalizedEmail }, 'Email not found in Airtable Cache');
           return {
             exists: false,
           };
@@ -194,13 +196,15 @@ export function registerRegistrationRoutes(app: App) {
           .where(eq(user.email, normalizedEmail))
           .limit(1);
 
-        // Fetch attendee details from Airtable - email MUST exist in Airtable
+        // Fetch attendee details from Airtable Cache - email MUST exist in cache
         let airtableData: any = {};
         let airtableRecordId: string | null = null;
         try {
-          const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
-            logger: app.logger,
-          });
+          const attendeesData = await fetchAirtableCacheAttendees(
+            'appkKjciinTlnsbkd',
+            'tblIwt4FWHtNm01Z4',
+            { logger: app.logger }
+          );
 
           const attendee = attendeesData.records.find(
             (record) =>
@@ -208,7 +212,7 @@ export function registerRegistrationRoutes(app: App) {
           );
 
           if (!attendee) {
-            app.logger.warn({ email: normalizedEmail }, 'Email not found in Airtable attendees');
+            app.logger.warn({ email: normalizedEmail }, 'Email not found in Airtable Cache');
             return reply.status(400).send({
               error: 'This email is not registered for Port of the Future 2026. Please contact the conference organizers.',
             });
@@ -222,7 +226,7 @@ export function registerRegistrationRoutes(app: App) {
             linkedin: attendee.fields['LinkedIn'],
           };
         } catch (airtableError) {
-          app.logger.error({ err: airtableError }, 'Failed to fetch Airtable data');
+          app.logger.error({ err: airtableError }, 'Failed to fetch Airtable Cache data');
           throw airtableError;
         }
 
@@ -457,9 +461,11 @@ export function registerRegistrationRoutes(app: App) {
 
         // Update Airtable attendee record with image URL if available
         try {
-          const attendeesData = await fetchAirtableAttendees(TABLES.ATTENDEES, {
-            logger: app.logger,
-          });
+          const attendeesData = await fetchAirtableCacheAttendees(
+            'appkKjciinTlnsbkd',
+            'tblIwt4FWHtNm01Z4',
+            { logger: app.logger }
+          );
 
           const attendee = attendeesData.records.find(
             (record) =>
