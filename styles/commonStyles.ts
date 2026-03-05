@@ -4,15 +4,15 @@ import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 // Port of the Future 2026 Theme - Maritime colors (vibrant ocean-inspired)
 export const colors = {
   light: {
-    background: '#E8F4F8', // Soft sky blue background
+    background: '#001F3F', // Deep navy (consistent across all versions)
     card: '#FFFFFF',
-    text: '#0A2540', // Deep navy text
-    textSecondary: '#4A6B8A', // Muted blue-gray
+    text: '#E8F4F8', // Light blue-white for readability on dark background
+    textSecondary: '#90CAF9', // Bright blue-gray
     primary: '#0077BE', // Vibrant ocean blue
     secondary: '#00B4D8', // Bright turquoise
     accent: '#FF6B35', // Coral orange
     highlight: '#FFA500', // Bright orange/gold
-    border: '#B8D4E8',
+    border: '#1A5276',
     success: '#06D6A0',
     error: '#EF476F',
     warning: '#FFD166',
@@ -88,7 +88,7 @@ export const legacyColors = {
   primary: '#0066CC',
   secondary: '#00A3E0',
   accent: '#64B5F6',
-  background: '#0A1929',
+  background: '#001F3F', // Updated to match new theme
   backgroundAlt: '#1A2F42',
   text: '#E3F2FD',
   grey: '#90B4CE',
