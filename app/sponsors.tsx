@@ -65,9 +65,19 @@ const styles = StyleSheet.create({
   tierSection: {
     marginBottom: spacing.xl,
   },
+  tierHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  tierDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
   tierTitle: {
     ...typography.h2,
-    marginBottom: spacing.md,
   },
   sponsorCard: {
     borderRadius: borderRadius.md,
@@ -96,11 +106,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    ...Platform.select({
-      web: {
-        display: 'flex' as any,
-      },
-    }),
   },
   sponsorLogo: {
     width: '100%',
@@ -166,11 +171,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    ...Platform.select({
-      web: {
-        display: 'flex' as any,
-      },
-    }),
   },
   modalLogo: {
     width: '100%',
@@ -222,6 +222,16 @@ const styles = StyleSheet.create({
   },
 });
 
+const TIER_COLORS: Record<string, string> = {
+  'Platinum': '#A8B2C1',
+  'Gold': '#FFD700',
+  'Silver': '#C0C0C0',
+  'Bronze': '#CD7F32',
+  'Partner': '#6C8EBF',
+};
+
+const TIER_ORDER = ['Platinum', 'Gold', 'Silver', 'Bronze', 'Partner'];
+
 export default function SponsorsScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
@@ -237,9 +247,7 @@ export default function SponsorsScreen() {
   const loadSponsors = async () => {
     try {
       setLoading(true);
-      console.log('[Sponsors] Fetching sponsors from /api/sponsors');
       const data = await apiGet<Sponsor[]>('/api/sponsors');
-      console.log('[Sponsors] Received sponsors:', data.length);
       setSponsors(data);
     } catch (error) {
       console.error('[Sponsors] Error loading sponsors:', error);
@@ -251,65 +259,39 @@ export default function SponsorsScreen() {
 
   const openWebsite = (url: string) => {
     if (url) {
-      console.log('[Sponsors] Opening website:', url);
       Linking.openURL(url).catch(err => console.error('[Sponsors] Error opening URL:', err));
     }
   };
 
-  const getTierColor = (tier: string) => {
-    switch (tier.toLowerCase()) {
-      case 'platinum':
-        return '#E5E4E2';
-      case 'gold':
-        return '#FFD700';
-      case 'silver':
-        return '#C0C0C0';
-      case 'bronze':
-        return '#CD7F32';
-      default:
-        return appColors.textSecondary;
-    }
+  const getTierColor = (tier: string): string => {
+    return TIER_COLORS[tier] || appColors.textSecondary;
   };
 
-  // Filter sponsors by search query
   const filteredSponsors = useMemo(() => {
-    if (searchQuery.trim() === '') {
-      return sponsors;
-    }
-    
+    if (searchQuery.trim() === '') return sponsors;
     const query = searchQuery.toLowerCase();
-    const filtered = sponsors.filter(sponsor => {
-      const matchesName = sponsor.name.toLowerCase().includes(query);
-      const matchesTier = sponsor.tier.toLowerCase().includes(query);
-      const matchesIntro = sponsor.intro?.toLowerCase().includes(query);
-      const matchesBio = sponsor.bio.toLowerCase().includes(query);
-      
-      return matchesName || matchesTier || matchesIntro || matchesBio;
-    });
-    
-    return filtered;
+    return sponsors.filter(sponsor =>
+      sponsor.name.toLowerCase().includes(query) ||
+      sponsor.tier.toLowerCase().includes(query) ||
+      sponsor.intro?.toLowerCase().includes(query) ||
+      sponsor.bio.toLowerCase().includes(query)
+    );
   }, [sponsors, searchQuery]);
 
-  // Group sponsors by tier (already sorted by backend)
   const groupedSponsors = useMemo(() => {
     const grouped = filteredSponsors.reduce((acc, sponsor) => {
       const tier = sponsor.tier || 'Partner';
-      if (!acc[tier]) {
-        acc[tier] = [];
-      }
+      if (!acc[tier]) acc[tier] = [];
       acc[tier].push(sponsor);
       return acc;
     }, {} as Record<string, Sponsor[]>);
-    
+
+    Object.keys(grouped).forEach(tier => {
+      grouped[tier].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
     return grouped;
   }, [filteredSponsors]);
-
-  const tierOrder = ['Platinum', 'Gold', 'Silver', 'Bronze', 'Partner'];
-
-  const clearSearch = () => {
-    console.log('[Sponsors] Clearing search');
-    setSearchQuery('');
-  };
 
   return (
     <React.Fragment>
@@ -321,7 +303,6 @@ export default function SponsorsScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
             <IconSymbol
@@ -336,13 +317,10 @@ export default function SponsorsScreen() {
               placeholder="Search sponsors, tiers..."
               placeholderTextColor={appColors.textSecondary}
               value={searchQuery}
-              onChangeText={(text) => {
-                console.log('[Sponsors] Search query changed:', text);
-                setSearchQuery(text);
-              }}
+              onChangeText={setSearchQuery}
             />
-            {searchQuery.length > 0 ? (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
                 <IconSymbol
                   ios_icon_name="xmark.circle.fill"
                   android_material_icon_name="cancel"
@@ -350,11 +328,11 @@ export default function SponsorsScreen() {
                   color={appColors.textSecondary}
                 />
               </TouchableOpacity>
-            ) : null}
+            )}
           </View>
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -383,23 +361,25 @@ export default function SponsorsScreen() {
             </View>
           ) : (
             <React.Fragment>
-              {tierOrder.map(tier => {
+              {TIER_ORDER.map(tier => {
                 const tierSponsors = groupedSponsors[tier];
                 if (!tierSponsors || tierSponsors.length === 0) return null;
+                const tierColor = getTierColor(tier);
 
                 return (
                   <View key={tier} style={styles.tierSection}>
-                    <Text style={[styles.tierTitle, { color: appColors.text }]}>
-                      {tier}
-                    </Text>
-                    {tierSponsors.map((sponsor) => (
+                    <View style={styles.tierHeader}>
+                      <View style={[styles.tierDot, { backgroundColor: tierColor }]} />
+                      <Text style={[styles.tierTitle, { color: appColors.text }]}>
+                        {tier}
+                      </Text>
+                    </View>
+
+                    {tierSponsors.map(sponsor => (
                       <TouchableOpacity
                         key={sponsor.id}
-                        style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
-                        onPress={() => {
-                          console.log('[Sponsors] Opening sponsor details:', sponsor.name);
-                          setSelectedSponsor(sponsor);
-                        }}
+                        style={[styles.sponsorCard, { backgroundColor: 'transparent' }]}
+                        onPress={() => setSelectedSponsor(sponsor)}
                         activeOpacity={0.7}
                       >
                         <View style={styles.logoWhiteBackground}>
@@ -425,25 +405,18 @@ export default function SponsorsScreen() {
           )}
         </ScrollView>
 
-        {/* Sponsor Detail Modal */}
         <Modal
           visible={selectedSponsor !== null}
           transparent
           animationType="fade"
           onRequestClose={() => setSelectedSponsor(null)}
         >
-          <Pressable 
-            style={styles.modalOverlay}
-            onPress={() => setSelectedSponsor(null)}
-          >
-            <Pressable 
+          <Pressable style={styles.modalOverlay} onPress={() => setSelectedSponsor(null)}>
+            <Pressable
               style={[styles.modalContent, { backgroundColor: appColors.card }]}
-              onPress={(e) => e.stopPropagation()}
+              onPress={e => e.stopPropagation()}
             >
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => setSelectedSponsor(null)}
-              >
+              <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedSponsor(null)}>
                 <IconSymbol
                   ios_icon_name="xmark.circle.fill"
                   android_material_icon_name="cancel"
@@ -465,9 +438,9 @@ export default function SponsorsScreen() {
                   </Text>
                   <Text style={[
                     styles.modalTier,
-                    { 
+                    {
                       backgroundColor: getTierColor(selectedSponsor?.tier || '') + '40',
-                      color: appColors.text
+                      color: appColors.text,
                     }
                   ]}>
                     {selectedSponsor?.tier}
