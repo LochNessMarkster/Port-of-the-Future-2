@@ -108,13 +108,13 @@ export function registerRegistrationRoutes(app: App) {
   );
 
   /**
-   * POST /api/registration/create-account - Create account with email and shared password verification
+   * POST /api/registration/create-account - Create account or login with email and password
    */
   app.fastify.post(
     '/api/registration/create-account',
     {
       schema: {
-        description: 'Create user account with email and password verification',
+        description: 'Create user account or login with email and password',
         tags: ['registration'],
         body: {
           type: 'object',
@@ -141,6 +141,7 @@ export function registerRegistrationRoutes(app: App) {
                   emailVerified: { type: 'boolean' },
                 },
               },
+              token: { type: 'string' },
             },
           },
           201: {
@@ -159,6 +160,7 @@ export function registerRegistrationRoutes(app: App) {
                   emailVerified: { type: 'boolean' },
                 },
               },
+              token: { type: 'string' },
             },
           },
           400: {
@@ -178,62 +180,20 @@ export function registerRegistrationRoutes(app: App) {
 
       const normalizedEmail = email.toLowerCase();
 
-      app.logger.info({ email: normalizedEmail }, 'Creating account with password verification');
+      app.logger.info({ email: normalizedEmail }, 'Creating account or logging in with email/password');
 
       try {
-        // Verify password is exactly "POTF2026"
-        if (password !== SHARED_PASSWORD) {
-          app.logger.warn({ email: normalizedEmail }, 'Invalid password provided');
-          return reply.status(400).send({
-            error: 'Invalid password. The password must be exactly "POTF2026".',
-          });
-        }
-
         // Check if user already exists
-        const existingUser = await app.db
+        const existingUserResult = await app.db
           .select()
           .from(user)
           .where(eq(user.email, normalizedEmail))
           .limit(1);
 
-        // Fetch attendee details from Airtable Cache - email MUST exist in cache
-        let airtableData: any = {};
-        try {
-          const attendeesData = await fetchAirtableCacheAttendees(
-            'appkKjciinTlnsbkd',
-            'tblIwt4FWHtNm01Z4',
-            { logger: app.logger }
-          );
-
-          const attendee = attendeesData.records.find(
-            (record) =>
-              record.fields['Email']?.toLowerCase() === normalizedEmail
-          );
-
-          if (!attendee) {
-            app.logger.warn({ email: normalizedEmail }, 'Email not found in Airtable Cache');
-            return reply.status(400).send({
-              error: 'This email is not registered for Port of the Future 2026. Please contact us for assistance.',
-            });
-          }
-
-          airtableData = {
-            firstName: attendee.fields['First Name'],
-            lastName: attendee.fields['Last Name'],
-            company: attendee.fields['Company'],
-            title: attendee.fields['Job Title'],
-            phone: attendee.fields['Phone'],
-            registrationType: attendee.fields['Registration Level'],
-          };
-        } catch (airtableError) {
-          app.logger.error({ err: airtableError }, 'Failed to fetch Airtable Cache data');
-          throw airtableError;
-        }
-
-        // If user already exists in DB, just create a new session
-        if (existingUser.length > 0) {
-          const existingUserData = existingUser[0];
-          app.logger.info({ email: normalizedEmail }, 'User already exists in DB, creating new session');
+        // If user already exists, just create a new session
+        if (existingUserResult.length > 0) {
+          const existingUserData = existingUserResult[0];
+          app.logger.info({ email: normalizedEmail, userId: existingUserData.id }, 'User already exists, creating new session');
 
           // Create session for existing user
           const sessionToken = generateSessionToken();
@@ -264,7 +224,8 @@ export function registerRegistrationRoutes(app: App) {
             throw sessionError;
           }
 
-          // Return existing user data
+          // Return existing user data with token
+          app.logger.info({ email: normalizedEmail, userId: existingUserData.id }, 'Login completed successfully');
           return reply.status(200).send({
             user: {
               id: existingUserData.id,
@@ -276,33 +237,30 @@ export function registerRegistrationRoutes(app: App) {
               registrationType: existingUserData.registrationType,
               emailVerified: existingUserData.emailVerified,
             },
+            token: sessionToken,
           });
         }
 
-        // Build full name from Airtable data
-        const fullName = [airtableData.firstName, airtableData.lastName]
-          .filter(Boolean)
-          .join(' ')
-          .trim() || normalizedEmail;
-
-        // Create user record
+        // Create new user with email as name (fallback)
         const userId = randomUUID();
         const [newUser] = await app.db
           .insert(user)
           .values({
             id: userId,
             email: normalizedEmail,
-            name: fullName,
+            name: normalizedEmail,
             emailVerified: true,
-            company: airtableData.company || null,
-            title: airtableData.title || null,
-            phone: airtableData.phone || null,
-            registrationType: airtableData.registrationType || null,
+            company: null,
+            title: null,
+            phone: null,
+            registrationType: null,
             role: 'attendee',
           })
           .returning();
 
-        // Create account record with shared password
+        app.logger.info({ userId, email: normalizedEmail }, 'User record created');
+
+        // Create account record with provided password
         const accountId = randomUUID();
         await app.db
           .insert(account)
@@ -311,10 +269,10 @@ export function registerRegistrationRoutes(app: App) {
             userId,
             accountId: normalizedEmail,
             providerId: 'credential',
-            password: SHARED_PASSWORD,
+            password,
           });
 
-        app.logger.info({ userId, email: normalizedEmail }, 'User and account created');
+        app.logger.info({ userId, email: normalizedEmail }, 'Account record created');
 
         // Create session
         const sessionToken = generateSessionToken();
@@ -332,7 +290,7 @@ export function registerRegistrationRoutes(app: App) {
             userAgent: request.headers['user-agent'] || null,
           });
 
-        app.logger.info({ userId, sessionId }, 'Session created');
+        app.logger.info({ userId, sessionId }, 'Session created for new user');
 
         // Set the session cookie using Set-Cookie header for web clients
         const maxAge = 90 * 24 * 60 * 60; // 90 days in seconds
@@ -353,11 +311,12 @@ export function registerRegistrationRoutes(app: App) {
             registrationType: newUser.registrationType,
             emailVerified: newUser.emailVerified,
           },
+          token: sessionToken,
         });
       } catch (error) {
         app.logger.error(
           { err: error, email: normalizedEmail },
-          'Failed to create account'
+          'Failed to create account or login'
         );
         throw error;
       }
