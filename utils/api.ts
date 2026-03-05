@@ -15,7 +15,7 @@ export const AIRTABLE_TABLES: Record<string, string> = {
   exhibitors:    "tblzex4bjwEZh1021",
   agenda:        "tblhUTXC3XHVGssO4",
   sessions:      "tblhUTXC3XHVGssO4",
-  attendees:     "tblqe1kPM95Cp4Srn", // FIX: Updated to match auth.tsx
+  attendees:     "tblqe1kPM95Cp4Srn",
   sponsors:      "tblgWrwRvpdcVG8sB",
   activities:    "tblLpuL7Xff2rpdbB",
   announcements: "tbl1eqc3UiYaO1pSq",
@@ -56,6 +56,8 @@ export const getBearerToken = async (): Promise<string | null> => {
 
 /**
  * Fetch all records from an Airtable table, handling pagination automatically.
+ * Airtable returns a maximum of 100 records per request. This function
+ * continues fetching until all records are retrieved.
  */
 export const fetchFromAirtableCache = async <T = any>(
   tableName: string
@@ -65,21 +67,23 @@ export const fetchFromAirtableCache = async <T = any>(
     throw new Error(`Unknown Airtable table: ${tableName}`);
   }
 
-  console.log(`[API] Fetching from Airtable cache: ${tableName} (${tableId})`);
+  console.log(`[API] 🔄 Starting pagination fetch for ${tableName} (${tableId})`);
   let allRecords: T[] = [];
   let offset: string | null = null;
+  let pageNumber = 0;
 
   do {
+    pageNumber++;
     const url = offset
       ? `${AIRTABLE_CACHE_BASE_URL}/${tableId}?offset=${offset}`
       : `${AIRTABLE_CACHE_BASE_URL}/${tableId}`;
 
-    console.log(`[API] Fetching URL: ${url}`);
+    console.log(`[API] 📄 Fetching page ${pageNumber} for ${tableName}...`);
     const response = await fetch(url);
 
     if (!response.ok) {
       const text = await response.text();
-      console.error(`[API] Airtable error for ${tableName}: ${response.status} - ${text}`);
+      console.error(`[API] ❌ Airtable error for ${tableName} (page ${pageNumber}): ${response.status} - ${text}`);
       throw new Error(`Airtable error for ${tableName}: ${response.status} - ${text}`);
     }
 
@@ -91,13 +95,21 @@ export const fetchFromAirtableCache = async <T = any>(
         ...record.fields,
       }));
       allRecords = allRecords.concat(transformed);
-      console.log(`[API] Fetched ${transformed.length} records (total: ${allRecords.length})`);
+      console.log(`[API] ✅ Page ${pageNumber}: Fetched ${transformed.length} records (total so far: ${allRecords.length})`);
+    } else {
+      console.log(`[API] ⚠️ Page ${pageNumber}: No records array found in response`);
     }
 
     offset = data.offset || null;
+    
+    if (offset) {
+      console.log(`[API] 🔄 More records available, continuing to page ${pageNumber + 1}...`);
+    } else {
+      console.log(`[API] ✅ Pagination complete for ${tableName}`);
+    }
   } while (offset);
 
-  console.log(`[API] Successfully fetched ${allRecords.length} records from ${tableName}`);
+  console.log(`[API] 🎉 Successfully fetched ALL ${allRecords.length} records from ${tableName} in ${pageNumber} page(s)`);
   return allRecords;
 };
 
