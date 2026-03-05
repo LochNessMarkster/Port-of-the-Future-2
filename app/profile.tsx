@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -10,7 +9,8 @@ import {
   ActivityIndicator,
   TextInput,
   Image,
-  Switch
+  Switch,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
@@ -33,18 +33,13 @@ interface UserProfile {
   emailVerified: boolean | null;
 }
 
-// Helper to resolve image sources
 function resolveImageSource(uri: string | null | undefined) {
-  if (uri) {
-    return { uri };
-  }
+  if (uri) return { uri };
   return require('@/assets/images/POF-ICON.png');
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: 100,
@@ -59,20 +54,10 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     marginBottom: spacing.md,
   },
-  profileName: {
-    ...typography.h1,
-    marginBottom: spacing.xs,
-  },
-  profileEmail: {
-    ...typography.body,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    marginBottom: spacing.md,
-  },
+  profileName: { ...typography.h1, marginBottom: spacing.xs },
+  profileEmail: { ...typography.body },
+  section: { marginBottom: spacing.xl },
+  sectionTitle: { ...typography.h3, marginBottom: spacing.md },
   label: {
     ...typography.bodySmall,
     fontWeight: '600',
@@ -101,25 +86,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  switchLabel: {
-    ...typography.body,
-    flex: 1,
-    marginRight: spacing.md,
-  },
+  switchLabel: { ...typography.body, flex: 1, marginRight: spacing.md },
   saveButton: {
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     marginTop: spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
-  saveButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-  },
+  saveButtonText: { ...typography.body, fontWeight: '600' },
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
   },
+  // FIX: success banner shown after save
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  successBannerText: { ...typography.bodySmall, flex: 1, fontWeight: '600' },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  errorBannerText: { ...typography.bodySmall, flex: 1, fontWeight: '600' },
 });
 
 export default function ProfileScreen() {
@@ -129,6 +129,8 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form fields
   const [name, setName] = useState('');
@@ -139,17 +141,13 @@ export default function ProfileScreen() {
   const [bio, setBio] = useState('');
   const [optInNetworking, setOptInNetworking] = useState(false);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  useEffect(() => { loadProfile(); }, []);
 
   const loadProfile = async () => {
     try {
       setLoading(true);
       const data = await apiGet<UserProfile>('/api/profile');
       setProfile(data);
-      
-      // Populate form fields
       setName(data.name || '');
       setCompany(data.company || '');
       setTitle(data.title || '');
@@ -157,10 +155,9 @@ export default function ProfileScreen() {
       setLinkedin(data.linkedin || '');
       setBio(data.bio || '');
       setOptInNetworking(data.optInNetworking || false);
-      
-      console.log('ProfileScreen - Loaded profile');
     } catch (error) {
       console.error('ProfileScreen - Error loading profile:', error);
+      setSaveError('Could not load your profile. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -168,6 +165,8 @@ export default function ProfileScreen() {
 
   const saveProfile = async () => {
     setSaving(true);
+    setSaveSuccess(false);
+    setSaveError(null);
     try {
       const updatedProfile = await authenticatedPut<UserProfile>('/api/profile', {
         name,
@@ -179,10 +178,14 @@ export default function ProfileScreen() {
         optInNetworking,
       });
       setProfile(updatedProfile);
-      await fetchUser(); // Refresh auth context
-      console.log('ProfileScreen - Profile updated');
-    } catch (error) {
+      await fetchUser();
+      // FIX: show success banner instead of silently saving
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error: any) {
       console.error('ProfileScreen - Error saving profile:', error);
+      // FIX: show error banner if save fails
+      setSaveError(error?.message || 'Failed to save profile. Please try again.');
     } finally {
       setSaving(false);
     }

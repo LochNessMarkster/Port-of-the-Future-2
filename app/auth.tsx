@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   View,
@@ -34,72 +33,40 @@ export default function AuthScreen() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const showError = (message: string) => {
-    console.log('[AuthScreen] Showing error:', message);
     setErrorMessage(message);
     setErrorModalVisible(true);
   };
 
-  // Function to fetch all Airtable records with pagination
+  // Fetch all Airtable records with pagination
   const fetchAllRecords = async () => {
     let allRecords: any[] = [];
     let offset: string | null = null;
     const baseUrl = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
-    
-    console.log('🔍 [Airtable] Starting paginated fetch of all records');
-    
+
     do {
       const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
-      console.log('🌐 [Airtable] Fetching page from:', url);
-      
       try {
         const response = await fetch(url);
-        
-        console.log('📡 [Airtable] Response status:', response.status);
-        console.log('📡 [Airtable] Response ok:', response.ok);
-        console.log('📡 [Airtable] Response statusText:', response.statusText);
-        
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('❌ [Airtable] Bad response status:', response.status);
-          console.error('❌ [Airtable] Error response body:', errorText);
           throw new Error(`Airtable API returned status ${response.status}: ${response.statusText}. Response: ${errorText}`);
         }
-        
         const data = await response.json();
-        const recordCount = data.records?.length || 0;
-        console.log('📦 [Airtable] Fetched page with', recordCount, 'records');
-        
         allRecords = allRecords.concat(data.records || []);
         offset = data.offset || null;
-        
-        if (offset) {
-          console.log('➡️ [Airtable] More pages available, continuing...');
-        } else {
-          console.log('✅ [Airtable] All pages fetched');
-        }
       } catch (fetchError: any) {
-        console.error('❌ [Airtable] Fetch failed with error:', fetchError);
-        console.error('❌ [Airtable] Error name:', fetchError.name);
-        console.error('❌ [Airtable] Error message:', fetchError.message);
-        console.error('❌ [Airtable] Error stack:', fetchError.stack);
-        console.error('❌ [Airtable] Full error object:', JSON.stringify(fetchError, Object.getOwnPropertyNames(fetchError)));
         throw fetchError;
       }
     } while (offset);
-    
-    console.log('✅ [Airtable] Total records fetched:', allRecords.length);
+
     return allRecords;
   };
 
   const handleSignIn = async () => {
-    console.log('🔐 [AuthScreen] User tapped Sign In');
-    console.log('📧 [AuthScreen] Email:', email);
-    
     if (!email || !email.includes('@')) {
       showError("Please enter a valid email address");
       return;
     }
-
     if (!password) {
       showError("Please enter a password");
       return;
@@ -107,132 +74,77 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      // Step 1: Check if email exists in Airtable cache (with pagination)
-      console.log('🔍 [Airtable] Starting email verification for:', email.toLowerCase().trim());
-      
+      // Step 1: Verify email exists in Airtable
       let allRecords;
       try {
         allRecords = await fetchAllRecords();
       } catch (fetchError: any) {
-        console.error('❌ [Airtable] Failed to fetch records:', fetchError);
-        console.error('❌ [Airtable] Error type:', typeof fetchError);
-        console.error('❌ [Airtable] Error constructor:', fetchError.constructor?.name);
-        console.error('❌ [Airtable] Error details:', {
-          message: fetchError.message,
-          name: fetchError.name,
-          stack: fetchError.stack,
-          cause: fetchError.cause
-        });
-        
-        // Build detailed error message for user
         let userErrorMessage = "Unable to connect to verification server.\n\n";
-        userErrorMessage += `Error Type: ${fetchError.name || 'Unknown'}\n`;
-        userErrorMessage += `Error Message: ${fetchError.message || 'No message available'}\n\n`;
-        
-        if (fetchError.cause) {
-          userErrorMessage += `Cause: ${JSON.stringify(fetchError.cause)}\n\n`;
-        }
-        
+        userErrorMessage += `Error: ${fetchError.message || 'No message available'}\n\n`;
         userErrorMessage += "Please check your internet connection and try again.";
-        
-        console.error('❌ [Airtable] Showing detailed error to user:', userErrorMessage);
         showError(userErrorMessage);
         return;
       }
 
-      // Search for email match (case-insensitive)
       const normalizedEmail = email.toLowerCase().trim();
-      console.log('🔎 [Airtable] Searching for email in', allRecords.length, 'records');
-      
       const emailExists = allRecords.some((record: any) => {
         const recordEmail = record.fields?.Email || record.fields?.email;
         if (!recordEmail) return false;
-        const normalizedRecordEmail = recordEmail.toLowerCase().trim();
-        return normalizedRecordEmail === normalizedEmail;
+        return recordEmail.toLowerCase().trim() === normalizedEmail;
       });
 
       if (!emailExists) {
-        console.log('❌ [Airtable] Email not found in registered attendees');
         showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
         return;
       }
 
-      console.log('✅ [Airtable] Email verified successfully');
-
-      // Step 2: Proceed with backend login
-      console.log('🚀 [API] Calling /api/registration/create-account');
-      console.log('📤 [API] Request data:', { email: normalizedEmail, password: '***' });
-      
+      // Step 2: Sign in via backend
       let response;
       try {
-        response = await apiPost<{ 
-          user: { 
-            id: string; 
-            email: string; 
-            name: string; 
-            company: string | null; 
-            title: string | null; 
+        response = await apiPost<{
+          user: {
+            id: string;
+            email: string;
+            name: string;
+            company: string | null;
+            title: string | null;
             phone: string | null;
             registrationType: string | null;
             emailVerified: boolean;
-          }; 
+          };
           token: string;
         }>('/api/registration/create-account', {
           email: normalizedEmail,
           password: password,
         });
-        console.log('✅ [API] Response received:', { hasUser: !!response.user, hasToken: !!response.token });
       } catch (apiError: any) {
-        console.error('❌ [API] Request failed:', apiError);
-        console.error('❌ [API] Error details:', {
-          message: apiError.message,
-          name: apiError.name,
-          stack: apiError.stack
-        });
         throw apiError;
       }
 
       if (!response.token || !response.user) {
-        console.error('❌ [API] Invalid response - missing token or user');
         showError("Authentication failed. Please try again.");
         return;
       }
 
-      console.log('💾 [AuthContext] Setting user from token');
       await setUserFromToken(response.user, response.token);
-
-      console.log('🎉 [AuthScreen] Sign in successful, navigating to home');
       router.replace("/(tabs)/(home)/");
     } catch (error: any) {
-      console.error('❌ [AuthScreen] Auth error:', error);
-      console.error('❌ [AuthScreen] Error type:', typeof error);
-      console.error('❌ [AuthScreen] Error keys:', Object.keys(error));
-      
       let errorMsg = "Authentication failed. Please try again.";
-
       if (error && error.message) {
         errorMsg = error.message;
-        console.log('📝 [AuthScreen] Using error.message:', errorMsg);
-        
-        // Try to parse JSON error body from API response
         try {
           const jsonMatch = errorMsg.match(/API error: \d+ - (.+)$/s);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[1]);
-            if (parsed.error) {
-              errorMsg = parsed.error;
-              console.log('📝 [AuthScreen] Extracted error from JSON:', errorMsg);
-            }
+            if (parsed.error) errorMsg = parsed.error;
           }
         } catch (parseError) {
-          console.log('⚠️ [AuthScreen] Could not parse error as JSON');
+          // use original message
         }
       }
-
       showError(errorMsg);
     } finally {
       setLoading(false);
-      console.log('🏁 [AuthScreen] Sign in flow completed');
     }
   };
 
@@ -245,7 +157,7 @@ export default function AuthScreen() {
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
@@ -264,20 +176,20 @@ export default function AuthScreen() {
               </Text>
             </View>
 
-            {/* Instructions */}
+            {/* FIX: updated instructions — removed auto-account creation note */}
             <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
               <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
-                Enter your email and password to sign in. If you don&apos;t have an account, one will be created automatically.
+                Enter the email address you used to register to sign in.
               </Text>
             </View>
 
             {/* Email Input */}
             <Text style={[styles.label, { color: appColors.text }]}>Email Address</Text>
             <TextInput
-              style={[styles.input, { 
-                backgroundColor: inputBackgroundColor, 
+              style={[styles.input, {
+                backgroundColor: inputBackgroundColor,
                 borderColor: inputBorderColor,
-                color: appColors.text 
+                color: appColors.text
               }]}
               placeholder="john@example.com"
               placeholderTextColor={appColors.textSecondary}
@@ -292,10 +204,10 @@ export default function AuthScreen() {
             {/* Password Input */}
             <Text style={[styles.label, { color: appColors.text }]}>Password</Text>
             <TextInput
-              style={[styles.input, { 
-                backgroundColor: inputBackgroundColor, 
+              style={[styles.input, {
+                backgroundColor: inputBackgroundColor,
                 borderColor: inputBorderColor,
-                color: appColors.text 
+                color: appColors.text
               }]}
               placeholder="Enter password"
               placeholderTextColor={appColors.textSecondary}
@@ -307,7 +219,7 @@ export default function AuthScreen() {
               editable={!loading}
             />
 
-            {/* Submit Button */}
+            {/* Sign In Button */}
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
               onPress={handleSignIn}
@@ -316,9 +228,7 @@ export default function AuthScreen() {
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.primaryButtonText}>
-                  Sign In
-                </Text>
+                <Text style={styles.primaryButtonText}>Sign In</Text>
               )}
             </TouchableOpacity>
 
@@ -342,10 +252,7 @@ export default function AuthScreen() {
         animationType="fade"
         onRequestClose={() => setErrorModalVisible(false)}
       >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setErrorModalVisible(false)}
-        >
+        <Pressable style={styles.modalOverlay} onPress={() => setErrorModalVisible(false)}>
           <Pressable style={[styles.modalContent, { backgroundColor: appColors.card }]}>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
               Sign In Failed
@@ -369,15 +276,9 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
+  container: { flex: 1 },
+  keyboardView: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
   content: {
     flex: 1,
     padding: spacing.lg,
@@ -440,9 +341,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
+  buttonDisabled: { opacity: 0.6 },
   helpContainer: {
     marginTop: spacing.xl,
     alignItems: 'center',

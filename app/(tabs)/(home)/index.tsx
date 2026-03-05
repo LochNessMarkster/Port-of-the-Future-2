@@ -1,4 +1,3 @@
-
 import { useTheme } from "@react-navigation/native";
 import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -11,7 +10,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme,
-  Platform,
   Dimensions,
   ImageBackground,
   ImageSourcePropType
@@ -40,7 +38,6 @@ interface Announcement {
   time?: string | null;
 }
 
-// Helper to resolve image sources (handles both local require() and remote URLs)
 function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
@@ -50,23 +47,11 @@ function resolveImageSource(source: string | number | ImageSourcePropType | unde
 const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  heroContainer: {
-    width: '100%',
-    height: 200,
-  },
-  heroImageStyle: {
-    width: '100%',
-    height: '100%',
-  },
+  safeArea: { flex: 1 },
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 20 },
+  heroContainer: { width: '100%', height: 200 },
+  heroImageStyle: { width: '100%', height: '100%' },
   heroContent: {
     flex: 1,
     justifyContent: 'center',
@@ -80,10 +65,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     marginBottom: spacing.xs,
   },
-  dateLocationContainer: {
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
+  dateLocationContainer: { alignItems: 'center', marginTop: spacing.xs },
   dateText: {
     ...typography.body,
     color: '#FFFFFF',
@@ -133,24 +115,12 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-      web: {
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  navIcon: {
-    marginBottom: spacing.xs,
-  },
+  navIcon: { marginBottom: spacing.xs },
   navLabel: {
     ...typography.bodySmall,
     fontWeight: '600',
@@ -169,20 +139,10 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.md,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-      web: {
-        boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.1)',
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   announcementImage: {
     width: '100%',
@@ -191,14 +151,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     resizeMode: 'cover',
   },
-  announcementTitle: {
-    ...typography.h3,
-    marginBottom: spacing.xs,
-  },
-  announcementContent: {
-    ...typography.bodySmall,
-    marginBottom: spacing.xs,
-  },
+  announcementTitle: { ...typography.h3, marginBottom: spacing.xs },
+  announcementContent: { ...typography.bodySmall, marginBottom: spacing.xs },
   announcementMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -210,17 +164,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  announcementMetaText: {
-    ...typography.caption,
+  announcementMetaText: { ...typography.caption },
+  loadingContainer: { padding: spacing.xl, alignItems: 'center' },
+  emptyText: { ...typography.body, textAlign: 'center', padding: spacing.xl },
+  // FIX: WiFi notice card at bottom of home screen
+  wifiCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
+  wifiTextContainer: { flex: 1 },
+  wifiTitle: {
+    ...typography.bodySmall,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
   },
-  emptyText: {
+  wifiNetwork: {
     ...typography.body,
-    textAlign: 'center',
-    padding: spacing.xl,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
 
@@ -234,18 +200,15 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('HomeScreen - Component mounted, loading announcements');
     loadAnnouncements();
   }, []);
 
   const loadAnnouncements = async () => {
     try {
       setLoading(true);
-      console.log('HomeScreen - Fetching announcements from API');
       const { apiGet } = await import('@/utils/api');
       const data = await apiGet<Announcement[]>('/api/announcements');
       setAnnouncements(data || []);
-      console.log('HomeScreen - Loaded announcements:', data?.length || 0);
     } catch (error) {
       console.error('HomeScreen - Error loading announcements:', error);
       setAnnouncements([]);
@@ -261,14 +224,12 @@ export default function HomeScreen() {
       const day = String(date.getDate()).padStart(2, '0');
       const year = date.getFullYear();
       return `${month}/${day}/${year}`;
-    } catch (error) {
-      console.error('HomeScreen - Error formatting date:', error);
+    } catch {
       return dateString;
     }
   };
 
   const handleNavigation = (route: string) => {
-    console.log('HomeScreen - Navigating to:', route);
     try {
       router.push(route as any);
     } catch (error) {
@@ -278,25 +239,17 @@ export default function HomeScreen() {
 
   const userName = user?.name || 'Guest';
   const welcomeText = `Welcome, ${userName}!`;
-  const dateText = 'March 24-25, 2026';
-  const locationText = 'Houston, Texas';
-
-  console.log('HomeScreen - Rendering with user:', userName, 'announcements:', announcements.length);
 
   return (
     <React.Fragment>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={[styles.safeArea, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
-        <ScrollView 
+        <ScrollView
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Image with Gradient Overlay */}
+          {/* Hero */}
           <ImageBackground
             source={require('@/assets/images/97923d23-03e6-4821-a00d-7dd935532e6d.jpeg')}
             style={styles.heroContainer}
@@ -313,13 +266,13 @@ export default function HomeScreen() {
                 style={styles.logo}
               />
               <View style={styles.dateLocationContainer}>
-                <Text style={styles.dateText}>{dateText}</Text>
-                <Text style={styles.locationText}>{locationText}</Text>
+                <Text style={styles.dateText}>March 24-25, 2026</Text>
+                <Text style={styles.locationText}>Houston, Texas</Text>
               </View>
             </View>
           </ImageBackground>
 
-          {/* Header Section */}
+          {/* Welcome */}
           <View style={styles.header}>
             <Text style={[styles.welcomeText, { color: appColors.primary }]}>
               {welcomeText}
@@ -329,162 +282,104 @@ export default function HomeScreen() {
           {/* Navigation Grid */}
           <View style={styles.navigationGrid}>
             <View style={styles.gridRow}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/(tabs)/agenda')}
               >
-                <IconSymbol
-                  ios_icon_name="calendar"
-                  android_material_icon_name="event"
-                  size={28}
-                  color={appColors.primary}
-                />
+                <IconSymbol ios_icon_name="calendar" android_material_icon_name="event" size={28} color={appColors.primary} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Agenda</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/(tabs)/speakers')}
               >
-                <IconSymbol
-                  ios_icon_name="person.2"
-                  android_material_icon_name="group"
-                  size={28}
-                  color={appColors.secondary}
-                />
+                <IconSymbol ios_icon_name="person.2" android_material_icon_name="group" size={28} color={appColors.secondary} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Speakers</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.gridRow}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/activities')}
               >
-                <IconSymbol
-                  ios_icon_name="star.fill"
-                  android_material_icon_name="star"
-                  size={28}
-                  color="#FF6B6B"
-                />
+                <IconSymbol ios_icon_name="star.fill" android_material_icon_name="star" size={28} color="#FF6B6B" />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Activities</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/floor-plan')}
               >
-                <IconSymbol
-                  ios_icon_name="map.fill"
-                  android_material_icon_name="map"
-                  size={28}
-                  color="#4ECDC4"
-                />
+                <IconSymbol ios_icon_name="map.fill" android_material_icon_name="map" size={28} color="#4ECDC4" />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Floor Plan</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.gridRow}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/exhibitors')}
               >
-                <IconSymbol
-                  ios_icon_name="building.2"
-                  android_material_icon_name="store"
-                  size={28}
-                  color={appColors.accent}
-                />
+                <IconSymbol ios_icon_name="building.2" android_material_icon_name="store" size={28} color={appColors.accent} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Exhibitors</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/sponsors')}
               >
-                <IconSymbol
-                  ios_icon_name="star"
-                  android_material_icon_name="star"
-                  size={28}
-                  color={appColors.highlight}
-                />
+                <IconSymbol ios_icon_name="star" android_material_icon_name="star" size={28} color={appColors.highlight} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Sponsors</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.gridRow}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/ports')}
               >
-                <IconSymbol
-                  ios_icon_name="map"
-                  android_material_icon_name="place"
-                  size={28}
-                  color={appColors.primary}
-                />
+                <IconSymbol ios_icon_name="map" android_material_icon_name="place" size={28} color={appColors.primary} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Ports</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/networking')}
               >
-                <IconSymbol
-                  ios_icon_name="person.3"
-                  android_material_icon_name="people"
-                  size={28}
-                  color={appColors.secondary}
-                />
+                <IconSymbol ios_icon_name="person.3" android_material_icon_name="people" size={28} color={appColors.secondary} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Networking</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.gridRow}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/speaker-presentations')}
               >
-                <IconSymbol
-                  ios_icon_name="doc.text.fill"
-                  android_material_icon_name="description"
-                  size={28}
-                  color={appColors.accent}
-                />
+                <IconSymbol ios_icon_name="doc.text.fill" android_material_icon_name="description" size={28} color={appColors.accent} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Presentations</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
                 onPress={() => handleNavigation('/schedule')}
               >
-                <IconSymbol
-                  ios_icon_name="bookmark.fill"
-                  android_material_icon_name="bookmark"
-                  size={28}
-                  color={appColors.highlight}
-                />
+                <IconSymbol ios_icon_name="bookmark.fill" android_material_icon_name="bookmark" size={28} color={appColors.highlight} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>My Schedule</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Announcements Section */}
+          {/* Announcements */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: appColors.text }]}>
-              Announcements
-            </Text>
-            
+            <Text style={[styles.sectionTitle, { color: appColors.text }]}>Announcements</Text>
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={appColors.primary} />
@@ -545,12 +440,7 @@ export default function HomeScreen() {
                       <View style={styles.announcementMetaRow}>
                         {hasDate && (
                           <View style={styles.announcementMeta}>
-                            <IconSymbol
-                              ios_icon_name="calendar"
-                              android_material_icon_name="event"
-                              size={14}
-                              color={appColors.textSecondary}
-                            />
+                            <IconSymbol ios_icon_name="calendar" android_material_icon_name="event" size={14} color={appColors.textSecondary} />
                             <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
                               {announcementDate}
                             </Text>
@@ -558,12 +448,7 @@ export default function HomeScreen() {
                         )}
                         {hasTime && (
                           <View style={styles.announcementMeta}>
-                            <IconSymbol
-                              ios_icon_name="clock"
-                              android_material_icon_name="access-time"
-                              size={14}
-                              color={appColors.textSecondary}
-                            />
+                            <IconSymbol ios_icon_name="clock" android_material_icon_name="access-time" size={14} color={appColors.textSecondary} />
                             <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
                               {announcementTime}
                             </Text>
@@ -576,6 +461,28 @@ export default function HomeScreen() {
               </React.Fragment>
             )}
           </View>
+
+          {/* FIX: WiFi notice */}
+          <View style={[styles.wifiCard, { backgroundColor: appColors.card }]}>
+            <IconSymbol
+              ios_icon_name="wifi"
+              android_material_icon_name="wifi"
+              size={24}
+              color={appColors.primary}
+            />
+            <View style={styles.wifiTextContainer}>
+              <Text style={[styles.wifiTitle, { color: appColors.textSecondary }]}>
+                CONFERENCE WiFi
+              </Text>
+              <Text style={[styles.wifiNetwork, { color: appColors.text }]}>
+                UH GUEST
+              </Text>
+              <Text style={[styles.wifiTitle, { color: appColors.textSecondary, marginTop: spacing.xs }]}>
+                Through the University of Houston Network
+              </Text>
+            </View>
+          </View>
+
         </ScrollView>
       </SafeAreaView>
     </React.Fragment>

@@ -11,9 +11,8 @@ import {
 import { airtableCache } from '../services/airtable-cache.js';
 
 /**
- * Resolve linked speaker record IDs to speaker names
- * If speaker field is an array of record IDs or a single record ID,
- * fetch the speaker records and extract names
+ * Resolve linked speaker record IDs to speaker names using the cache.
+ * Falls back to individual API calls only if cache lookup fails.
  */
 async function resolveSpeakerNames(
   speakerValue: any,
@@ -21,55 +20,72 @@ async function resolveSpeakerNames(
 ): Promise<string> {
   if (!speakerValue) return '';
 
-  // If it's a string (single record ID)
-  if (typeof speakerValue === 'string') {
+  // Get all cached speakers once
+  const cachedSpeakers = airtableCache.getSpeakers ? airtableCache.getSpeakers() : [];
+
+  const resolveOne = async (speakerId: string): Promise<string> => {
+    // First try to find in cache
+    const cached = cachedSpeakers.find((s: AirtableRecord<SpeakerFields>) => s.id === speakerId);
+    if (cached) {
+      const fields = cached.fields as any;
+      // Try multiple name field variations
+      const name =
+        fields['Speaker Name'] ||
+        (fields['First Name'] && fields['Last Name']
+          ? `${fields['First Name']} ${fields['Last Name']}`.trim()
+          : null) ||
+        fields['First Name'] ||
+        fields['Last Name'] ||
+        fields['Name'] ||
+        null;
+      if (name) return name;
+    }
+
+    // Fallback: fetch individually
     try {
-      const speakerRecord = await fetchAirtableRecord<SpeakerFields>(
-        TABLES.SPEAKERS,
-        speakerValue
-      );
-      if (speakerRecord) {
-        return speakerRecord.fields['Speaker Name'] || speakerValue;
+      const record = await fetchAirtableRecord<SpeakerFields>(TABLES.SPEAKERS, speakerId);
+      if (record) {
+        const fields = record.fields as any;
+        return (
+          fields['Speaker Name'] ||
+          (fields['First Name'] && fields['Last Name']
+            ? `${fields['First Name']} ${fields['Last Name']}`.trim()
+            : null) ||
+          fields['First Name'] ||
+          fields['Last Name'] ||
+          fields['Name'] ||
+          speakerId
+        );
       }
     } catch (error) {
-      app.logger.debug(
-        { speakerId: speakerValue, error },
-        'Failed to fetch speaker record, using ID as fallback'
-      );
+      app.logger.debug({ speakerId, error }, 'Failed to fetch speaker record');
     }
+    return speakerId;
+  };
+
+  // Single record ID string
+  if (typeof speakerValue === 'string') {
+    // If it looks like an Airtable record ID (starts with 'rec'), resolve it
+    if (speakerValue.startsWith('rec')) {
+      return resolveOne(speakerValue);
+    }
+    // Already a plain name
     return speakerValue;
   }
 
-  // If it's an array of record IDs
+  // Array of record IDs
   if (Array.isArray(speakerValue)) {
-    try {
-      const speakerNames = await Promise.all(
-        speakerValue.map(async (speakerId: string) => {
-          try {
-            const speakerRecord = await fetchAirtableRecord<SpeakerFields>(
-              TABLES.SPEAKERS,
-              speakerId
-            );
-            return speakerRecord?.fields['Speaker Name'] || speakerId;
-          } catch (error) {
-            app.logger.debug(
-              { speakerId, error },
-              'Failed to fetch speaker record, using ID as fallback'
-            );
-            return speakerId;
-          }
-        })
-      );
-      return speakerNames.join(', ');
-    } catch (error) {
-      app.logger.debug(
-        { speakerValue, error },
-        'Failed to resolve linked speaker records'
-      );
-    }
+    const names = await Promise.all(
+      speakerValue.map(async (item: string) => {
+        if (typeof item === 'string' && item.startsWith('rec')) {
+          return resolveOne(item);
+        }
+        return String(item);
+      })
+    );
+    return names.filter(Boolean).join(', ');
   }
 
-  // Fallback: if it's already a string value (not a record ID), return it as-is
   return String(speakerValue);
 }
 
@@ -113,13 +129,12 @@ export function registerSessionsRoutes(app: App) {
       try {
         const cachedRecords = airtableCache.getSessions();
 
-        // Process all sessions and resolve linked speaker records
         const sessions = await Promise.all(
           cachedRecords.map(async (record: AirtableRecord<SessionFields>) => {
             const fields = record.fields as any;
 
             // Try multiple speaker field name variations
-            let speakerValue = '';
+            let speakerValue: any = '';
             const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
             for (const fieldName of speakerFieldNames) {
               if (fields[fieldName]) {
@@ -128,7 +143,6 @@ export function registerSessionsRoutes(app: App) {
               }
             }
 
-            // Resolve linked speaker records to speaker names
             const speaker = await resolveSpeakerNames(speakerValue, app);
 
             return {
@@ -164,9 +178,7 @@ export function registerSessionsRoutes(app: App) {
         tags: ['sessions'],
         params: {
           type: 'object',
-          properties: {
-            id: { type: 'string' },
-          },
+          properties: { id: { type: 'string' } },
           required: ['id'],
         },
         response: {
@@ -197,59 +209,22 @@ export function registerSessionsRoutes(app: App) {
         const record = await fetchAirtableRecord<SessionFields>(TABLES.SESSIONS, id, app.logger);
 
         if (!record) {
-          app.logger.warn({ sessionId: id }, 'Session not found (permission denied or record not found)');
-          return reply.status(404).send({
-            error: 'Session not found. The Airtable API may not have permission to access this table.',
-          });
+          return reply.status(404).send({ error: 'Session not found.' });
         }
 
-        // Log available field names
-        const fieldNames = Object.keys(record?.fields || {});
-        app.logger.info(
-          { fieldNames },
-          'Available field names in session record'
-        );
-
-        // Check for speaker-related fields
-        const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
-        const foundSpeakerFields = speakerFieldNames.filter(name => fieldNames.includes(name));
-        if (foundSpeakerFields.length > 0) {
-          app.logger.info(
-            { foundSpeakerFields },
-            'Found speaker-related fields in session record'
-          );
-        } else {
-          app.logger.warn(
-            { attemptedSpeakerFields: speakerFieldNames },
-            'No speaker-related fields found in session record'
-          );
-        }
-
-        // Try multiple speaker field name variations
         const fields = record.fields as any;
-        let speakerValue = '';
+        let speakerValue: any = '';
+        const speakerFieldNames = ['Speaker(s)', 'Speaker', 'Speakers', 'Presenter', 'Presenters'];
         for (const fieldName of speakerFieldNames) {
           if (fields[fieldName]) {
             speakerValue = fields[fieldName];
-            app.logger.info(
-              { sessionId: id, speakerField: fieldName, speakerValue },
-              'Speaker value extracted from field'
-            );
             break;
           }
         }
 
-        if (!speakerValue) {
-          app.logger.debug(
-            { sessionId: id, attemptedFields: speakerFieldNames },
-            'No speaker field found'
-          );
-        }
-
-        // Resolve linked speaker records to speaker names
         const speaker = await resolveSpeakerNames(speakerValue, app);
 
-        const result = {
+        return {
           id: record.id,
           title: record.fields.Title || '',
           speaker,
@@ -259,9 +234,6 @@ export function registerSessionsRoutes(app: App) {
           time: record.fields['Start Time'] || '',
           description: record.fields['Session Description'] || '',
         };
-
-        app.logger.info({ sessionId: id }, 'Session details fetched');
-        return result;
       } catch (error) {
         app.logger.error({ err: error, sessionId: id }, 'Failed to fetch session');
         throw error;
