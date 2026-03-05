@@ -165,37 +165,71 @@ export default function SpeakersScreen() {
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+
   useEffect(() => { loadSpeakers(); }, []);
 
-  const loadSpeakers = async () => {
+  const loadSpeakers = async (attempt = 0) => {
     try {
-      console.log('Loading speakers from API...');
+      console.log(`[Speakers] Loading speakers from API (attempt ${attempt + 1})...`);
       setLoading(true);
       setError(null);
+      setIsRateLimited(false);
+
       const data = await apiGet<Speaker[]>('/api/speakers');
-      console.log(`Received ${data.length} speakers from API`);
-      
+      console.log(`[Speakers] Received ${data.length} speakers from API`);
+
       if (data.length > 0) {
         const firstSpeaker = data[0];
-        console.log('First speaker data:', {
+        console.log('[Speakers] First speaker data:', {
           id: firstSpeaker.id,
           firstName: firstSpeaker.firstName,
           lastName: firstSpeaker.lastName,
           name: firstSpeaker.name,
-          displayName: getDisplayName(firstSpeaker)
+          displayName: getDisplayName(firstSpeaker),
         });
       }
-      
+
       const publishedSpeakers = data.filter(s => s.published === true);
-      console.log(`Filtered to ${publishedSpeakers.length} published speakers`);
+      console.log(`[Speakers] Filtered to ${publishedSpeakers.length} published speakers`);
       setSpeakers(publishedSpeakers);
+      setRetryCount(0);
     } catch (err: any) {
-      console.error('Error loading speakers:', err);
-      setError(err.message || 'Failed to load speakers. Please try again.');
+      console.error('[Speakers] Error loading speakers:', err);
+
+      const errMsg: string = err.message || '';
+      const isRateLimit =
+        errMsg.includes('429') ||
+        errMsg.includes('503') ||
+        errMsg.toLowerCase().includes('rate limit') ||
+        errMsg.toLowerCase().includes('rate_limit');
+
+      if (isRateLimit && attempt < 3) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.log(`[Speakers] Rate limited. Retrying in ${delay}ms (attempt ${attempt + 1}/3)...`);
+        setIsRateLimited(true);
+        setRetryCount(attempt + 1);
+        setTimeout(() => loadSpeakers(attempt + 1), delay);
+        return;
+      }
+
+      if (isRateLimit) {
+        setIsRateLimited(true);
+        setError('Speaker data is temporarily unavailable due to high demand. Please try again in a moment.');
+      } else {
+        setError(errMsg || 'Failed to load speakers. Please try again.');
+      }
       setSpeakers([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(0);
+    setIsRateLimited(false);
+    loadSpeakers(0);
   };
 
   const filteredSpeakers = useMemo(() => {
@@ -259,11 +293,23 @@ export default function SpeakersScreen() {
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>
-              <IconSymbol ios_icon_name="exclamationmark.triangle" android_material_icon_name="warning" size={48} color={appColors.error} />
-              <Text style={[styles.errorText, { color: appColors.text }]}>Error loading speakers</Text>
+              <IconSymbol
+                ios_icon_name={isRateLimited ? 'clock.arrow.circlepath' : 'exclamationmark.triangle'}
+                android_material_icon_name={isRateLimited ? 'hourglass_empty' : 'warning'}
+                size={48}
+                color={isRateLimited ? appColors.primary : appColors.error}
+              />
+              <Text style={[styles.errorText, { color: appColors.text }]}>
+                {isRateLimited ? 'Too Many Requests' : 'Error loading speakers'}
+              </Text>
               <Text style={[styles.errorDetail, { color: appColors.textSecondary }]}>{error}</Text>
-              <TouchableOpacity style={[styles.retryButton, { backgroundColor: appColors.primary }]} onPress={loadSpeakers}>
-                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Retry</Text>
+              {retryCount > 0 && retryCount < 3 && (
+                <Text style={[styles.errorDetail, { color: appColors.textSecondary }]}>
+                  Retrying automatically... ({retryCount}/3)
+                </Text>
+              )}
+              <TouchableOpacity style={[styles.retryButton, { backgroundColor: appColors.primary }]} onPress={handleRetry}>
+                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Try Again</Text>
               </TouchableOpacity>
             </View>
           ) : filteredSpeakers.length === 0 ? (

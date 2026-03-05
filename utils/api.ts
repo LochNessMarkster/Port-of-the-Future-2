@@ -81,6 +81,17 @@ export const apiCall = async <T = any>(
     if (!response.ok) {
       const text = await response.text();
       console.error("[API] Error response:", response.status, text);
+
+      // Surface rate-limit and service-unavailable errors with clear status codes
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After");
+        const retryMsg = retryAfter ? ` Retry after ${retryAfter}s.` : "";
+        throw new Error(`429 Rate limit exceeded. Please try again later.${retryMsg}`);
+      }
+      if (response.status === 503) {
+        throw new Error(`503 Service temporarily unavailable. ${text}`);
+      }
+
       throw new Error(`API error: ${response.status} - ${text}`);
     }
 
