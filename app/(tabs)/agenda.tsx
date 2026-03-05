@@ -32,30 +32,35 @@ interface Session {
 
 interface AirtableSessionRecord {
   id: string;
-  'Session Title'?: string;
-  'Speaker(s)'?: string[] | string;
-  'Room'?: string;
-  'Type/Track'?: string;
-  'Date'?: string;
-  'Start Time'?: string;
-  'Session Description'?: string;
-  [key: string]: any;
+  fields: {
+    'Session Title'?: string;
+    'Speaker(s)'?: string[] | string;
+    'Room'?: string;
+    'Type/Track'?: string;
+    'Date'?: string;
+    'Start Time'?: string;
+    'Session Description'?: string;
+    [key: string]: any;
+  };
 }
 
 interface AirtableSpeakerRecord {
   id: string;
-  'First Name'?: string;
-  'Last Name'?: string;
-  Name?: string;
-  [key: string]: any;
+  fields: {
+    'First Name'?: string;
+    'Last Name'?: string;
+    'Name'?: string;
+    [key: string]: any;
+  };
 }
 
-function mapSessionResponse(data: AirtableSessionRecord, speakersMap: Map<string, string>): Session {
-  const title = data['Session Title'] || '';
+function mapSessionResponse(record: AirtableSessionRecord, speakersMap: Map<string, string>): Session {
+  const fields = record.fields;
+  const title = fields['Session Title'] || 'Untitled Session';
   
   // Handle speaker IDs - resolve to names
   let speakerNames: string[] = [];
-  const speakerField = data['Speaker(s)'];
+  const speakerField = fields['Speaker(s)'];
   
   if (Array.isArray(speakerField)) {
     // Array of speaker record IDs
@@ -72,14 +77,16 @@ function mapSessionResponse(data: AirtableSessionRecord, speakersMap: Map<string
     }
   }
   
-  const speaker = speakerNames.join(', ');
-  const room = data['Room'] || '';
-  const type = data['Type/Track'] || '';
-  const date = data['Date'] || '';
-  const time = data['Start Time'] || '';
-  const description = data['Session Description'] || '';
+  const speaker = speakerNames.join(', ') || 'TBA';
+  const room = fields['Room'] || 'TBA';
+  const type = fields['Type/Track'] || 'General';
+  const date = fields['Date'] || '';
+  const time = fields['Start Time'] || 'TBA';
+  const description = fields['Session Description'] || 'No description available.';
 
-  return { id: data.id, title, speaker, room, type, date, time, description };
+  console.log(`[AgendaScreen] Mapped session: ${title} | Speaker: ${speaker} | Type: ${type} | Room: ${room}`);
+
+  return { id: record.id, title, speaker, room, type, date, time, description };
 }
 
 // Track colors — each track gets a distinct color
@@ -279,30 +286,39 @@ export default function AgendaScreen() {
     try {
       setLoading(true);
       setError(null);
-      console.log('[AgendaScreen] Loading sessions from Airtable...');
+      console.log('[AgendaScreen] 🔄 Loading sessions from NEW Airtable base...');
       
       // Fetch speakers first to build a lookup map
-      const speakersData = await fetchFromAirtableDirect<AirtableSpeakerRecord>('speakers');
-      console.log(`[AgendaScreen] Loaded ${speakersData.length} speakers`);
+      console.log('[AgendaScreen] 📋 Step 1: Fetching speakers...');
+      const speakersRawData = await fetchFromAirtableDirect<AirtableSpeakerRecord>('speakers');
+      console.log(`[AgendaScreen] ✅ Loaded ${speakersRawData.length} speakers`);
       
       const speakersMap = new Map<string, string>();
-      speakersData.forEach(speaker => {
-        const firstName = speaker['First Name'] || '';
-        const lastName = speaker['Last Name'] || '';
-        const name = speaker.Name || '';
+      speakersRawData.forEach(speakerRecord => {
+        const fields = speakerRecord.fields;
+        const firstName = fields['First Name'] || '';
+        const lastName = fields['Last Name'] || '';
+        const name = fields['Name'] || '';
         const displayName = firstName && lastName 
           ? `${firstName} ${lastName}` 
           : name || firstName || lastName;
         if (displayName) {
-          speakersMap.set(speaker.id, displayName);
+          speakersMap.set(speakerRecord.id, displayName);
+          console.log(`[AgendaScreen] 👤 Speaker mapped: ${speakerRecord.id} -> ${displayName}`);
         }
       });
       
       // Fetch all sessions with pagination
-      const sessionsData = await fetchFromAirtableDirect<AirtableSessionRecord>('sessions');
-      console.log(`[AgendaScreen] Loaded ${sessionsData.length} sessions`);
+      console.log('[AgendaScreen] 📋 Step 2: Fetching sessions...');
+      const sessionsRawData = await fetchFromAirtableDirect<AirtableSessionRecord>('sessions');
+      console.log(`[AgendaScreen] ✅ Loaded ${sessionsRawData.length} raw session records`);
       
-      const mappedSessions = sessionsData.map(session => mapSessionResponse(session, speakersMap));
+      // Log first session to see structure
+      if (sessionsRawData.length > 0) {
+        console.log('[AgendaScreen] 📝 Sample session structure:', JSON.stringify(sessionsRawData[0], null, 2));
+      }
+      
+      const mappedSessions = sessionsRawData.map(session => mapSessionResponse(session, speakersMap));
       
       // Sort by date and time
       const sortedSessions = mappedSessions.sort((a, b) => {
@@ -314,10 +330,17 @@ export default function AgendaScreen() {
       });
       
       setSessions(sortedSessions);
-      console.log(`[AgendaScreen] Successfully loaded and sorted ${sortedSessions.length} sessions`);
+      console.log(`[AgendaScreen] 🎉 Successfully loaded and sorted ${sortedSessions.length} sessions`);
+      
+      // Log summary of what we got
+      const sessionsWithTitle = sortedSessions.filter(s => s.title && s.title !== 'Untitled Session').length;
+      const sessionsWithDescription = sortedSessions.filter(s => s.description && s.description !== 'No description available.').length;
+      const sessionsWithType = sortedSessions.filter(s => s.type && s.type !== 'General').length;
+      console.log(`[AgendaScreen] 📊 Summary: ${sessionsWithTitle} with titles, ${sessionsWithDescription} with descriptions, ${sessionsWithType} with types`);
+      
     } catch (err: any) {
-      console.error('[AgendaScreen] Error loading sessions:', err);
-      setError('Unable to load sessions. Please try again later.');
+      console.error('[AgendaScreen] ❌ Error loading sessions:', err);
+      setError(`Unable to load sessions: ${err.message}`);
       setSessions([]);
     } finally {
       setLoading(false);
@@ -335,7 +358,7 @@ export default function AgendaScreen() {
   };
 
   const parseTime = (timeStr: string): number => {
-    if (!timeStr || timeStr.trim() === '') return 0;
+    if (!timeStr || timeStr.trim() === '' || timeStr === 'TBA') return 0;
     const cleanTime = timeStr.trim().toUpperCase();
     const match = cleanTime.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/);
     if (!match) return 0;
@@ -348,7 +371,7 @@ export default function AgendaScreen() {
   };
 
   const parseEndTime = (timeStr: string): number => {
-    if (!timeStr || timeStr.trim() === '') return 0;
+    if (!timeStr || timeStr.trim() === '' || timeStr === 'TBA') return 0;
     const rangeParts = timeStr.split('-');
     if (rangeParts.length === 2) return parseTime(rangeParts[1].trim());
     return parseTime(timeStr) + 60;
@@ -519,7 +542,7 @@ export default function AgendaScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
-              <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>Loading all sessions...</Text>
+              <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>Loading all sessions from Airtable...</Text>
             </View>
           ) : error ? (
             <View style={styles.emptyContainer}>
@@ -576,21 +599,21 @@ export default function AgendaScreen() {
                     <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>{session.time}</Text>
                   </View>
 
-                  {session.room ? (
+                  {session.room && session.room !== 'TBA' ? (
                     <View style={styles.sessionMeta}>
                       <IconSymbol ios_icon_name="location" android_material_icon_name="place" size={16} color={appColors.textSecondary} />
                       <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>{session.room}</Text>
                     </View>
                   ) : null}
 
-                  {session.speaker ? (
+                  {session.speaker && session.speaker !== 'TBA' ? (
                     <View style={styles.sessionMeta}>
                       <IconSymbol ios_icon_name="person" android_material_icon_name="person" size={16} color={appColors.textSecondary} />
                       <Text style={[styles.sessionMetaText, { color: appColors.textSecondary }]}>{session.speaker}</Text>
                     </View>
                   ) : null}
 
-                  {session.type ? (
+                  {session.type && session.type !== 'General' ? (
                     <View style={[styles.sessionType, { backgroundColor: trackColor + '20', alignSelf: 'flex-start', marginTop: spacing.xs }]}>
                       <Text style={{ color: trackColor, fontSize: 12 }}>{session.type}</Text>
                     </View>
@@ -650,7 +673,7 @@ export default function AgendaScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {selectedSession?.speaker ? (
+                {selectedSession?.speaker && selectedSession.speaker !== 'TBA' ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Speaker</Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSession.speaker}</Text>
@@ -669,14 +692,14 @@ export default function AgendaScreen() {
                   <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSession?.time || 'TBA'}</Text>
                 </View>
 
-                {selectedSession?.room ? (
+                {selectedSession?.room && selectedSession.room !== 'TBA' ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Location</Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSession.room}</Text>
                   </View>
                 ) : null}
 
-                {selectedSession?.type ? (
+                {selectedSession?.type && selectedSession.type !== 'General' ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Track</Text>
                     <View style={[styles.sessionType, { backgroundColor: getTypeColor(selectedSession.type) + '20' }]}>
@@ -685,7 +708,7 @@ export default function AgendaScreen() {
                   </View>
                 ) : null}
 
-                {selectedSession?.description ? (
+                {selectedSession?.description && selectedSession.description !== 'No description available.' ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Description</Text>
                     <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSession.description}</Text>
@@ -730,7 +753,7 @@ export default function AgendaScreen() {
                     <View key={index} style={[styles.conflictSessionCard, { backgroundColor: appColors.background }]}>
                       <Text style={[styles.conflictSessionTitle, { color: appColors.text }]}>{conflictTitle}</Text>
                       <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>{conflictTime}</Text>
-                      {conflictRoom && <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>{conflictRoom}</Text>}
+                      {conflictRoom && conflictRoom !== 'TBA' && <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>{conflictRoom}</Text>}
                     </View>
                   );
                 })}

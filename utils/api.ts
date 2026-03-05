@@ -9,11 +9,11 @@ export const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl || "";
 
 export const AIRTABLE_CACHE_BASE_URL = "https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd";
 
-// NEW: Direct Airtable API configuration
+// NEW: Direct Airtable API configuration with updated credentials
 export const AIRTABLE_API_BASE_URL = "https://api.airtable.com/v0/appkKjciinTlnsbkd";
 export const AIRTABLE_API_TOKEN = "patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c";
 
-// Correct table IDs provided by user
+// Correct table IDs - UPDATED with new agenda table ID
 export const AIRTABLE_TABLES: Record<string, string> = {
   speakers:      "tblNp1JZk4ARZZZlT",
   exhibitors:    "tblzex4bjwEZh1021",
