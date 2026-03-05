@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
@@ -112,7 +113,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 180,
   },
-  // FIX: white background container for logo so logos on dark cards are visible
   logoWhiteBackground: {
     width: '100%',
     height: 90,
@@ -152,12 +152,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.lg,
   },
-  // FIX: modal is scrollable so full exhibitor profile is readable
   modalContent: {
     borderRadius: borderRadius.lg,
     width: '100%',
     maxWidth: 600,
-    maxHeight: '85%',
+    maxHeight: '90%',
     overflow: 'hidden',
   },
   modalScrollContent: { padding: spacing.xl },
@@ -168,8 +167,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   modalTitle: { ...typography.h2, flex: 1, marginRight: spacing.md },
-  closeButton: { padding: spacing.sm },
-  // FIX: white background for logo in modal too
+  closeButton: { 
+    padding: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalLogoContainer: {
     width: '100%',
     paddingHorizontal: spacing.lg,
@@ -280,7 +286,6 @@ export default function ExhibitorsScreen() {
             />
           }
         >
-          {/* Search */}
           <View style={styles.searchContainer}>
             <View style={[styles.searchInputContainer, { backgroundColor: appColors.card }]}>
               <IconSymbol
@@ -337,7 +342,6 @@ export default function ExhibitorsScreen() {
                     onPress={() => setSelectedExhibitor(exhibitor)}
                     activeOpacity={0.7}
                   >
-                    {/* FIX: logo always shown on white background so it's visible in dark mode */}
                     <View style={styles.logoWhiteBackground}>
                       {exhibitor.logo ? (
                         <Image source={resolveImageSource(exhibitor.logo)} style={styles.logo} />
@@ -371,29 +375,28 @@ export default function ExhibitorsScreen() {
           )}
         </ScrollView>
 
-        {/* Exhibitor Detail Modal — FIX: fully scrollable */}
         <Modal
           visible={selectedExhibitor !== null}
           transparent
           animationType="fade"
           onRequestClose={() => setSelectedExhibitor(null)}
         >
-          <Pressable style={styles.modalOverlay} onPress={() => setSelectedExhibitor(null)}>
-            <Pressable
-              style={[styles.modalContent, { backgroundColor: appColors.card }]}
-              onPress={e => e.stopPropagation()}
-            >
-              <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={styles.modalScrollContent}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+              <ScrollView 
+                showsVerticalScrollIndicator={true} 
+                contentContainerStyle={styles.modalScrollContent}
+                bounces={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={[styles.modalTitle, { color: appColors.text }]}>
                     {selectedExhibitor?.name}
                   </Text>
                   <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedExhibitor(null)}>
-                    <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color={appColors.text} />
+                    <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
 
-                {/* FIX: logo shown on white background in modal */}
                 {selectedExhibitor?.logo && (
                   <View style={styles.modalLogoContainer}>
                     <Image
@@ -515,8 +518,8 @@ export default function ExhibitorsScreen() {
                   </TouchableOpacity>
                 )}
               </ScrollView>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       </SafeAreaView>
     </React.Fragment>

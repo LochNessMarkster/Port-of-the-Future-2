@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -104,7 +105,6 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, ...typography.body },
   clearButton: { padding: spacing.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.sm },
-  // FIX: card uses minHeight instead of fixed height so content never overflows
   card: { width: '50%', padding: spacing.sm },
   cardInner: {
     borderRadius: borderRadius.md,
@@ -121,7 +121,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: { width: '100%', height: '100%', resizeMode: 'contain' },
-  // FIX: name uses numberOfLines + adjustsFontSizeToFit so it never runs outside
   name: {
     ...typography.bodySmall,
     textAlign: 'center',
@@ -142,13 +141,18 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   emptyText: { ...typography.h3, textAlign: 'center', marginTop: spacing.md },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
-  // FIX: modal content is scrollable so full description is readable
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: spacing.lg 
+  },
   modalContent: {
     borderRadius: borderRadius.lg,
     width: '100%',
     maxWidth: 600,
-    maxHeight: '85%',
+    maxHeight: '90%',
     overflow: 'hidden',
   },
   modalScrollContent: { padding: spacing.xl },
@@ -159,7 +163,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   modalTitle: { ...typography.h2, flex: 1, marginRight: spacing.md },
-  closeButton: { padding: spacing.sm },
+  closeButton: { 
+    padding: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalLogoContainer: {
     width: '100%',
     paddingHorizontal: spacing.lg,
@@ -317,12 +329,10 @@ export default function ExhibitorsScreen() {
                         <IconSymbol ios_icon_name="building.2" android_material_icon_name="business" size={40} color={appColors.textSecondary} />
                       )}
                     </View>
-                    {/* FIX: name is constrained with numberOfLines so it never overflows card */}
                     <Text style={[styles.name, { color: appColors.text }]} numberOfLines={2} adjustsFontSizeToFit>
                       {exhibitor.name}
                     </Text>
                     {exhibitor.boothNumber && (
-                      // FIX: booth number now shown as a pill badge instead of plain text
                       <View style={[styles.boothBadge, { backgroundColor: appColors.primary }]}>
                         <Text style={[styles.boothBadgeText, { color: '#FFFFFF' }]}>
                           Booth {exhibitor.boothNumber}
@@ -337,14 +347,17 @@ export default function ExhibitorsScreen() {
         </ScrollView>
 
         <Modal visible={selectedExhibitor !== null} transparent animationType="fade" onRequestClose={() => setSelectedExhibitor(null)}>
-          <Pressable style={styles.modalOverlay} onPress={() => setSelectedExhibitor(null)}>
-            <Pressable style={[styles.modalContent, { backgroundColor: appColors.card }]} onPress={e => e.stopPropagation()}>
-              {/* FIX: ScrollView wraps all modal content so full profile is readable */}
-              <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={styles.modalScrollContent}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+              <ScrollView 
+                showsVerticalScrollIndicator={true} 
+                contentContainerStyle={styles.modalScrollContent}
+                bounces={true}
+              >
                 <View style={styles.modalHeader}>
                   <Text style={[styles.modalTitle, { color: appColors.text }]}>{selectedExhibitor?.name}</Text>
                   <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedExhibitor(null)}>
-                    <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color={appColors.text} />
+                    <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
 
@@ -434,8 +447,8 @@ export default function ExhibitorsScreen() {
                   </TouchableOpacity>
                 )}
               </ScrollView>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       </SafeAreaView>
     </React.Fragment>

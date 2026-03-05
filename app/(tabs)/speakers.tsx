@@ -109,13 +109,19 @@ const styles = StyleSheet.create({
   errorDetail: { ...typography.bodySmall, textAlign: 'center', marginBottom: spacing.md },
   retryButton: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: borderRadius.md, marginTop: spacing.md },
   retryButtonText: { ...typography.body, fontWeight: '600' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
   modalContent: {
-    width: '90%',
-    maxHeight: '85%',
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '90%',
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
-    ...Platform.select({ web: { maxWidth: 600 } }),
   },
   modalScrollContent: {
     padding: spacing.lg,
@@ -135,7 +141,18 @@ const styles = StyleSheet.create({
   modalSection: { marginBottom: spacing.md },
   modalLabel: { ...typography.bodySmall, fontWeight: '600', marginBottom: spacing.xs },
   modalText: { ...typography.body, lineHeight: 24 },
-  closeButton: { position: 'absolute', top: spacing.md, right: spacing.md, zIndex: 1 },
+  closeButton: { 
+    position: 'absolute', 
+    top: spacing.md, 
+    right: spacing.md, 
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
 export default function SpeakersScreen() {
@@ -294,16 +311,17 @@ export default function SpeakersScreen() {
           animationType="fade"
           onRequestClose={() => setSelectedSpeaker(null)}
         >
-          <Pressable style={styles.modalOverlay} onPress={() => setSelectedSpeaker(null)}>
-            <Pressable
-              style={[styles.modalContent, { backgroundColor: appColors.card }]}
-              onPress={e => e.stopPropagation()}
-            >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
               <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedSpeaker(null)}>
-                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={32} color={appColors.textSecondary} />
+                <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color="#FFFFFF" />
               </TouchableOpacity>
 
-              <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={styles.modalScrollContent}>
+              <ScrollView 
+                showsVerticalScrollIndicator={true} 
+                contentContainerStyle={styles.modalScrollContent}
+                bounces={true}
+              >
                 <View style={styles.modalPhotoContainer}>
                   <View style={styles.modalPhotoWrapper}>
                     <Image source={{ uri: selectedSpeaker?.photo }} style={styles.modalPhoto} />
@@ -351,8 +369,8 @@ export default function SpeakersScreen() {
                   </View>
                 ) : null}
               </ScrollView>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       </SafeAreaView>
     </React.Fragment>
