@@ -28,18 +28,6 @@ export default function TabLayout() {
       <Stack.Screen key="speakers" name="speakers" />
       <Stack.Screen key="more" name="more" />
       <Stack.Screen key="profile" name="profile" />
-      <Stack.Screen key="floor-plan" name="floor-plan" />
-      <Stack.Screen key="activities" name="activities" />
-      <Stack.Screen key="ports" name="ports" />
-      <Stack.Screen key="sponsors" name="sponsors" />
-      <Stack.Screen key="exhibitors" name="exhibitors" />
-      <Stack.Screen key="networking" name="networking" />
-      <Stack.Screen key="messages" name="messages" />
-      <Stack.Screen key="schedule" name="schedule" />
-      <Stack.Screen key="announcements" name="announcements" />
-      <Stack.Screen key="diagnostics" name="diagnostics" />
-      <Stack.Screen key="admin" name="admin" />
-      <Stack.Screen key="speaker-presentations" name="speaker-presentations" />
     </Stack>
   );
 }
