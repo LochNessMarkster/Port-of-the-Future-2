@@ -1,0 +1,10 @@
+
+# EAS Build ignore patterns
+chat_history.json
+backend/
+DEPLOYMENT_STATUS.md
+.git/
+.natively/
+node_modules/
+*.log
+.DS_Store

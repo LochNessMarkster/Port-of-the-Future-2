@@ -1,3 +1,4 @@
+
 node_modules/
 
 .git/
@@ -36,3 +37,9 @@ pnpm-lock.yaml
 package-lock.json
 
 # Chat history contains presigned URLs that get flagged by GitHub
+
+# Backend folder should not be included in frontend builds
+backend/
+
+# Deployment status is not needed in builds
+DEPLOYMENT_STATUS.md

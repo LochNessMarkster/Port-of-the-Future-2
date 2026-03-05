@@ -1,3 +1,4 @@
+
 {
   "build": {
     "development": {
@@ -12,5 +13,8 @@
     "production": {
       "autoIncrement": true
     }
+  },
+  "submit": {
+    "production": {}
   }
 }
