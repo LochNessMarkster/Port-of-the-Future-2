@@ -22,6 +22,7 @@ interface AuthContextType {
   signInWithGitHub: () => Promise<void>;
   signOut: () => Promise<void>;
   fetchUser: () => Promise<void>;
+  setUserFromToken: (userData: User, token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -209,6 +210,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Set user from a token returned by the backend (e.g., after create-account)
+   * Stores the token and updates the user state directly without a round-trip
+   */
+  const setUserFromToken = async (userData: User, token: string) => {
+    try {
+      console.log("AuthContext - Setting user from token:", userData.email);
+      await setBearerToken(token);
+      setUser(userData);
+      console.log("AuthContext - User set from token successfully");
+    } catch (error) {
+      console.error("AuthContext - Failed to set user from token:", error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -221,6 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGitHub,
         signOut,
         fetchUser,
+        setUserFromToken,
       }}
     >
       {children}

@@ -14,113 +14,83 @@ import {
   Image,
   Modal,
   Pressable,
-  Switch,
 } from "react-native";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
+import { apiPost } from "@/utils/api";
+import { useAuth } from "@/contexts/AuthContext";
 
-type Mode = "signin" | "signup";
+const SHARED_PASSWORD = "POTF2026";
 
 export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { signInWithEmail, signUpWithEmail, loading: authLoading } = useAuth();
+  const { signInWithEmail, setUserFromToken } = useAuth();
 
-  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [title, setTitle] = useState("");
-  const [phone, setPhone] = useState("");
-  const [linkedin, setLinkedin] = useState("");
-  const [bio, setBio] = useState("");
-  const [optInNetworking, setOptInNetworking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  console.log('AuthScreen - Mode:', mode);
-
-  if (authLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: appColors.background }]}>
-        <ActivityIndicator size="large" color={appColors.primary} />
-      </View>
-    );
-  }
+  console.log('AuthScreen - Email:', email);
 
   const showError = (message: string) => {
     setErrorMessage(message);
     setErrorModalVisible(true);
   };
 
-  const handleEmailAuth = async () => {
-    console.log('AuthScreen - User tapped auth button, mode:', mode);
+  const handleSignIn = async () => {
+    console.log('AuthScreen - User tapped Sign In, email:', email);
     
-    if (!email || !password) {
-      showError("Please enter email and password");
-      return;
-    }
-
-    if (mode === "signup" && !name) {
-      showError("Please enter your name");
+    if (!email || !email.includes('@')) {
+      showError("Please enter a valid email address");
       return;
     }
 
     setLoading(true);
     try {
-      if (mode === "signin") {
-        console.log('AuthScreen - Signing in with email:', email);
-        await signInWithEmail(email, password);
-        console.log('AuthScreen - Sign in successful');
-        router.replace("/");
-      } else {
-        console.log('AuthScreen - Signing up with email:', email, 'optInNetworking:', optInNetworking);
-        await signUpWithEmail(email, password, name);
-        
-        // Update profile with additional fields after signup
-        try {
-          const { authenticatedPut } = await import('@/utils/api');
-          await authenticatedPut('/api/profile', {
-            name,
-            company: company || null,
-            title: title || null,
-            phone: phone || null,
-            linkedin: linkedin || null,
-            bio: bio || null,
-            optInNetworking: optInNetworking,
-          });
-          console.log('AuthScreen - Profile updated with optInNetworking:', optInNetworking);
-        } catch (profileError) {
-          console.error('AuthScreen - Error updating profile:', profileError);
-        }
-        
-        console.log('AuthScreen - Sign up successful');
-        showError("Account created successfully! You can now sign in.");
-        setMode("signin");
-        setPassword("");
+      // Call create-account with just the email.
+      // The backend will:
+      //   1. Check if email exists in Airtable - if not, return 400 error
+      //   2. If email exists, create/update the account using shared password "POTF2026"
+      //   3. Return { user, token } for immediate authentication
+      console.log('[API] Requesting /api/registration/create-account for email:', email.toLowerCase().trim());
+      const createResponse = await apiPost<{ user: { id: string; email: string; name: string; company: string | null; title: string | null; phone: string | null; emailVerified: boolean }; token: string }>('/api/registration/create-account', {
+        email: email.toLowerCase().trim(),
+      });
+
+      if (!createResponse.token || !createResponse.user) {
+        showError("Authentication failed. Please try again.");
+        return;
       }
+
+      console.log('AuthScreen - Account ready, setting user from token');
+      // Use the token returned by create-account to authenticate immediately
+      await setUserFromToken(
+        {
+          id: createResponse.user.id,
+          email: createResponse.user.email,
+          name: createResponse.user.name,
+        },
+        createResponse.token
+      );
+
+      console.log('AuthScreen - Sign in successful, navigating to home');
+      router.replace("/(tabs)/(home)/");
     } catch (error: any) {
       console.error('AuthScreen - Auth error:', error);
-      const errorMsg = error.message || "Authentication failed. Please try again.";
-      
-      // Show more specific error messages
-      if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("password")) {
-        if (mode === "signin") {
-          showError("Invalid email or password.\n\nIf you don't have an account yet, please tap 'Sign Up' below to create one.");
-        } else {
-          showError("Invalid credentials. Please check your information and try again.");
-        }
-      } else if (errorMsg.toLowerCase().includes("exist")) {
-        showError("An account with this email already exists. Please sign in instead.");
-        setMode("signin");
-      } else {
-        showError(errorMsg);
+      let errorMsg = error.message || "Authentication failed. Please try again.";
+
+      // Parse backend error messages
+      if (errorMsg.includes("400") || errorMsg.toLowerCase().includes("not registered")) {
+        errorMsg = "This email is not registered for Port of the Future 2026.\n\nPlease contact the conference organizers if you believe this is an error.";
+      } else if (errorMsg.includes("500") || errorMsg.toLowerCase().includes("server")) {
+        errorMsg = "A server error occurred. Please try again in a moment.";
       }
+
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -150,125 +120,19 @@ export default function AuthScreen() {
                 Port of the Future 2026
               </Text>
               <Text style={[styles.appSubtitle, { color: appColors.textSecondary }]}>
-                {mode === "signin" ? "Welcome Back" : "Create Your Account"}
+                Welcome
               </Text>
             </View>
 
-            {/* Sign Up Form */}
-            {mode === "signup" && (
-              <React.Fragment>
-                <Text style={[styles.label, { color: appColors.text }]}>Full Name *</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="John Doe"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
-                />
+            {/* Instructions */}
+            <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
+              <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
+                Enter the email address you used to register for the conference. All attendees use the same password: POTF2026
+              </Text>
+            </View>
 
-                <Text style={[styles.label, { color: appColors.text }]}>Company</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Acme Corporation"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={company}
-                  onChangeText={setCompany}
-                  autoCapitalize="words"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Job Title</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Operations Manager"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={title}
-                  onChangeText={setTitle}
-                  autoCapitalize="words"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Phone</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="+1 (555) 123-4567"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>LinkedIn Profile</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="https://linkedin.com/in/johndoe"
-                  placeholderTextColor={appColors.textSecondary}
-                  value={linkedin}
-                  onChangeText={setLinkedin}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-
-                <Text style={[styles.label, { color: appColors.text }]}>Bio</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea, { 
-                    backgroundColor: inputBackgroundColor, 
-                    borderColor: inputBorderColor,
-                    color: appColors.text 
-                  }]}
-                  placeholder="Tell us about yourself..."
-                  placeholderTextColor={appColors.textSecondary}
-                  value={bio}
-                  onChangeText={setBio}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-
-                {/* Opt-in Networking Toggle */}
-                <View style={styles.switchContainer}>
-                  <View style={styles.switchTextContainer}>
-                    <Text style={[styles.switchLabel, { color: appColors.text }]}>
-                      Opt-in to Networking
-                    </Text>
-                    <Text style={[styles.switchDescription, { color: appColors.textSecondary }]}>
-                      Allow other attendees to see your profile and send you messages
-                    </Text>
-                  </View>
-                  <Switch
-                    value={optInNetworking}
-                    onValueChange={(value) => {
-                      console.log('AuthScreen - User toggled optInNetworking to:', value);
-                      setOptInNetworking(value);
-                    }}
-                    trackColor={{ false: appColors.border, true: appColors.primary }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-              </React.Fragment>
-            )}
-
-            {/* Email & Password (both modes) */}
-            <Text style={[styles.label, { color: appColors.text }]}>Email *</Text>
+            {/* Email Input */}
+            <Text style={[styles.label, { color: appColors.text }]}>Email Address</Text>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: inputBackgroundColor, 
@@ -282,52 +146,33 @@ export default function AuthScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-            />
-
-            <Text style={[styles.label, { color: appColors.text }]}>Password *</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: inputBackgroundColor, 
-                borderColor: inputBorderColor,
-                color: appColors.text 
-              }]}
-              placeholder="••••••••"
-              placeholderTextColor={appColors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
+              editable={!loading}
             />
 
             {/* Submit Button */}
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: appColors.primary }, loading && styles.buttonDisabled]}
-              onPress={handleEmailAuth}
+              onPress={handleSignIn}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.primaryButtonText}>
-                  {mode === "signin" ? "Sign In" : "Create Account"}
+                  Sign In
                 </Text>
               )}
             </TouchableOpacity>
 
-            {/* Switch Mode */}
-            <TouchableOpacity
-              style={styles.switchModeButton}
-              onPress={() => {
-                console.log('AuthScreen - Switching mode from', mode, 'to', mode === 'signin' ? 'signup' : 'signin');
-                setMode(mode === "signin" ? "signup" : "signin");
-              }}
-            >
-              <Text style={[styles.switchModeText, { color: appColors.primary }]}>
-                {mode === "signin"
-                  ? "Don't have an account? Sign Up"
-                  : "Already have an account? Sign In"}
+            {/* Help Text */}
+            <View style={styles.helpContainer}>
+              <Text style={[styles.helpText, { color: appColors.textSecondary }]}>
+                Having trouble signing in?
               </Text>
-            </TouchableOpacity>
+              <Text style={[styles.helpText, { color: appColors.textSecondary, marginTop: spacing.xs }]}>
+                Contact the conference organizers for assistance.
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -345,7 +190,7 @@ export default function AuthScreen() {
         >
           <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
-              {mode === "signin" ? "Login Failed" : "Sign Up Failed"}
+              Sign In Failed
             </Text>
             <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
               {errorMessage}
@@ -369,11 +214,6 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   scrollContent: {
     flexGrow: 1,
@@ -403,6 +243,17 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
   },
+  instructionsBox: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginBottom: spacing.lg,
+  },
+  instructionsText: {
+    ...typography.bodySmall,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
   label: {
     ...typography.bodySmall,
     fontWeight: '600',
@@ -416,31 +267,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
     fontSize: 16,
-  },
-  textArea: {
-    height: 100,
-    paddingTop: spacing.md,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  switchTextContainer: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  switchLabel: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  switchDescription: {
-    ...typography.bodySmall,
-    lineHeight: 18,
   },
   primaryButton: {
     height: 50,
@@ -457,14 +283,13 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  switchModeButton: {
-    marginTop: spacing.lg,
-    alignItems: "center",
-    paddingVertical: spacing.md,
+  helpContainer: {
+    marginTop: spacing.xl,
+    alignItems: 'center',
   },
-  switchModeText: {
-    fontSize: 14,
-    fontWeight: '500',
+  helpText: {
+    ...typography.bodySmall,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
