@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
+import { IconSymbol } from '@/components/IconSymbol';
 import { 
   View, 
   Text, 
@@ -17,263 +17,309 @@ import {
   RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
 import { fetchFromAirtableCache } from '@/utils/api';
 import { Stack } from 'expo-router';
+import React, { useEffect, useState, useMemo } from 'react';
+import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 
 interface Exhibitor {
   id: string;
   Name?: string;
   Logo?: string;
   Description?: string;
-  'Contact Name'?: string;
-  'Contact Title'?: string;
-  'Contact Email'?: string;
-  'Contact Phone - Direct'?: string;
-  'Contact Phone - Mobile'?: string;
-  'Contact Fax'?: string;
-  'Company URL'?: string;
   LinkedIn?: string;
   Facebook?: string;
   X?: string;
-  'Booth Number'?: string;
   Demonstrations?: string;
   Address?: string;
-  'Address Line 1'?: string;
-  'Address Line 2'?: string;
   City?: string;
   State?: string;
-  'Zip Code'?: string;
   Country?: string;
 }
 
-function resolveImageSource(source: string | number | undefined) {
-  if (!source) return { uri: '' };
-  if (typeof source === 'string') return { uri: source };
-  return source;
-}
-
 const styles = StyleSheet.create({
+  safeArea: { flex: 1 },
   container: { flex: 1 },
-  scrollContent: { padding: spacing.lg, paddingBottom: 100 },
-  searchContainer: { marginBottom: spacing.lg },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  scrollContent: { paddingBottom: 20 },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  searchInput: {
+    height: 44,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+    fontSize: 16,
+    borderWidth: 1,
   },
-  searchIcon: { marginRight: spacing.sm },
-  searchInput: { flex: 1, ...typography.body },
-  clearButton: { padding: spacing.sm },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.sm },
-  card: { width: '50%', padding: spacing.sm },
-  cardInner: {
+  grid: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  card: {
     borderRadius: borderRadius.md,
     padding: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 180,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  logoWhiteBackground: {
+  logoContainer: {
     width: '100%',
-    height: 90,
+    height: 120,
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.sm,
     marginBottom: spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
     padding: spacing.sm,
   },
-  logo: { width: '100%', height: '100%', resizeMode: 'contain' },
-  name: {
+  logo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  exhibitorName: {
+    ...typography.h3,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  exhibitorDescription: {
     ...typography.bodySmall,
     textAlign: 'center',
-    marginBottom: spacing.xs,
-    fontWeight: '600',
-  },
-  boothBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
     marginTop: spacing.xs,
   },
-  boothBadgeText: {
-    ...typography.caption,
-    fontWeight: '700',
-    fontSize: 11,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
   },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
-  emptyText: { ...typography.h3, textAlign: 'center', marginTop: spacing.md },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
-  errorText: { ...typography.body, textAlign: 'center', marginTop: spacing.md, marginBottom: spacing.lg },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  errorText: {
+    ...typography.body,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
   retryButton: {
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
   },
-  retryButtonText: { ...typography.body, fontWeight: '600', color: '#FFFFFF' },
+  retryButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  emptyText: {
+    ...typography.body,
+    textAlign: 'center',
+    padding: spacing.xl,
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
   },
   modalContent: {
+    width: '90%',
+    maxHeight: '80%',
     borderRadius: borderRadius.lg,
-    width: '100%',
-    maxWidth: 600,
-    maxHeight: '90%',
-    overflow: 'hidden',
+    padding: spacing.lg,
   },
-  modalScrollContent: { padding: spacing.xl },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
-  modalTitle: { ...typography.h2, flex: 1, marginRight: spacing.md },
-  closeButton: { 
-    padding: spacing.sm,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  modalTitle: {
+    ...typography.h2,
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  closeButton: {
+    padding: spacing.xs,
   },
   modalLogoContainer: {
     width: '100%',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
+    height: 150,
     backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.md,
-  },
-  modalLogo: { width: '100%', height: 150, resizeMode: 'contain' },
-  sectionTitle: { ...typography.h3, marginTop: spacing.lg, marginBottom: spacing.md },
-  detailRow: { marginBottom: spacing.md },
-  detailLabel: { ...typography.bodySmall, fontWeight: '600', marginBottom: spacing.xs },
-  detailValue: { ...typography.body },
-  linkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.sm,
+    marginBottom: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  modalLogo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  modalSection: {
+    marginBottom: spacing.md,
+  },
+  modalSectionTitle: {
+    ...typography.h3,
+    marginBottom: spacing.xs,
+  },
+  modalSectionText: {
+    ...typography.body,
+    lineHeight: 22,
+  },
+  socialLinks: {
+    flexDirection: 'row',
+    gap: spacing.md,
     marginTop: spacing.sm,
   },
-  linkButtonText: { ...typography.body, marginLeft: spacing.sm },
+  socialButton: {
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+  },
 });
 
+function resolveImageSource(source: string | number | undefined): { uri: string } | number {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source;
+}
+
 export default function ExhibitorsScreen() {
-  console.log('[Exhibitors] 🚀 Component rendering started');
-  
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const [exhibitors, setExhibitors] = useState<Exhibitor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedExhibitor, setSelectedExhibitor] = useState<Exhibitor | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { 
-    console.log('[Exhibitors] ✅ Component mounted, starting data load');
-    loadExhibitors(); 
+  useEffect(() => {
+    console.log('ExhibitorsScreen - Component mounted');
+    loadExhibitors(false);
   }, []);
 
   const loadExhibitors = async (isRefresh = false) => {
-    console.log('[Exhibitors] 📥 loadExhibitors called, isRefresh:', isRefresh);
-    
-    if (isRefresh) {
-      console.log('[Exhibitors] User triggered refresh');
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    
-    setError(null);
-    
     try {
-      console.log('[Exhibitors] 🔄 Calling fetchFromAirtableCache for exhibitors...');
-      const data = await fetchFromAirtableCache<Exhibitor>('exhibitors');
-      console.log(`[Exhibitors] ✅ Received ${data.length} exhibitors from Airtable Cache`);
-      console.log('[Exhibitors] Sample exhibitor data:', data[0]);
-      
-      const sorted = data.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
-      console.log('[Exhibitors] ✅ Sorted exhibitors alphabetically');
-      setExhibitors(sorted);
+      if (isRefresh) {
+        console.log('ExhibitorsScreen - User initiated refresh');
+        setRefreshing(true);
+      } else {
+        console.log('ExhibitorsScreen - Initial load started');
+        setLoading(true);
+      }
+      setError(null);
+
+      console.log('ExhibitorsScreen - Fetching exhibitors from Airtable cache');
+      const data = await fetchFromAirtableCache<any>('exhibitors');
+      console.log('ExhibitorsScreen - Raw data received:', data?.length || 0, 'records');
+
+      if (!data || data.length === 0) {
+        console.warn('ExhibitorsScreen - No exhibitors data received');
+        setExhibitors([]);
+        return;
+      }
+
+      const mappedExhibitors: Exhibitor[] = data.map((record: any) => {
+        const logoUrl = record.Logo?.[0]?.url || record.Logo;
+        return {
+          id: record.id,
+          Name: record.Name || record.name || 'Unnamed Exhibitor',
+          Logo: logoUrl,
+          Description: record.Description || record.description || '',
+          LinkedIn: record.LinkedIn || record.linkedin || '',
+          Facebook: record.Facebook || record.facebook || '',
+          X: record.X || record.x || '',
+          Demonstrations: record.Demonstrations || record.demonstrations || '',
+          Address: record.Address || record.address || '',
+          City: record.City || record.city || '',
+          State: record.State || record.state || '',
+          Country: record.Country || record.country || '',
+        };
+      });
+
+      const sortedExhibitors = mappedExhibitors.sort((a, b) => {
+        const nameA = a.Name?.toLowerCase() || '';
+        const nameB = b.Name?.toLowerCase() || '';
+        return nameA.localeCompare(nameB);
+      });
+
+      console.log('ExhibitorsScreen - Successfully loaded and sorted', sortedExhibitors.length, 'exhibitors');
+      setExhibitors(sortedExhibitors);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      console.error('[Exhibitors] ❌ Failed to load exhibitors:', errorMessage);
-      console.error('[Exhibitors] Full error:', err);
-      setError(errorMessage);
+      console.error('ExhibitorsScreen - Error loading exhibitors:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load exhibitors');
     } finally {
-      console.log('[Exhibitors] 🏁 Load complete, updating state');
       setLoading(false);
       setRefreshing(false);
     }
   };
 
   const filteredExhibitors = useMemo(() => {
-    if (!searchQuery.trim()) return exhibitors;
+    if (!searchQuery.trim()) {
+      return exhibitors;
+    }
     const query = searchQuery.toLowerCase();
-    const filtered = exhibitors.filter(e =>
-      (e.Name || '').toLowerCase().includes(query) ||
-      (e['Booth Number'] || '').toLowerCase().includes(query) ||
-      (e.Description || '').toLowerCase().includes(query)
+    return exhibitors.filter(exhibitor => 
+      exhibitor.Name?.toLowerCase().includes(query) ||
+      exhibitor.Description?.toLowerCase().includes(query)
     );
-    console.log(`[Exhibitors] 🔍 Filtered ${filtered.length} exhibitors from ${exhibitors.length} total`);
-    return filtered;
   }, [exhibitors, searchQuery]);
 
   const openWebsite = (url: string) => {
-    console.log('[Exhibitors] 🌐 Opening website:', url);
-    Linking.openURL(url).catch(err => console.error('[Exhibitors] Failed to open URL:', err));
+    if (url) {
+      console.log('ExhibitorsScreen - Opening website:', url);
+      Linking.openURL(url).catch(err => console.error('ExhibitorsScreen - Error opening URL:', err));
+    }
   };
-  
+
   const openEmail = (email: string) => {
-    console.log('[Exhibitors] 📧 Opening email:', email);
-    Linking.openURL(`mailto:${email}`).catch(err => console.error('[Exhibitors] Failed to open email:', err));
+    if (email) {
+      console.log('ExhibitorsScreen - Opening email:', email);
+      Linking.openURL(`mailto:${email}`).catch(err => console.error('ExhibitorsScreen - Error opening email:', err));
+    }
   };
-  
+
   const openPhone = (phone: string) => {
-    console.log('[Exhibitors] 📞 Opening phone:', phone);
-    Linking.openURL(`tel:${phone}`).catch(err => console.error('[Exhibitors] Failed to open phone:', err));
+    if (phone) {
+      console.log('ExhibitorsScreen - Opening phone:', phone);
+      Linking.openURL(`tel:${phone}`).catch(err => console.error('ExhibitorsScreen - Error opening phone:', err));
+    }
   };
 
-  const getFullAddress = (exhibitor: Exhibitor): string | null => {
-    if (exhibitor.Address) return exhibitor.Address;
-    
-    const parts = [];
-    if (exhibitor['Address Line 1']) parts.push(exhibitor['Address Line 1']);
-    if (exhibitor['Address Line 2']) parts.push(exhibitor['Address Line 2']);
-    if (exhibitor.City) parts.push(exhibitor.City);
-    if (exhibitor.State) parts.push(exhibitor.State);
-    if (exhibitor['Zip Code']) parts.push(exhibitor['Zip Code']);
-    if (exhibitor.Country) parts.push(exhibitor.Country);
-    
-    return parts.length > 0 ? parts.join(', ') : null;
+  const getFullAddress = (exhibitor: Exhibitor): string => {
+    const parts = [
+      exhibitor.Address,
+      exhibitor.City,
+      exhibitor.State,
+      exhibitor.Country
+    ].filter(Boolean);
+    return parts.join(', ');
   };
 
-  console.log('[Exhibitors] 🎨 Rendering UI, loading:', loading, 'error:', error, 'exhibitors count:', exhibitors.length);
+  console.log('ExhibitorsScreen - Rendering with', exhibitors.length, 'exhibitors, filtered:', filteredExhibitors.length);
 
   if (loading) {
     return (
       <React.Fragment>
-        <Stack.Screen options={{ headerShown: true, title: 'Exhibitors', headerBackTitle: 'Back' }} />
-        <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        <Stack.Screen options={{ title: 'Exhibitors', headerShown: true }} />
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: appColors.background }]} edges={['bottom']}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={appColors.primary} />
-            <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+            <Text style={[styles.errorText, { color: appColors.text, marginTop: spacing.md }]}>
               Loading exhibitors...
             </Text>
           </View>
@@ -285,16 +331,15 @@ export default function ExhibitorsScreen() {
   if (error) {
     return (
       <React.Fragment>
-        <Stack.Screen options={{ headerShown: true, title: 'Exhibitors', headerBackTitle: 'Back' }} />
-        <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        <Stack.Screen options={{ title: 'Exhibitors', headerShown: true }} />
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: appColors.background }]} edges={['bottom']}>
           <View style={styles.errorContainer}>
-            <IconSymbol ios_icon_name="exclamationmark.triangle" android_material_icon_name="error" size={64} color={appColors.error || '#FF3B30'} />
             <Text style={[styles.errorText, { color: appColors.text }]}>
-              Failed to load exhibitors: {error}
+              {error}
             </Text>
             <TouchableOpacity
               style={[styles.retryButton, { backgroundColor: appColors.primary }]}
-              onPress={() => loadExhibitors()}
+              onPress={() => loadExhibitors(false)}
             >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
@@ -306,101 +351,84 @@ export default function ExhibitorsScreen() {
 
   return (
     <React.Fragment>
-      <Stack.Screen options={{ headerShown: true, title: 'Exhibitors', headerBackTitle: 'Back' }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+      <Stack.Screen options={{ title: 'Exhibitors', headerShown: true }} />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={[
+              styles.searchInput,
+              {
+                backgroundColor: appColors.card,
+                color: appColors.text,
+                borderColor: appColors.border,
+              },
+            ]}
+            placeholder="Search exhibitors..."
+            placeholderTextColor={appColors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
         <ScrollView
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadExhibitors(true)}
               tintColor={appColors.primary}
-              colors={[appColors.primary]}
             />
           }
         >
-          <View style={styles.searchContainer}>
-            <View style={[styles.searchInputContainer, { backgroundColor: appColors.card }]}>
-              <IconSymbol
-                ios_icon_name="magnifyingglass"
-                android_material_icon_name="search"
-                size={20}
-                color={appColors.textSecondary}
-                style={styles.searchIcon}
-              />
-              <TextInput
-                style={[styles.searchInput, { color: appColors.text }]}
-                placeholder="Search exhibitors..."
-                placeholderTextColor={appColors.textSecondary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-                  <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={20} color={appColors.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {filteredExhibitors.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={64} color={appColors.textSecondary} />
-              <Text style={[styles.emptyText, { color: appColors.text }]}>No exhibitors found</Text>
-            </View>
-          ) : (
-            <View style={styles.grid}>
-              {filteredExhibitors.map(exhibitor => {
-                const exhibitorName = exhibitor.Name || '';
-                const exhibitorLogo = exhibitor.Logo || '';
-                const exhibitorBoothNumber = exhibitor['Booth Number'] || '';
-                
-                return (
-                  <View key={exhibitor.id} style={styles.card}>
-                    <TouchableOpacity
-                      style={[styles.cardInner, { backgroundColor: appColors.card }]}
-                      onPress={() => {
-                        console.log('[Exhibitors] 👆 User tapped exhibitor card:', exhibitorName);
-                        setSelectedExhibitor(exhibitor);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.logoWhiteBackground}>
-                        {exhibitorLogo ? (
-                          <Image source={resolveImageSource(exhibitorLogo)} style={styles.logo} />
-                        ) : (
-                          <IconSymbol
-                            ios_icon_name="building.2"
-                            android_material_icon_name="business"
-                            size={40}
-                            color={appColors.textSecondary}
-                          />
-                        )}
-                      </View>
-                      <Text
-                        style={[styles.name, { color: appColors.text }]}
-                        numberOfLines={2}
-                        adjustsFontSizeToFit
-                      >
-                        {exhibitorName}
-                      </Text>
-                      {exhibitorBoothNumber && (
-                        <View style={[styles.boothBadge, { backgroundColor: appColors.primary }]}>
-                          <Text style={[styles.boothBadgeText, { color: '#FFFFFF' }]}>
-                            Booth {exhibitorBoothNumber}
-                          </Text>
-                        </View>
+          <View style={styles.grid}>
+            {filteredExhibitors.length === 0 ? (
+              <Text style={[styles.emptyText, { color: appColors.textSecondary }]}>
+                {searchQuery ? 'No exhibitors found matching your search' : 'No exhibitors available'}
+              </Text>
+            ) : (
+              <React.Fragment>
+                {filteredExhibitors.map((exhibitor, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.card, { backgroundColor: appColors.card }]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      console.log('ExhibitorsScreen - User tapped exhibitor:', exhibitor.Name);
+                      setSelectedExhibitor(exhibitor);
+                    }}
+                  >
+                    <View style={styles.logoContainer}>
+                      {exhibitor.Logo ? (
+                        <Image
+                          source={resolveImageSource(exhibitor.Logo)}
+                          style={styles.logo}
+                        />
+                      ) : (
+                        <IconSymbol
+                          ios_icon_name="building.2"
+                          android_material_icon_name="store"
+                          size={48}
+                          color={appColors.textSecondary}
+                        />
                       )}
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-          )}
+                    </View>
+                    <Text style={[styles.exhibitorName, { color: appColors.text }]}>
+                      {exhibitor.Name}
+                    </Text>
+                    {exhibitor.Description && (
+                      <Text
+                        style={[styles.exhibitorDescription, { color: appColors.textSecondary }]}
+                        numberOfLines={2}
+                      >
+                        {exhibitor.Description}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </React.Fragment>
+            )}
+          </View>
         </ScrollView>
 
         <Modal
@@ -409,29 +437,23 @@ export default function ExhibitorsScreen() {
           animationType="fade"
           onRequestClose={() => setSelectedExhibitor(null)}
         >
-          <View style={styles.modalOverlay}>
-            <Pressable 
-              style={StyleSheet.absoluteFill} 
-              onPress={() => setSelectedExhibitor(null)} 
-            />
-            <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
-              <ScrollView 
-                showsVerticalScrollIndicator={true} 
-                contentContainerStyle={styles.modalScrollContent}
-                bounces={true}
-              >
+          <Pressable style={styles.modalOverlay} onPress={() => setSelectedExhibitor(null)}>
+            <Pressable style={[styles.modalContent, { backgroundColor: appColors.card }]} onPress={(e) => e.stopPropagation()}>
+              <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
                   <Text style={[styles.modalTitle, { color: appColors.text }]}>
-                    {selectedExhibitor?.Name || ''}
+                    {selectedExhibitor?.Name}
                   </Text>
-                  <TouchableOpacity 
-                    style={styles.closeButton} 
-                    onPress={() => {
-                      console.log('[Exhibitors] ❌ User closed exhibitor modal');
-                      setSelectedExhibitor(null);
-                    }}
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setSelectedExhibitor(null)}
                   >
-                    <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color="#FFFFFF" />
+                    <IconSymbol
+                      ios_icon_name="xmark"
+                      android_material_icon_name="close"
+                      size={24}
+                      color={appColors.text}
+                    />
                   </TouchableOpacity>
                 </View>
 
@@ -440,120 +462,94 @@ export default function ExhibitorsScreen() {
                     <Image
                       source={resolveImageSource(selectedExhibitor.Logo)}
                       style={styles.modalLogo}
-                      resizeMode="contain"
                     />
                   </View>
                 )}
 
                 {selectedExhibitor?.Description && (
-                  <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Description</Text>
-                    <Text style={[styles.detailValue, { color: appColors.text }]}>
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalSectionTitle, { color: appColors.text }]}>
+                      About
+                    </Text>
+                    <Text style={[styles.modalSectionText, { color: appColors.textSecondary }]}>
                       {selectedExhibitor.Description}
                     </Text>
                   </View>
                 )}
 
-                {selectedExhibitor?.['Company URL'] && (
-                  <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Website</Text>
-                    <TouchableOpacity
-                      style={[styles.linkButton, { backgroundColor: appColors.primary }]}
-                      onPress={() => openWebsite(selectedExhibitor['Company URL']!)}
-                    >
-                      <IconSymbol ios_icon_name="globe" android_material_icon_name="language" size={20} color="#FFFFFF" />
-                      <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>Visit Website</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {selectedExhibitor?.LinkedIn && (
-                  <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>LinkedIn</Text>
-                    <TouchableOpacity
-                      style={[styles.linkButton, { backgroundColor: '#0077B5' }]}
-                      onPress={() => openWebsite(selectedExhibitor.LinkedIn!)}
-                    >
-                      <IconSymbol ios_icon_name="link" android_material_icon_name="link" size={20} color="#FFFFFF" />
-                      <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>View LinkedIn Profile</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {selectedExhibitor?.['Contact Phone - Direct'] && (
-                  <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Primary Contact Phone</Text>
-                    <TouchableOpacity
-                      style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
-                      onPress={() => openPhone(selectedExhibitor['Contact Phone - Direct']!)}
-                    >
-                      <IconSymbol ios_icon_name="phone" android_material_icon_name="phone" size={20} color={appColors.primary} />
-                      <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
-                        {selectedExhibitor['Contact Phone - Direct']}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {(() => {
-                  const fullAddress = selectedExhibitor ? getFullAddress(selectedExhibitor) : null;
-                  if (fullAddress) {
-                    return (
-                      <View style={styles.detailRow}>
-                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Address</Text>
-                        <Text style={[styles.detailValue, { color: appColors.text }]}>
-                          {fullAddress}
-                        </Text>
-                      </View>
-                    );
-                  }
-                  return null;
-                })()}
-
-                {selectedExhibitor?.['Booth Number'] && (
-                  <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Booth Number</Text>
-                    <Text style={[styles.detailValue, { color: appColors.text }]}>
-                      {selectedExhibitor['Booth Number']}
-                    </Text>
-                  </View>
-                )}
-
-                {selectedExhibitor?.['Contact Name'] && (
-                  <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Contact Name</Text>
-                    <Text style={[styles.detailValue, { color: appColors.text }]}>
-                      {selectedExhibitor['Contact Name']}
-                    </Text>
-                  </View>
-                )}
-
-                {selectedExhibitor?.['Contact Email'] && (
-                  <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Contact Email</Text>
-                    <TouchableOpacity
-                      style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
-                      onPress={() => openEmail(selectedExhibitor['Contact Email']!)}
-                    >
-                      <IconSymbol ios_icon_name="envelope" android_material_icon_name="email" size={20} color={appColors.primary} />
-                      <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
-                        {selectedExhibitor['Contact Email']}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
                 {selectedExhibitor?.Demonstrations && (
-                  <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Demonstrations</Text>
-                    <Text style={[styles.detailValue, { color: appColors.text }]}>
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalSectionTitle, { color: appColors.text }]}>
+                      Demonstrations
+                    </Text>
+                    <Text style={[styles.modalSectionText, { color: appColors.textSecondary }]}>
                       {selectedExhibitor.Demonstrations}
                     </Text>
                   </View>
                 )}
+
+                {getFullAddress(selectedExhibitor!) && (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalSectionTitle, { color: appColors.text }]}>
+                      Location
+                    </Text>
+                    <Text style={[styles.modalSectionText, { color: appColors.textSecondary }]}>
+                      {getFullAddress(selectedExhibitor!)}
+                    </Text>
+                  </View>
+                )}
+
+                {(selectedExhibitor?.LinkedIn || selectedExhibitor?.Facebook || selectedExhibitor?.X) && (
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalSectionTitle, { color: appColors.text }]}>
+                      Connect
+                    </Text>
+                    <View style={styles.socialLinks}>
+                      {selectedExhibitor.LinkedIn && (
+                        <TouchableOpacity
+                          style={[styles.socialButton, { backgroundColor: appColors.background }]}
+                          onPress={() => openWebsite(selectedExhibitor.LinkedIn!)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="link"
+                            android_material_icon_name="link"
+                            size={24}
+                            color={appColors.primary}
+                          />
+                        </TouchableOpacity>
+                      )}
+                      {selectedExhibitor.Facebook && (
+                        <TouchableOpacity
+                          style={[styles.socialButton, { backgroundColor: appColors.background }]}
+                          onPress={() => openWebsite(selectedExhibitor.Facebook!)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="link"
+                            android_material_icon_name="link"
+                            size={24}
+                            color={appColors.primary}
+                          />
+                        </TouchableOpacity>
+                      )}
+                      {selectedExhibitor.X && (
+                        <TouchableOpacity
+                          style={[styles.socialButton, { backgroundColor: appColors.background }]}
+                          onPress={() => openWebsite(selectedExhibitor.X!)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="link"
+                            android_material_icon_name="link"
+                            size={24}
+                            color={appColors.primary}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                )}
               </ScrollView>
-            </View>
-          </View>
+            </Pressable>
+          </Pressable>
         </Modal>
       </SafeAreaView>
     </React.Fragment>

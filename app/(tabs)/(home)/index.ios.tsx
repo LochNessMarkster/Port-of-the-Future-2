@@ -261,11 +261,12 @@ export default function HomeScreen() {
   };
 
   const handleNavigation = (route: string) => {
-    console.log('HomeScreen iOS - Navigating to:', route);
+    console.log('HomeScreen iOS - User tapped navigation button for route:', route);
     try {
       router.push(route as any);
+      console.log('HomeScreen iOS - Navigation successful to:', route);
     } catch (error) {
-      console.error('HomeScreen iOS - Navigation error:', error);
+      console.error('HomeScreen iOS - Navigation error to', route, ':', error);
     }
   };
 
@@ -385,7 +386,10 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
-                onPress={() => handleNavigation('/exhibitors')}
+                onPress={() => {
+                  console.log('HomeScreen iOS - Exhibitors button pressed');
+                  handleNavigation('/exhibitors');
+                }}
               >
                 <IconSymbol
                   ios_icon_name="building.2"

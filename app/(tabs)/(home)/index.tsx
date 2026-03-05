@@ -1,3 +1,4 @@
+
 import { useTheme } from "@react-navigation/native";
 import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -159,7 +160,6 @@ const styles = StyleSheet.create({
   announcementMetaText: { ...typography.caption },
   loadingContainer: { padding: spacing.xl, alignItems: 'center' },
   emptyText: { ...typography.body, textAlign: 'center', padding: spacing.xl },
-  // FIX: WiFi notice card at bottom of home screen
   wifiCard: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.xl,
@@ -192,15 +192,18 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('HomeScreen - Component mounted, loading announcements');
     loadAnnouncements();
   }, []);
 
   const loadAnnouncements = async () => {
     try {
       setLoading(true);
+      console.log('HomeScreen - Fetching announcements from API');
       const { apiGet } = await import('@/utils/api');
       const data = await apiGet<Announcement[]>('/api/announcements');
       setAnnouncements(data || []);
+      console.log('HomeScreen - Loaded announcements:', data?.length || 0);
     } catch (error) {
       console.error('HomeScreen - Error loading announcements:', error);
       setAnnouncements([]);
@@ -222,15 +225,19 @@ export default function HomeScreen() {
   };
 
   const handleNavigation = (route: string) => {
+    console.log('HomeScreen - User tapped navigation button for route:', route);
     try {
       router.push(route as any);
+      console.log('HomeScreen - Navigation successful to:', route);
     } catch (error) {
-      console.error('HomeScreen - Navigation error:', error);
+      console.error('HomeScreen - Navigation error to', route, ':', error);
     }
   };
 
   const userName = user?.name || 'Guest';
   const welcomeText = `Welcome, ${userName}!`;
+
+  console.log('HomeScreen - Rendering with user:', userName, 'announcements:', announcements.length);
 
   return (
     <React.Fragment>
@@ -315,7 +322,10 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
-                onPress={() => handleNavigation('/exhibitors')}
+                onPress={() => {
+                  console.log('HomeScreen - Exhibitors button pressed');
+                  handleNavigation('/exhibitors');
+                }}
               >
                 <IconSymbol ios_icon_name="building.2" android_material_icon_name="store" size={28} color={appColors.accent} />
                 <Text style={[styles.navLabel, { color: appColors.text }]}>Exhibitors</Text>
@@ -425,7 +435,7 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* FIX: WiFi notice */}
+          {/* WiFi notice */}
           <View style={[styles.wifiCard, { backgroundColor: appColors.card }]}>
             <IconSymbol
               ios_icon_name="wifi"
