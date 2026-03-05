@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Port of the Future Conference",
-    "slug": "Port of the Future Conference",
+    "slug": "port-of-the-future",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/POF-ICON.png",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Natively",
+      "bundleIdentifier": "com.potfconference.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -25,7 +25,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.potfconference.app"
     },
     "web": {
       "favicon": "./assets/images/914b4040-3525-4b66-9cb8-88293e02f44c.png",
@@ -36,7 +36,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "Port of the Future Conference",
+    "scheme": "potf-conference",
     "experiments": {
       "typedRoutes": true
     },
