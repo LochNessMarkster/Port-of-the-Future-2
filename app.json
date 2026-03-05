@@ -25,7 +25,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.potfconference.app"
     },
     "web": {
       "favicon": "./assets/images/914b4040-3525-4b66-9cb8-88293e02f44c.png",
