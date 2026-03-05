@@ -39,6 +39,48 @@ export default function AuthScreen() {
     setErrorModalVisible(true);
   };
 
+  // Function to fetch all Airtable records with pagination
+  const fetchAllRecords = async () => {
+    let allRecords: any[] = [];
+    let offset: string | null = null;
+    const baseUrl = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
+    
+    console.log('🔍 [Airtable] Starting paginated fetch of all records');
+    
+    do {
+      const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
+      console.log('🌐 [Airtable] Fetching page from:', url);
+      
+      try {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          console.error('❌ [Airtable] Bad response status:', response.status);
+          throw new Error(`Airtable API returned status ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const recordCount = data.records?.length || 0;
+        console.log('📦 [Airtable] Fetched page with', recordCount, 'records');
+        
+        allRecords = allRecords.concat(data.records || []);
+        offset = data.offset || null;
+        
+        if (offset) {
+          console.log('➡️ [Airtable] More pages available, continuing...');
+        } else {
+          console.log('✅ [Airtable] All pages fetched');
+        }
+      } catch (fetchError: any) {
+        console.error('❌ [Airtable] Fetch failed:', fetchError);
+        throw fetchError;
+      }
+    } while (offset);
+    
+    console.log('✅ [Airtable] Total records fetched:', allRecords.length);
+    return allRecords;
+  };
+
   const handleSignIn = async () => {
     console.log('🔐 [AuthScreen] User tapped Sign In');
     console.log('📧 [AuthScreen] Email:', email);
@@ -55,18 +97,14 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      // Step 1: Check if email exists in Airtable cache
+      // Step 1: Check if email exists in Airtable cache (with pagination)
       console.log('🔍 [Airtable] Starting email verification for:', email.toLowerCase().trim());
       
-      const airtableUrl = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
-      console.log('🌐 [Airtable] Fetching from:', airtableUrl);
-      
-      let airtableResponse;
+      let allRecords;
       try {
-        airtableResponse = await fetch(airtableUrl);
-        console.log('✅ [Airtable] Fetch completed, status:', airtableResponse.status);
+        allRecords = await fetchAllRecords();
       } catch (fetchError: any) {
-        console.error('❌ [Airtable] Fetch failed:', fetchError);
+        console.error('❌ [Airtable] Failed to fetch records:', fetchError);
         console.error('❌ [Airtable] Error details:', {
           message: fetchError.message,
           name: fetchError.name,
@@ -75,28 +113,12 @@ export default function AuthScreen() {
         showError("Unable to connect to verification server. Please check your internet connection.");
         return;
       }
-      
-      if (!airtableResponse.ok) {
-        console.error('❌ [Airtable] Bad response status:', airtableResponse.status);
-        showError("Unable to verify email. Please try again later.");
-        return;
-      }
-
-      let airtableData;
-      try {
-        airtableData = await airtableResponse.json();
-        console.log('📦 [Airtable] Parsed JSON, records count:', airtableData.records?.length || 0);
-      } catch (jsonError: any) {
-        console.error('❌ [Airtable] JSON parse failed:', jsonError);
-        showError("Unable to verify email. Please try again later.");
-        return;
-      }
 
       // Search for email match (case-insensitive)
       const normalizedEmail = email.toLowerCase().trim();
-      console.log('🔎 [Airtable] Searching for email:', normalizedEmail);
+      console.log('🔎 [Airtable] Searching for email in', allRecords.length, 'records');
       
-      const emailExists = airtableData.records?.some((record: any) => {
+      const emailExists = allRecords.some((record: any) => {
         const recordEmail = record.fields?.Email || record.fields?.email;
         if (!recordEmail) return false;
         const normalizedRecordEmail = recordEmail.toLowerCase().trim();
