@@ -53,7 +53,7 @@ function RootLayoutInner() {
     } else {
       setWasOffline(false);
     }
-  }, [networkState.isConnected, networkState.isInternetReachable]);
+  }, [networkState.isConnected, networkState.isInternetReachable, wasOffline]);
 
   // Auth Bootstrap: redirect based on auth state once loading is complete
   React.useEffect(() => {
@@ -68,7 +68,7 @@ function RootLayoutInner() {
       console.log('RootLayout - User authenticated, redirecting to home');
       router.replace('/(tabs)/(home)/');
     }
-  }, [user, authLoading, pathname]);
+  }, [user, authLoading, pathname, router]);
 
   const lightColors = colors.light;
   const darkColors = colors.dark;
@@ -145,6 +145,24 @@ function RootLayoutInner() {
             <ActivityIndicator size="large" color={appColors.primary} />
             <Text style={{ color: appColors.textSecondary, marginTop: spacing.md, ...typography.body }}>
               Loading...
+            </Text>
+          </View>
+        </GestureHandlerRootView>
+      </ThemeProvider>
+    );
+  }
+
+  // Prevent rendering protected content when not authenticated
+  const isAuthScreen = pathname === '/auth' || pathname.startsWith('/auth');
+  if (!user && !isAuthScreen) {
+    console.log('RootLayout - Waiting for auth redirect...');
+    return (
+      <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: appColors.background }}>
+            <ActivityIndicator size="large" color={appColors.primary} />
+            <Text style={{ color: appColors.textSecondary, marginTop: spacing.md, ...typography.body }}>
+              Redirecting...
             </Text>
           </View>
         </GestureHandlerRootView>

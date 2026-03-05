@@ -303,7 +303,7 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
-                onPress={() => handleNavigation('/agenda')}
+                onPress={() => handleNavigation('/(tabs)/agenda')}
               >
                 <IconSymbol
                   ios_icon_name="calendar"
@@ -317,7 +317,7 @@ export default function HomeScreen() {
               <TouchableOpacity 
                 style={[styles.navTile, { backgroundColor: appColors.card }]}
                 activeOpacity={0.7}
-                onPress={() => handleNavigation('/speakers')}
+                onPress={() => handleNavigation('/(tabs)/speakers')}
               >
                 <IconSymbol
                   ios_icon_name="person.2"
