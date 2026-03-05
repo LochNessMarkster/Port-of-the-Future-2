@@ -1,3 +1,4 @@
+
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -50,7 +51,9 @@ export const apiCall = async <T = any>(
   options?: RequestInit
 ): Promise<T> => {
   if (!isBackendConfigured()) {
-    throw new Error("Backend URL not configured. Please rebuild the app.");
+    const errorMsg = "Backend URL not configured. Please rebuild the app.";
+    console.error("[API]", errorMsg);
+    throw new Error(errorMsg);
   }
 
   const url = `${BACKEND_URL}${endpoint}`;
@@ -65,7 +68,7 @@ export const apiCall = async <T = any>(
       },
     };
 
-    console.log("[API] Fetch options:", fetchOptions);
+    console.log("[API] Fetch options:", JSON.stringify(fetchOptions, null, 2));
 
     // Always send the token if we have it (needed for cross-domain/iframe support)
     const token = await getBearerToken();
@@ -74,9 +77,12 @@ export const apiCall = async <T = any>(
         ...fetchOptions.headers,
         Authorization: `Bearer ${token}`,
       };
+      console.log("[API] Added Authorization header");
     }
 
+    console.log("[API] Making fetch request to:", url);
     const response = await fetch(url, fetchOptions);
+    console.log("[API] Response status:", response.status, response.statusText);
 
     if (!response.ok) {
       const text = await response.text();
@@ -98,8 +104,19 @@ export const apiCall = async <T = any>(
     const data = await response.json();
     console.log("[API] Success:", data);
     return data;
-  } catch (error) {
+  } catch (error: any) {
     console.error("[API] Request failed:", error);
+    
+    // Provide more helpful error messages for common network issues
+    if (error.message && error.message.includes("Network request failed")) {
+      throw new Error("Network error: Unable to connect to the server. Please check your internet connection and try again.");
+    }
+    
+    if (error.message && error.message.includes("Failed to fetch")) {
+      throw new Error("Connection error: Unable to reach the server. Please check your internet connection and try again.");
+    }
+    
+    // Re-throw the original error if it's already formatted
     throw error;
   }
 };

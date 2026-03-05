@@ -18,7 +18,7 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-import { apiPost } from "@/utils/api";
+import { apiPost, BACKEND_URL, isBackendConfigured } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthScreen() {
@@ -41,6 +41,8 @@ export default function AuthScreen() {
 
   const handleSignIn = async () => {
     console.log('🔐 Sign In - Starting authentication process');
+    console.log('🔐 Backend URL:', BACKEND_URL);
+    console.log('🔐 Backend configured:', isBackendConfigured());
     
     if (!email || !email.includes('@')) {
       console.log('❌ Sign In - Invalid email format');
@@ -78,9 +80,32 @@ export default function AuthScreen() {
       console.log('✅ Sign In - Email verified, proceeding to authentication');
     } catch (verifyError: any) {
       console.error('❌ Sign In - Email verification failed:', verifyError);
+      
       let userErrorMessage = "Unable to verify your registration.\n\n";
-      userErrorMessage += `Error: ${verifyError.message || 'No message available'}\n\n`;
-      userErrorMessage += "Please check your internet connection and try again.";
+      
+      // Check if this is a network error
+      if (verifyError.message && (
+        verifyError.message.includes("Network request failed") ||
+        verifyError.message.includes("Failed to fetch") ||
+        verifyError.message.includes("Network error") ||
+        verifyError.message.includes("Connection error")
+      )) {
+        userErrorMessage = "Network Connection Error\n\n";
+        userErrorMessage += "Unable to connect to the server. This could be due to:\n\n";
+        userErrorMessage += "• No internet connection\n";
+        userErrorMessage += "• Server is temporarily unavailable\n";
+        userErrorMessage += "• Firewall or network restrictions\n\n";
+        userErrorMessage += "Please check your internet connection and try again.";
+      } else if (verifyError.message && verifyError.message.includes("500")) {
+        userErrorMessage = "Server Error\n\n";
+        userErrorMessage += "The server encountered an error while processing your request.\n\n";
+        userErrorMessage += "This is a temporary issue. Please try again in a few moments.\n\n";
+        userErrorMessage += "If the problem persists, please contact the conference organizers.";
+      } else {
+        userErrorMessage += `Error: ${verifyError.message || 'Unknown error'}\n\n`;
+        userErrorMessage += "Please check your internet connection and try again.";
+      }
+      
       showError(userErrorMessage);
       setLoading(false);
       return;
@@ -121,8 +146,28 @@ export default function AuthScreen() {
       router.replace("/(tabs)/(home)/");
     } catch (apiError: any) {
       console.error('❌ Sign In - Backend API error:', apiError);
+      
       let errorMsg = "Authentication failed. Please try again.";
-      if (apiError && apiError.message) {
+      
+      // Check if this is a network error
+      if (apiError.message && (
+        apiError.message.includes("Network request failed") ||
+        apiError.message.includes("Failed to fetch") ||
+        apiError.message.includes("Network error") ||
+        apiError.message.includes("Connection error")
+      )) {
+        errorMsg = "Network Connection Error\n\n";
+        errorMsg += "Unable to connect to the server. This could be due to:\n\n";
+        errorMsg += "• No internet connection\n";
+        errorMsg += "• Server is temporarily unavailable\n";
+        errorMsg += "• Firewall or network restrictions\n\n";
+        errorMsg += "Please check your internet connection and try again.";
+      } else if (apiError.message && apiError.message.includes("500")) {
+        errorMsg = "Server Error\n\n";
+        errorMsg += "The server encountered an error while processing your request.\n\n";
+        errorMsg += "This is a temporary issue. Please try again in a few moments.\n\n";
+        errorMsg += "If the problem persists, please contact the conference organizers.";
+      } else if (apiError && apiError.message) {
         errorMsg = apiError.message;
         try {
           const jsonMatch = errorMsg.match(/API error: \d+ - (.+)$/s);
@@ -134,6 +179,7 @@ export default function AuthScreen() {
           console.log('⚠️ Sign In - Could not parse error message, using original');
         }
       }
+      
       showError(errorMsg);
       setLoading(false);
     }
