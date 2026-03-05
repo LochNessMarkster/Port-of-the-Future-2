@@ -54,9 +54,15 @@ export default function AuthScreen() {
       try {
         const response = await fetch(url);
         
+        console.log('📡 [Airtable] Response status:', response.status);
+        console.log('📡 [Airtable] Response ok:', response.ok);
+        console.log('📡 [Airtable] Response statusText:', response.statusText);
+        
         if (!response.ok) {
+          const errorText = await response.text();
           console.error('❌ [Airtable] Bad response status:', response.status);
-          throw new Error(`Airtable API returned status ${response.status}`);
+          console.error('❌ [Airtable] Error response body:', errorText);
+          throw new Error(`Airtable API returned status ${response.status}: ${response.statusText}. Response: ${errorText}`);
         }
         
         const data = await response.json();
@@ -72,7 +78,11 @@ export default function AuthScreen() {
           console.log('✅ [Airtable] All pages fetched');
         }
       } catch (fetchError: any) {
-        console.error('❌ [Airtable] Fetch failed:', fetchError);
+        console.error('❌ [Airtable] Fetch failed with error:', fetchError);
+        console.error('❌ [Airtable] Error name:', fetchError.name);
+        console.error('❌ [Airtable] Error message:', fetchError.message);
+        console.error('❌ [Airtable] Error stack:', fetchError.stack);
+        console.error('❌ [Airtable] Full error object:', JSON.stringify(fetchError, Object.getOwnPropertyNames(fetchError)));
         throw fetchError;
       }
     } while (offset);
@@ -105,12 +115,28 @@ export default function AuthScreen() {
         allRecords = await fetchAllRecords();
       } catch (fetchError: any) {
         console.error('❌ [Airtable] Failed to fetch records:', fetchError);
+        console.error('❌ [Airtable] Error type:', typeof fetchError);
+        console.error('❌ [Airtable] Error constructor:', fetchError.constructor?.name);
         console.error('❌ [Airtable] Error details:', {
           message: fetchError.message,
           name: fetchError.name,
-          stack: fetchError.stack
+          stack: fetchError.stack,
+          cause: fetchError.cause
         });
-        showError("Unable to connect to verification server. Please check your internet connection.");
+        
+        // Build detailed error message for user
+        let userErrorMessage = "Unable to connect to verification server.\n\n";
+        userErrorMessage += `Error Type: ${fetchError.name || 'Unknown'}\n`;
+        userErrorMessage += `Error Message: ${fetchError.message || 'No message available'}\n\n`;
+        
+        if (fetchError.cause) {
+          userErrorMessage += `Cause: ${JSON.stringify(fetchError.cause)}\n\n`;
+        }
+        
+        userErrorMessage += "Please check your internet connection and try again.";
+        
+        console.error('❌ [Airtable] Showing detailed error to user:', userErrorMessage);
+        showError(userErrorMessage);
         return;
       }
 
@@ -320,20 +346,22 @@ export default function AuthScreen() {
           style={styles.modalOverlay}
           onPress={() => setErrorModalVisible(false)}
         >
-          <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+          <Pressable style={[styles.modalContent, { backgroundColor: appColors.card }]}>
             <Text style={[styles.modalTitle, { color: appColors.text }]}>
               Sign In Failed
             </Text>
-            <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
-              {errorMessage}
-            </Text>
+            <ScrollView style={styles.modalMessageScroll} showsVerticalScrollIndicator={true}>
+              <Text style={[styles.modalMessage, { color: appColors.textSecondary }]}>
+                {errorMessage}
+              </Text>
+            </ScrollView>
             <TouchableOpacity
               style={[styles.modalButton, { backgroundColor: appColors.primary }]}
               onPress={() => setErrorModalVisible(false)}
             >
               <Text style={styles.modalButtonText}>OK</Text>
             </TouchableOpacity>
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -435,6 +463,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -446,10 +475,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     textAlign: 'center',
   },
+  modalMessageScroll: {
+    maxHeight: 300,
+    marginBottom: spacing.xl,
+  },
   modalMessage: {
     ...typography.body,
-    marginBottom: spacing.xl,
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 22,
   },
   modalButton: {
