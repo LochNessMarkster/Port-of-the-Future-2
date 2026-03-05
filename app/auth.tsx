@@ -27,9 +27,10 @@ export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
-  const { signInWithEmail, setUserFromToken } = useAuth();
+  const { setUserFromToken } = useAuth();
 
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -49,16 +50,36 @@ export default function AuthScreen() {
       return;
     }
 
+    if (!password) {
+      showError("Please enter the password");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Call create-account with just the email.
+      // Call create-account with email and password
       // The backend will:
-      //   1. Check if email exists in Airtable - if not, return 400 error
-      //   2. If email exists, create/update the account using shared password "POTF2026"
-      //   3. Return { user, token } for immediate authentication
+      //   1. Verify password is "POTF2026"
+      //   2. Check if email exists in Airtable cache
+      //   3. If email not found, return 400 error
+      //   4. If email found and password correct, create/update user with Airtable data
+      //   5. Return { user, token } for immediate authentication
       console.log('[API] Requesting /api/registration/create-account for email:', email.toLowerCase().trim());
-      const createResponse = await apiPost<{ user: { id: string; email: string; name: string; company: string | null; title: string | null; phone: string | null; emailVerified: boolean }; token: string }>('/api/registration/create-account', {
+      const createResponse = await apiPost<{ 
+        user: { 
+          id: string; 
+          email: string; 
+          name: string; 
+          company: string | null; 
+          title: string | null; 
+          phone: string | null;
+          registrationType: string | null;
+          emailVerified: boolean;
+        }; 
+        token: string;
+      }>('/api/registration/create-account', {
         email: email.toLowerCase().trim(),
+        password: password,
       });
 
       if (!createResponse.token || !createResponse.user) {
@@ -68,14 +89,7 @@ export default function AuthScreen() {
 
       console.log('AuthScreen - Account ready, setting user from token');
       // Use the token returned by create-account to authenticate immediately
-      await setUserFromToken(
-        {
-          id: createResponse.user.id,
-          email: createResponse.user.email,
-          name: createResponse.user.name,
-        },
-        createResponse.token
-      );
+      await setUserFromToken(createResponse.user, createResponse.token);
 
       console.log('AuthScreen - Sign in successful, navigating to home');
       router.replace("/(tabs)/(home)/");
@@ -83,10 +97,26 @@ export default function AuthScreen() {
       console.error('AuthScreen - Auth error:', error);
       let errorMsg = error.message || "Authentication failed. Please try again.";
 
+      // Try to parse JSON error body from API response
+      // apiCall throws: "API error: 400 - {"error":"..."}"
+      try {
+        const jsonMatch = errorMsg.match(/API error: \d+ - (.+)$/s);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[1]);
+          if (parsed.error) {
+            errorMsg = parsed.error;
+          }
+        }
+      } catch {
+        // Not JSON, use raw message
+      }
+
       // Parse backend error messages
-      if (errorMsg.includes("400") || errorMsg.toLowerCase().includes("not registered")) {
-        errorMsg = "This email is not registered for Port of the Future 2026.\n\nPlease contact the conference organizers if you believe this is an error.";
-      } else if (errorMsg.includes("500") || errorMsg.toLowerCase().includes("server")) {
+      if (errorMsg.toLowerCase().includes("not registered") || errorMsg.toLowerCase().includes("not found in airtable")) {
+        errorMsg = "This email is not registered for Port of the Future 2026. Please contact us for assistance.";
+      } else if (errorMsg.toLowerCase().includes("incorrect password") || errorMsg.toLowerCase().includes("invalid password") || errorMsg.toLowerCase().includes("wrong password")) {
+        errorMsg = "Incorrect password. The password for all attendees is POTF2026.";
+      } else if (errorMsg.includes("500") || errorMsg.toLowerCase().includes("internal server error")) {
         errorMsg = "A server error occurred. Please try again in a moment.";
       }
 
@@ -127,7 +157,7 @@ export default function AuthScreen() {
             {/* Instructions */}
             <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
               <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
-                Enter the email address you used to register for the conference. All attendees use the same password: POTF2026
+                Enter your registered email address and the conference password to sign in.
               </Text>
             </View>
 
@@ -144,6 +174,24 @@ export default function AuthScreen() {
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+            />
+
+            {/* Password Input */}
+            <Text style={[styles.label, { color: appColors.text }]}>Password</Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: inputBackgroundColor, 
+                borderColor: inputBorderColor,
+                color: appColors.text 
+              }]}
+              placeholder="POTF2026"
+              placeholderTextColor={appColors.textSecondary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
               editable={!loading}

@@ -1,12 +1,12 @@
 
 import "react-native-reanimated";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useFonts } from "expo-font";
-import { Stack, usePathname } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert, Platform, View, StyleSheet } from "react-native";
+import { useColorScheme, Platform, View, StyleSheet, Text, Modal, Pressable, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -17,7 +17,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { colors } from "@/styles/commonStyles";
+import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
 import FloatingTabBar, { TabBarItem } from "@/components/FloatingTabBar";
 // Note: Error logging is auto-initialized via index.ts import
 
@@ -33,22 +33,46 @@ function RootLayoutInner() {
   const colorScheme = useColorScheme();
   const networkState = useNetworkState();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
+
+  // Offline notification modal state
+  const [offlineModalVisible, setOfflineModalVisible] = useState(false);
+  const [wasOffline, setWasOffline] = useState(false);
 
   React.useEffect(() => {
     if (
       !networkState.isConnected &&
       networkState.isInternetReachable === false
     ) {
-      Alert.alert(
-        "🔌 You are offline",
-        "You can keep using the app! Your changes will be saved locally and synced when you are back online."
-      );
+      if (!wasOffline) {
+        setWasOffline(true);
+        setOfflineModalVisible(true);
+      }
+    } else {
+      setWasOffline(false);
     }
   }, [networkState.isConnected, networkState.isInternetReachable]);
 
+  // Auth Bootstrap: redirect based on auth state once loading is complete
+  React.useEffect(() => {
+    if (authLoading) return;
+
+    const isAuthScreen = pathname === '/auth' || pathname.startsWith('/auth');
+
+    if (!user && !isAuthScreen) {
+      console.log('RootLayout - No user, redirecting to auth');
+      router.replace('/auth');
+    } else if (user && isAuthScreen) {
+      console.log('RootLayout - User authenticated, redirecting to home');
+      router.replace('/(tabs)/(home)/');
+    }
+  }, [user, authLoading, pathname]);
+
   const lightColors = colors.light;
   const darkColors = colors.dark;
+  // appColors is already defined above for use in loading state
 
   const CustomDefaultTheme: Theme = {
     ...DefaultTheme,
@@ -105,12 +129,28 @@ function RootLayoutInner() {
 
   // Determine if we should show the tab bar
   // Show on all screens except auth screens
-  const shouldShowTabBar = user && !pathname.includes('/auth') && pathname !== '/auth-popup' && pathname !== '/auth-callback';
+  const shouldShowTabBar = user && !pathname.includes('/auth');
 
   // On iOS, don't show the FloatingTabBar (native tabs are used)
   const showFloatingTabBar = shouldShowTabBar && Platform.OS !== 'ios';
 
-  console.log('RootLayout - Pathname:', pathname, 'Show tab bar:', showFloatingTabBar, 'User:', !!user);
+  console.log('RootLayout - Pathname:', pathname, 'Show tab bar:', showFloatingTabBar, 'User:', !!user, 'Auth loading:', authLoading);
+
+  // Show loading screen while checking auth state (Auth Bootstrap Rule)
+  if (authLoading) {
+    return (
+      <ThemeProvider value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: appColors.background }}>
+            <ActivityIndicator size="large" color={appColors.primary} />
+            <Text style={{ color: appColors.textSecondary, marginTop: spacing.md, ...typography.body }}>
+              Loading...
+            </Text>
+          </View>
+        </GestureHandlerRootView>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <>
@@ -120,11 +160,37 @@ function RootLayoutInner() {
         <WidgetProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
+              {/* Offline Notification Modal */}
+              <Modal
+                visible={offlineModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setOfflineModalVisible(false)}
+              >
+                <Pressable
+                  style={offlineModalStyles.overlay}
+                  onPress={() => setOfflineModalVisible(false)}
+                >
+                  <View style={[offlineModalStyles.content, { backgroundColor: appColors.card }]}>
+                    <Text style={[offlineModalStyles.title, { color: appColors.text }]}>
+                      🔌 You are offline
+                    </Text>
+                    <Text style={[offlineModalStyles.message, { color: appColors.textSecondary }]}>
+                      You can keep using the app! Your changes will be saved locally and synced when you are back online.
+                    </Text>
+                    <TouchableOpacity
+                      style={[offlineModalStyles.button, { backgroundColor: appColors.primary }]}
+                      onPress={() => setOfflineModalVisible(false)}
+                    >
+                      <Text style={offlineModalStyles.buttonText}>OK</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Pressable>
+              </Modal>
+
               <Stack>
                 {/* Auth screens */}
                 <Stack.Screen name="auth" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
                 {/* Main app with tabs */}
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 {/* Additional screens with headers */}
@@ -241,6 +307,49 @@ function RootLayoutInner() {
     </>
   );
 }
+
+const offlineModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  content: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  title: {
+    ...typography.h2,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  message: {
+    ...typography.body,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  button: {
+    height: 50,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
 
 const webTabBarStyles = StyleSheet.create({
   tabBarWrapper: {

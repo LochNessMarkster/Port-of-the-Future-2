@@ -9,10 +9,12 @@ export default function TabLayout() {
 
   console.log('TabLayout - User auth state:', { user: user?.email, loading });
 
+  // While auth is loading, show nothing (root layout handles the loading screen)
   if (loading) {
     return null;
   }
 
+  // If no user, redirect to auth (belt-and-suspenders with root layout)
   if (!user) {
     console.log('TabLayout - No user, redirecting to auth');
     return <Redirect href="/auth" />;
