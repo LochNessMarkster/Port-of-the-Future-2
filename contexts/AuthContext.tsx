@@ -75,9 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Call GET /api/auth/me to get current user
+      // Call GET /api/profile to get current user
       try {
-        const userData = await apiGet<User>('/api/auth/me');
+        const userData = await apiGet<User>('/api/profile');
         console.log("AuthContext - User found:", userData.email);
         setUser(userData);
       } catch (error: any) {

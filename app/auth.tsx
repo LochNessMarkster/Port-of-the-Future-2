@@ -18,7 +18,7 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles";
-import { apiPost, apiGet } from "@/utils/api";
+import { apiPost } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthScreen() {
@@ -59,26 +59,23 @@ export default function AuthScreen() {
     const normalizedEmail = email.toLowerCase().trim();
     console.log('🔐 Sign In - Normalized email:', normalizedEmail);
 
-    // Step 1: Verify email exists in Airtable via backend API
+    // Step 1: Verify email exists in Airtable via public verify-email endpoint (no auth required)
     try {
-      console.log('📋 Sign In - Verifying email with backend API...');
-      const attendees = await apiGet<Array<{ fields: { Email?: string; email?: string } }>>('/api/attendees');
-      console.log('✅ Sign In - Fetched', attendees.length, 'attendee records from backend');
-
-      const emailExists = attendees.some((record: any) => {
-        const recordEmail = record.fields?.Email || record.fields?.email;
-        if (!recordEmail) return false;
-        return recordEmail.toLowerCase().trim() === normalizedEmail;
+      console.log('📋 Sign In - Verifying email with /api/verify-email...');
+      const checkResponse = await apiPost<{ exists: boolean; message?: string }>('/api/verify-email', {
+        email: normalizedEmail
       });
+      
+      console.log('✅ Sign In - Email verification response:', checkResponse);
 
-      console.log('🔐 Sign In - Email exists in attendees:', emailExists);
-
-      if (!emailExists) {
+      if (!checkResponse.exists) {
         console.log('❌ Sign In - Email not found in attendees list');
         showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
         setLoading(false);
         return;
       }
+
+      console.log('✅ Sign In - Email verified, proceeding to authentication');
     } catch (verifyError: any) {
       console.error('❌ Sign In - Email verification failed:', verifyError);
       let userErrorMessage = "Unable to verify your registration.\n\n";
