@@ -9,6 +9,10 @@ export const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl || "";
 
 export const AIRTABLE_CACHE_BASE_URL = "https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd";
 
+// NEW: Direct Airtable API configuration
+export const AIRTABLE_API_BASE_URL = "https://api.airtable.com/v0/appkKjciinTlnsbkd";
+export const AIRTABLE_API_TOKEN = "patCsZvxAEJmBpJGu.8c98dc7c1d088a1b0ef2ef73a02e8d4b7cd4a8ce9a5f36d79ab0265c676c6f8c";
+
 // Correct table IDs provided by user
 export const AIRTABLE_TABLES: Record<string, string> = {
   speakers:      "tblNp1JZk4ARZZZlT",
@@ -55,7 +59,71 @@ export const getBearerToken = async (): Promise<string | null> => {
 };
 
 /**
- * Fetch all records from an Airtable table, handling pagination automatically.
+ * Fetch all records from Airtable API directly, handling pagination automatically.
+ * Airtable returns a maximum of 100 records per request. This function
+ * continues fetching until all records are retrieved.
+ */
+export const fetchFromAirtableDirect = async <T = any>(
+  tableName: string
+): Promise<T[]> => {
+  const tableId = AIRTABLE_TABLES[tableName];
+  if (!tableId) {
+    throw new Error(`Unknown Airtable table: ${tableName}`);
+  }
+
+  console.log(`[API] 🔄 Starting direct Airtable fetch for ${tableName} (${tableId})`);
+  let allRecords: T[] = [];
+  let offset: string | undefined = undefined;
+  let pageNumber = 0;
+
+  do {
+    pageNumber++;
+    const url = new URL(`${AIRTABLE_API_BASE_URL}/${tableId}`);
+    if (offset) {
+      url.searchParams.append('offset', offset);
+    }
+
+    console.log(`[API] 📄 Fetching page ${pageNumber} for ${tableName}...`);
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_TOKEN}`,
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[API] ❌ Airtable API error for ${tableName} (page ${pageNumber}): ${response.status} - ${text}`);
+      throw new Error(`Airtable API error for ${tableName}: ${response.status} - ${text}`);
+    }
+
+    const data = await response.json();
+
+    if (data.records && Array.isArray(data.records)) {
+      const transformed = data.records.map((record: any) => ({
+        id: record.id,
+        ...record.fields,
+      }));
+      allRecords = allRecords.concat(transformed);
+      console.log(`[API] ✅ Page ${pageNumber}: Fetched ${transformed.length} records (total so far: ${allRecords.length})`);
+    } else {
+      console.log(`[API] ⚠️ Page ${pageNumber}: No records array found in response`);
+    }
+
+    offset = data.offset;
+    
+    if (offset) {
+      console.log(`[API] 🔄 More records available, continuing to page ${pageNumber + 1}...`);
+    } else {
+      console.log(`[API] ✅ Pagination complete for ${tableName}`);
+    }
+  } while (offset);
+
+  console.log(`[API] 🎉 Successfully fetched ALL ${allRecords.length} records from ${tableName} in ${pageNumber} page(s)`);
+  return allRecords;
+};
+
+/**
+ * Fetch all records from an Airtable table via cache, handling pagination automatically.
  * Airtable returns a maximum of 100 records per request. This function
  * continues fetching until all records are retrieved.
  */

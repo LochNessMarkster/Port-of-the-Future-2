@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  Image,
   TextInput,
   Platform
 } from 'react-native';
@@ -18,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet, authenticatedPost, authenticatedDelete } from '@/utils/api';
+import { fetchFromAirtableDirect, authenticatedPost, authenticatedDelete } from '@/utils/api';
 
 interface Session {
   id: string;
@@ -31,37 +30,54 @@ interface Session {
   description: string;
 }
 
-interface SessionBackendResponse {
+interface AirtableSessionRecord {
   id: string;
-  title?: string;
-  speaker?: string;
-  room?: string;
-  type?: string;
-  date?: string;
-  time?: string;
-  description?: string;
-  Title?: string;
-  'Speaker(s)'?: string;
-  Speaker?: string;
-  Speakers?: string;
-  Room?: string;
+  'Session Title'?: string;
+  'Speaker(s)'?: string[] | string;
+  'Room'?: string;
   'Type/Track'?: string;
-  Type?: string;
-  Date?: string;
+  'Date'?: string;
   'Start Time'?: string;
-  Time?: string;
   'Session Description'?: string;
-  Description?: string;
+  [key: string]: any;
 }
 
-function mapSessionResponse(data: SessionBackendResponse): Session {
-  const title = data.title || data.Title || '';
-  const speaker = data.speaker || data['Speaker(s)'] || data.Speaker || data.Speakers || '';
-  const room = data.room || data.Room || '';
-  const type = data.type || data['Type/Track'] || data.Type || '';
-  const date = data.date || data.Date || '';
-  const time = data.time || data['Start Time'] || data.Time || '';
-  const description = data.description || data['Session Description'] || data.Description || '';
+interface AirtableSpeakerRecord {
+  id: string;
+  'First Name'?: string;
+  'Last Name'?: string;
+  Name?: string;
+  [key: string]: any;
+}
+
+function mapSessionResponse(data: AirtableSessionRecord, speakersMap: Map<string, string>): Session {
+  const title = data['Session Title'] || '';
+  
+  // Handle speaker IDs - resolve to names
+  let speakerNames: string[] = [];
+  const speakerField = data['Speaker(s)'];
+  
+  if (Array.isArray(speakerField)) {
+    // Array of speaker record IDs
+    speakerNames = speakerField
+      .map(speakerId => speakersMap.get(speakerId) || '')
+      .filter(name => name.length > 0);
+  } else if (typeof speakerField === 'string') {
+    // Single speaker ID or name
+    const resolved = speakersMap.get(speakerField);
+    if (resolved) {
+      speakerNames = [resolved];
+    } else if (speakerField.length > 0) {
+      speakerNames = [speakerField];
+    }
+  }
+  
+  const speaker = speakerNames.join(', ');
+  const room = data['Room'] || '';
+  const type = data['Type/Track'] || '';
+  const date = data['Date'] || '';
+  const time = data['Start Time'] || '';
+  const description = data['Session Description'] || '';
 
   return { id: data.id, title, speaker, room, type, date, time, description };
 }
@@ -263,10 +279,44 @@ export default function AgendaScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiGet<SessionBackendResponse[]>('/api/sessions');
-      const mappedSessions = data.map(mapSessionResponse);
-      setSessions(mappedSessions);
+      console.log('[AgendaScreen] Loading sessions from Airtable...');
+      
+      // Fetch speakers first to build a lookup map
+      const speakersData = await fetchFromAirtableDirect<AirtableSpeakerRecord>('speakers');
+      console.log(`[AgendaScreen] Loaded ${speakersData.length} speakers`);
+      
+      const speakersMap = new Map<string, string>();
+      speakersData.forEach(speaker => {
+        const firstName = speaker['First Name'] || '';
+        const lastName = speaker['Last Name'] || '';
+        const name = speaker.Name || '';
+        const displayName = firstName && lastName 
+          ? `${firstName} ${lastName}` 
+          : name || firstName || lastName;
+        if (displayName) {
+          speakersMap.set(speaker.id, displayName);
+        }
+      });
+      
+      // Fetch all sessions with pagination
+      const sessionsData = await fetchFromAirtableDirect<AirtableSessionRecord>('sessions');
+      console.log(`[AgendaScreen] Loaded ${sessionsData.length} sessions`);
+      
+      const mappedSessions = sessionsData.map(session => mapSessionResponse(session, speakersMap));
+      
+      // Sort by date and time
+      const sortedSessions = mappedSessions.sort((a, b) => {
+        // First sort by date
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        // Then by time
+        return parseTime(a.time) - parseTime(b.time);
+      });
+      
+      setSessions(sortedSessions);
+      console.log(`[AgendaScreen] Successfully loaded and sorted ${sortedSessions.length} sessions`);
     } catch (err: any) {
+      console.error('[AgendaScreen] Error loading sessions:', err);
       setError('Unable to load sessions. Please try again later.');
       setSessions([]);
     } finally {
@@ -276,8 +326,9 @@ export default function AgendaScreen() {
 
   const loadBookmarkedSessions = async () => {
     try {
-      const data = await apiGet<{ sessionId: string }[]>('/api/schedule');
-      setBookmarkedSessions(new Set(data.map(item => item.sessionId)));
+      // TODO: Backend Integration - GET /api/schedule to fetch bookmarked sessions
+      // For now, using empty set
+      setBookmarkedSessions(new Set());
     } catch (err) {
       console.error('AgendaScreen - Error loading bookmarked sessions:', err);
     }
@@ -324,10 +375,14 @@ export default function AgendaScreen() {
     if (isBookmarked) {
       setBookmarkLoading(sessionId);
       try {
+        // TODO: Backend Integration - DELETE /api/schedule/:sessionId
         await authenticatedDelete(`/api/schedule/${sessionId}`);
         setBookmarkedSessions(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
-      } catch (err) { console.error('AgendaScreen - Error removing bookmark:', err); }
-      finally { setBookmarkLoading(null); }
+      } catch (err) { 
+        console.error('AgendaScreen - Error removing bookmark:', err); 
+      } finally { 
+        setBookmarkLoading(null); 
+      }
       return;
     }
     const session = sessions.find(s => s.id === sessionId);
@@ -345,10 +400,14 @@ export default function AgendaScreen() {
   const addBookmark = async (sessionId: string) => {
     setBookmarkLoading(sessionId);
     try {
+      // TODO: Backend Integration - POST /api/schedule with { sessionId }
       await authenticatedPost('/api/schedule', { sessionId });
       setBookmarkedSessions(prev => new Set(prev).add(sessionId));
-    } catch (err) { console.error('AgendaScreen - Error adding bookmark:', err); }
-    finally { setBookmarkLoading(null); }
+    } catch (err) { 
+      console.error('AgendaScreen - Error adding bookmark:', err); 
+    } finally { 
+      setBookmarkLoading(null); 
+    }
   };
 
   const handleConflictConfirm = async () => {
@@ -401,7 +460,6 @@ export default function AgendaScreen() {
   return (
     <React.Fragment>
       <Stack.Screen options={{ headerShown: true, title: 'Agenda', headerBackTitle: 'Back' }} />
-      {/* FIX: edges includes 'top' so search bar is below status bar */}
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -424,18 +482,21 @@ export default function AgendaScreen() {
 
         {/* Day Tabs */}
         <View style={styles.tabContainer}>
-          {(['23', '24', '25'] as const).map(day => (
-            <TouchableOpacity
-              key={day}
-              style={[styles.tab, { backgroundColor: selectedDay === day ? appColors.primary : appColors.card }]}
-              onPress={() => setSelectedDay(day)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabText, { color: selectedDay === day ? '#FFFFFF' : appColors.text }]}>
-                March {day}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {(['23', '24', '25'] as const).map(day => {
+            const dayText = `March ${day}`;
+            return (
+              <TouchableOpacity
+                key={day}
+                style={[styles.tab, { backgroundColor: selectedDay === day ? appColors.primary : appColors.card }]}
+                onPress={() => setSelectedDay(day)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, { color: selectedDay === day ? '#FFFFFF' : appColors.text }]}>
+                  {dayText}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Filter Dropdown */}
@@ -458,7 +519,7 @@ export default function AgendaScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
-              <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>Loading sessions...</Text>
+              <Text style={[styles.emptySubtext, { color: appColors.textSecondary, marginTop: spacing.md }]}>Loading all sessions...</Text>
             </View>
           ) : error ? (
             <View style={styles.emptyContainer}>
@@ -529,7 +590,6 @@ export default function AgendaScreen() {
                     </View>
                   ) : null}
 
-                  {/* FIX: Show type/track badge */}
                   {session.type ? (
                     <View style={[styles.sessionType, { backgroundColor: trackColor + '20', alignSelf: 'flex-start', marginTop: spacing.xs }]}>
                       <Text style={{ color: trackColor, fontSize: 12 }}>{session.type}</Text>
@@ -662,13 +722,18 @@ export default function AgendaScreen() {
               <Text style={[styles.conflictTitle, { color: appColors.text }]}>Time Conflict Detected</Text>
               <Text style={[styles.conflictMessage, { color: appColors.textSecondary }]}>This session overlaps with the following bookmarked session(s):</Text>
               <ScrollView style={{ maxHeight: 200, marginBottom: spacing.lg }}>
-                {conflictingSessions.map((conflict, index) => (
-                  <View key={index} style={[styles.conflictSessionCard, { backgroundColor: appColors.background }]}>
-                    <Text style={[styles.conflictSessionTitle, { color: appColors.text }]}>{conflict.title}</Text>
-                    <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>{conflict.time}</Text>
-                    {conflict.room && <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>{conflict.room}</Text>}
-                  </View>
-                ))}
+                {conflictingSessions.map((conflict, index) => {
+                  const conflictTitle = conflict.title;
+                  const conflictTime = conflict.time;
+                  const conflictRoom = conflict.room;
+                  return (
+                    <View key={index} style={[styles.conflictSessionCard, { backgroundColor: appColors.background }]}>
+                      <Text style={[styles.conflictSessionTitle, { color: appColors.text }]}>{conflictTitle}</Text>
+                      <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>{conflictTime}</Text>
+                      {conflictRoom && <Text style={[styles.conflictSessionTime, { color: appColors.textSecondary }]}>{conflictRoom}</Text>}
+                    </View>
+                  );
+                })}
               </ScrollView>
               <Text style={[styles.conflictMessage, { color: appColors.textSecondary, marginBottom: spacing.lg }]}>Do you still want to bookmark this session?</Text>
               <View style={styles.conflictActions}>
