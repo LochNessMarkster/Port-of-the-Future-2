@@ -108,25 +108,21 @@ export function registerRegistrationRoutes(app: App) {
   );
 
   /**
-   * POST /api/registration/create-account - Create account with email (shared password)
+   * POST /api/registration/create-account - Create account with email and shared password verification
    */
   app.fastify.post(
     '/api/registration/create-account',
     {
       schema: {
-        description: 'Create user account with email (uses shared password)',
+        description: 'Create user account with email and password verification',
         tags: ['registration'],
         body: {
           type: 'object',
           properties: {
             email: { type: 'string', format: 'email' },
-            name: { type: 'string' },
-            company: { type: 'string' },
-            title: { type: 'string' },
-            phone: { type: 'string' },
-            linkedin: { type: 'string' },
+            password: { type: 'string' },
           },
-          required: ['email'],
+          required: ['email', 'password'],
         },
         response: {
           200: {
@@ -141,10 +137,10 @@ export function registerRegistrationRoutes(app: App) {
                   company: { type: ['string', 'null'] },
                   title: { type: ['string', 'null'] },
                   phone: { type: ['string', 'null'] },
+                  registrationType: { type: ['string', 'null'] },
                   emailVerified: { type: 'boolean' },
                 },
               },
-              token: { type: 'string' },
             },
           },
           201: {
@@ -159,10 +155,10 @@ export function registerRegistrationRoutes(app: App) {
                   company: { type: ['string', 'null'] },
                   title: { type: ['string', 'null'] },
                   phone: { type: ['string', 'null'] },
+                  registrationType: { type: ['string', 'null'] },
                   emailVerified: { type: 'boolean' },
                 },
               },
-              token: { type: 'string' },
             },
           },
           400: {
@@ -175,20 +171,24 @@ export function registerRegistrationRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { email, name, company, title, phone, linkedin } = request.body as {
+      const { email, password } = request.body as {
         email: string;
-        name?: string;
-        company?: string;
-        title?: string;
-        phone?: string;
-        linkedin?: string;
+        password: string;
       };
 
       const normalizedEmail = email.toLowerCase();
 
-      app.logger.info({ email: normalizedEmail }, 'Creating account with shared password');
+      app.logger.info({ email: normalizedEmail }, 'Creating account with password verification');
 
       try {
+        // Verify password is exactly "POTF2026"
+        if (password !== SHARED_PASSWORD) {
+          app.logger.warn({ email: normalizedEmail }, 'Invalid password provided');
+          return reply.status(400).send({
+            error: 'Invalid password. The password must be exactly "POTF2026".',
+          });
+        }
+
         // Check if user already exists
         const existingUser = await app.db
           .select()
@@ -198,7 +198,6 @@ export function registerRegistrationRoutes(app: App) {
 
         // Fetch attendee details from Airtable Cache - email MUST exist in cache
         let airtableData: any = {};
-        let airtableRecordId: string | null = null;
         try {
           const attendeesData = await fetchAirtableCacheAttendees(
             'appkKjciinTlnsbkd',
@@ -214,16 +213,17 @@ export function registerRegistrationRoutes(app: App) {
           if (!attendee) {
             app.logger.warn({ email: normalizedEmail }, 'Email not found in Airtable Cache');
             return reply.status(400).send({
-              error: 'This email is not registered for Port of the Future 2026. Please contact the conference organizers.',
+              error: 'This email is not registered for Port of the Future 2026. Please contact us for assistance.',
             });
           }
 
-          airtableRecordId = attendee.id;
           airtableData = {
+            firstName: attendee.fields['First Name'],
+            lastName: attendee.fields['Last Name'],
             company: attendee.fields['Company'],
             title: attendee.fields['Job Title'],
             phone: attendee.fields['Phone'],
-            linkedin: attendee.fields['LinkedIn'],
+            registrationType: attendee.fields['Registration Level'],
           };
         } catch (airtableError) {
           app.logger.error({ err: airtableError }, 'Failed to fetch Airtable Cache data');
@@ -264,7 +264,7 @@ export function registerRegistrationRoutes(app: App) {
             throw sessionError;
           }
 
-          // Return existing user data with token
+          // Return existing user data
           return reply.status(200).send({
             user: {
               id: existingUserData.id,
@@ -273,18 +273,17 @@ export function registerRegistrationRoutes(app: App) {
               company: existingUserData.company,
               title: existingUserData.title,
               phone: existingUserData.phone,
+              registrationType: existingUserData.registrationType,
               emailVerified: existingUserData.emailVerified,
             },
-            token: sessionToken,
           });
         }
 
-        // Merge Airtable data with provided data (Airtable takes precedence)
-        const finalName = name || `${airtableData.firstName || ''} ${airtableData.lastName || ''}`.trim() || normalizedEmail;
-        const finalCompany = airtableData.company || company || null;
-        const finalTitle = airtableData.title || title || null;
-        const finalPhone = airtableData.phone || phone || null;
-        const finalLinkedin = airtableData.linkedin || linkedin || null;
+        // Build full name from Airtable data
+        const fullName = [airtableData.firstName, airtableData.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || normalizedEmail;
 
         // Create user record
         const userId = randomUUID();
@@ -293,12 +292,12 @@ export function registerRegistrationRoutes(app: App) {
           .values({
             id: userId,
             email: normalizedEmail,
-            name: finalName,
+            name: fullName,
             emailVerified: true,
-            company: finalCompany,
-            title: finalTitle,
-            phone: finalPhone,
-            linkedin: finalLinkedin,
+            company: airtableData.company || null,
+            title: airtableData.title || null,
+            phone: airtableData.phone || null,
+            registrationType: airtableData.registrationType || null,
             role: 'attendee',
           })
           .returning();
@@ -315,7 +314,7 @@ export function registerRegistrationRoutes(app: App) {
             password: SHARED_PASSWORD,
           });
 
-        app.logger.info({ userId, email: normalizedEmail }, 'User and account created with shared password');
+        app.logger.info({ userId, email: normalizedEmail }, 'User and account created');
 
         // Create session
         const sessionToken = generateSessionToken();
@@ -351,9 +350,9 @@ export function registerRegistrationRoutes(app: App) {
             company: newUser.company,
             title: newUser.title,
             phone: newUser.phone,
+            registrationType: newUser.registrationType,
             emailVerified: newUser.emailVerified,
           },
-          token: sessionToken,
         });
       } catch (error) {
         app.logger.error(

@@ -5,6 +5,7 @@ import * as authSchema from './db/auth-schema.js';
 // Import route registration functions
 import { registerHomeRoutes } from './routes/home.js';
 import { registerProfileRoutes } from './routes/profile.js';
+import { registerRegistrationRoutes } from './routes/registration.js';
 import { registerSessionsRoutes } from './routes/sessions.js';
 import { registerSpeakersRoutes } from './routes/speakers.js';
 import { registerPortsRoutes } from './routes/ports.js';
@@ -43,6 +44,7 @@ await airtableCache.initialize();
 // IMPORTANT: Always use registration functions to avoid circular dependency issues
 registerHomeRoutes(app);
 registerProfileRoutes(app);
+registerRegistrationRoutes(app);
 registerSessionsRoutes(app);
 registerSpeakersRoutes(app);
 registerPortsRoutes(app);
