@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { apiGet } from '@/utils/api';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 
 interface Speaker {
   id: string;
@@ -33,6 +33,17 @@ interface Speaker {
   publicPersonalData: boolean;
   email: string;
   phone: string;
+}
+
+// FIX: always build a display name from firstName + lastName,
+// falling back to the combined name field if both are missing
+function getDisplayName(speaker: Speaker): string {
+  const first = (speaker.firstName || '').trim();
+  const last = (speaker.lastName || '').trim();
+  if (first && last) return `${first} ${last}`;
+  if (first) return first;
+  if (last) return last;
+  return speaker.name || '';
 }
 
 const styles = StyleSheet.create({
@@ -85,7 +96,7 @@ const styles = StyleSheet.create({
   errorDetail: { ...typography.bodySmall, textAlign: 'center', marginBottom: spacing.md },
   retryButton: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: borderRadius.md, marginTop: spacing.md },
   retryButtonText: { ...typography.body, fontWeight: '600' },
-  // FIX: Modal is now fully scrollable so long bios are readable
+  // FIX: modal is scrollable so long bios are fully readable
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
     width: '90%',
@@ -118,6 +129,7 @@ const styles = StyleSheet.create({
 export default function SpeakersScreen() {
   const colorScheme = useColorScheme();
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
+  const router = useRouter();
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,12 +157,12 @@ export default function SpeakersScreen() {
     if (searchQuery.trim() === '') return speakers;
     const query = searchQuery.toLowerCase();
     return speakers.filter(speaker =>
-      speaker.firstName.toLowerCase().includes(query) ||
-      speaker.lastName.toLowerCase().includes(query) ||
-      speaker.name.toLowerCase().includes(query) ||
-      speaker.title.toLowerCase().includes(query) ||
-      speaker.topic.toLowerCase().includes(query) ||
-      speaker.bio.toLowerCase().includes(query)
+      (speaker.firstName || '').toLowerCase().includes(query) ||
+      (speaker.lastName || '').toLowerCase().includes(query) ||
+      (speaker.name || '').toLowerCase().includes(query) ||
+      (speaker.title || '').toLowerCase().includes(query) ||
+      (speaker.topic || '').toLowerCase().includes(query) ||
+      (speaker.bio || '').toLowerCase().includes(query)
     );
   }, [speakers, searchQuery]);
 
@@ -162,13 +174,21 @@ export default function SpeakersScreen() {
 
   return (
     <React.Fragment>
+      {/* FIX: back button shown in header so user can return to home */}
       <Stack.Screen options={{ headerShown: true, title: 'Speakers', headerBackTitle: 'Back' }} />
-      {/* FIX: edges includes 'top' so search bar clears status bar */}
+      {/* FIX: edges includes 'top' so search bar clears the status bar */}
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
+
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
-            <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={appColors.textSecondary} style={styles.searchIcon} />
+            <IconSymbol
+              ios_icon_name="magnifyingglass"
+              android_material_icon_name="search"
+              size={20}
+              color={appColors.textSecondary}
+              style={styles.searchIcon}
+            />
             <TextInput
               style={[styles.searchInput, { color: appColors.text }]}
               placeholder="Search speakers, topics..."
@@ -188,7 +208,9 @@ export default function SpeakersScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
-              <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>Loading speakers...</Text>
+              <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+                Loading speakers...
+              </Text>
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>
@@ -221,8 +243,13 @@ export default function SpeakersScreen() {
                   <View style={styles.speakerPhotoContainer}>
                     <Image source={{ uri: speaker.photo }} style={styles.speakerPhoto} />
                   </View>
-                  <Text style={[styles.speakerName, { color: appColors.text }]}>{speaker.name}</Text>
-                  <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>{speaker.title}</Text>
+                  {/* FIX: use getDisplayName() so firstName is never missing */}
+                  <Text style={[styles.speakerName, { color: appColors.text }]}>
+                    {getDisplayName(speaker)}
+                  </Text>
+                  <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
+                    {speaker.title}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -230,9 +257,17 @@ export default function SpeakersScreen() {
         </ScrollView>
 
         {/* Speaker Detail Modal — FIX: ScrollView wraps all content so full bio is readable */}
-        <Modal visible={selectedSpeaker !== null} transparent animationType="fade" onRequestClose={() => setSelectedSpeaker(null)}>
+        <Modal
+          visible={selectedSpeaker !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedSpeaker(null)}
+        >
           <Pressable style={styles.modalOverlay} onPress={() => setSelectedSpeaker(null)}>
-            <Pressable style={[styles.modalContent, { backgroundColor: appColors.card }]} onPress={e => e.stopPropagation()}>
+            <Pressable
+              style={[styles.modalContent, { backgroundColor: appColors.card }]}
+              onPress={e => e.stopPropagation()}
+            >
               <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedSpeaker(null)}>
                 <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={32} color={appColors.textSecondary} />
               </TouchableOpacity>
@@ -242,8 +277,13 @@ export default function SpeakersScreen() {
                   <View style={styles.modalPhotoWrapper}>
                     <Image source={{ uri: selectedSpeaker?.photo }} style={styles.modalPhoto} />
                   </View>
-                  <Text style={[styles.modalName, { color: appColors.text }]}>{selectedSpeaker?.name}</Text>
-                  <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>{selectedSpeaker?.title}</Text>
+                  {/* FIX: use getDisplayName() in modal too */}
+                  <Text style={[styles.modalName, { color: appColors.text }]}>
+                    {selectedSpeaker ? getDisplayName(selectedSpeaker) : ''}
+                  </Text>
+                  <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
+                    {selectedSpeaker?.title}
+                  </Text>
                 </View>
 
                 {selectedSpeaker?.topic ? (
