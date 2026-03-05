@@ -39,6 +39,13 @@ interface Exhibitor {
   X?: string;
   'Booth Number'?: string;
   Demonstrations?: string;
+  Address?: string;
+  'Address Line 1'?: string;
+  'Address Line 2'?: string;
+  City?: string;
+  State?: string;
+  'Zip Code'?: string;
+  Country?: string;
 }
 
 function resolveImageSource(source: string | number | undefined) {
@@ -177,19 +184,29 @@ export default function ExhibitorsScreen() {
   const [selectedExhibitor, setSelectedExhibitor] = useState<Exhibitor | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => { loadExhibitors(); }, []);
+  useEffect(() => { 
+    console.log('[Exhibitors Tab] Component mounted');
+    loadExhibitors(); 
+  }, []);
 
   const loadExhibitors = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    if (isRefresh) {
+      console.log('[Exhibitors Tab] User triggered refresh');
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
-      console.log('[Exhibitors] Loading exhibitors from Airtable Cache...');
+      console.log('[Exhibitors Tab] Loading exhibitors from Airtable Cache...');
       const data = await fetchFromAirtableCache<Exhibitor>('exhibitors');
-      console.log(`[Exhibitors] Received ${data.length} exhibitors from Airtable Cache`);
+      console.log(`[Exhibitors Tab] Received ${data.length} exhibitors from Airtable Cache`);
+      
       const sorted = data.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
+      console.log('[Exhibitors Tab] Sorted exhibitors alphabetically');
       setExhibitors(sorted);
     } catch (error) {
-      console.error('[Exhibitors] Failed to load exhibitors:', error);
+      console.error('[Exhibitors Tab] Failed to load exhibitors:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -206,11 +223,34 @@ export default function ExhibitorsScreen() {
     );
   }, [exhibitors, searchQuery]);
 
-  const openWebsite = (url: string) => Linking.openURL(url).catch(console.error);
-  const openEmail = (email: string) => Linking.openURL(`mailto:${email}`).catch(console.error);
-  const openPhone = (phone: string) => Linking.openURL(`tel:${phone}`).catch(console.error);
-  const hasContactInfo = (e: Exhibitor) =>
-    !!(e['Contact Name'] || e['Contact Title'] || e['Contact Email'] || e['Contact Phone - Direct'] || e['Contact Phone - Mobile']);
+  const openWebsite = (url: string) => {
+    console.log('[Exhibitors Tab] Opening website:', url);
+    Linking.openURL(url).catch(err => console.error('[Exhibitors Tab] Failed to open URL:', err));
+  };
+  
+  const openEmail = (email: string) => {
+    console.log('[Exhibitors Tab] Opening email:', email);
+    Linking.openURL(`mailto:${email}`).catch(err => console.error('[Exhibitors Tab] Failed to open email:', err));
+  };
+  
+  const openPhone = (phone: string) => {
+    console.log('[Exhibitors Tab] Opening phone:', phone);
+    Linking.openURL(`tel:${phone}`).catch(err => console.error('[Exhibitors Tab] Failed to open phone:', err));
+  };
+
+  const getFullAddress = (exhibitor: Exhibitor): string | null => {
+    if (exhibitor.Address) return exhibitor.Address;
+    
+    const parts = [];
+    if (exhibitor['Address Line 1']) parts.push(exhibitor['Address Line 1']);
+    if (exhibitor['Address Line 2']) parts.push(exhibitor['Address Line 2']);
+    if (exhibitor.City) parts.push(exhibitor.City);
+    if (exhibitor.State) parts.push(exhibitor.State);
+    if (exhibitor['Zip Code']) parts.push(exhibitor['Zip Code']);
+    if (exhibitor.Country) parts.push(exhibitor.Country);
+    
+    return parts.length > 0 ? parts.join(', ') : null;
+  };
 
   if (loading) {
     return (
@@ -271,22 +311,6 @@ export default function ExhibitorsScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={[styles.refreshButton, { backgroundColor: appColors.primary }]}
-            onPress={() => loadExhibitors(true)}
-            disabled={refreshing}
-            activeOpacity={0.7}
-          >
-            {refreshing ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <React.Fragment>
-                <IconSymbol ios_icon_name="arrow.clockwise" android_material_icon_name="refresh" size={20} color="#FFFFFF" />
-                <Text style={[styles.refreshButtonText, { color: '#FFFFFF' }]}>Refresh Exhibitors</Text>
-              </React.Fragment>
-            )}
-          </TouchableOpacity>
-
           {filteredExhibitors.length === 0 ? (
             <View style={styles.emptyContainer}>
               <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={64} color={appColors.textSecondary} />
@@ -303,7 +327,10 @@ export default function ExhibitorsScreen() {
                   <View key={exhibitor.id} style={styles.card}>
                     <TouchableOpacity
                       style={styles.cardInner}
-                      onPress={() => setSelectedExhibitor(exhibitor)}
+                      onPress={() => {
+                        console.log('[Exhibitors Tab] User tapped exhibitor card:', exhibitorName);
+                        setSelectedExhibitor(exhibitor);
+                      }}
                       activeOpacity={0.7}
                     >
                       <View style={styles.logoWhiteBackground}>
@@ -347,6 +374,10 @@ export default function ExhibitorsScreen() {
           onRequestClose={() => setSelectedExhibitor(null)}
         >
           <View style={styles.modalOverlay}>
+            <Pressable 
+              style={StyleSheet.absoluteFill} 
+              onPress={() => setSelectedExhibitor(null)} 
+            />
             <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
               <ScrollView 
                 showsVerticalScrollIndicator={true} 
@@ -357,7 +388,13 @@ export default function ExhibitorsScreen() {
                   <Text style={[styles.modalTitle, { color: appColors.text }]}>
                     {selectedExhibitor?.Name || ''}
                   </Text>
-                  <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedExhibitor(null)}>
+                  <TouchableOpacity 
+                    style={styles.closeButton} 
+                    onPress={() => {
+                      console.log('[Exhibitors Tab] User closed exhibitor modal');
+                      setSelectedExhibitor(null);
+                    }}
+                  >
                     <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
@@ -372,6 +409,71 @@ export default function ExhibitorsScreen() {
                   </View>
                 )}
 
+                {selectedExhibitor?.Description && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Description</Text>
+                    <Text style={[styles.detailValue, { color: appColors.text }]}>
+                      {selectedExhibitor.Description}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedExhibitor?.['Company URL'] && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Website</Text>
+                    <TouchableOpacity
+                      style={[styles.linkButton, { backgroundColor: appColors.primary }]}
+                      onPress={() => openWebsite(selectedExhibitor['Company URL']!)}
+                    >
+                      <IconSymbol ios_icon_name="globe" android_material_icon_name="language" size={20} color="#FFFFFF" />
+                      <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>Visit Website</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {selectedExhibitor?.LinkedIn && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>LinkedIn</Text>
+                    <TouchableOpacity
+                      style={[styles.linkButton, { backgroundColor: '#0077B5' }]}
+                      onPress={() => openWebsite(selectedExhibitor.LinkedIn!)}
+                    >
+                      <IconSymbol ios_icon_name="link" android_material_icon_name="link" size={20} color="#FFFFFF" />
+                      <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>View LinkedIn Profile</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {selectedExhibitor?.['Contact Phone - Direct'] && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Primary Contact Phone</Text>
+                    <TouchableOpacity
+                      style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
+                      onPress={() => openPhone(selectedExhibitor['Contact Phone - Direct']!)}
+                    >
+                      <IconSymbol ios_icon_name="phone" android_material_icon_name="phone" size={20} color={appColors.primary} />
+                      <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
+                        {selectedExhibitor['Contact Phone - Direct']}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {(() => {
+                  const fullAddress = selectedExhibitor ? getFullAddress(selectedExhibitor) : null;
+                  if (fullAddress) {
+                    return (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Address</Text>
+                        <Text style={[styles.detailValue, { color: appColors.text }]}>
+                          {fullAddress}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {selectedExhibitor?.['Booth Number'] && (
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Booth Number</Text>
@@ -381,77 +483,28 @@ export default function ExhibitorsScreen() {
                   </View>
                 )}
 
-                {selectedExhibitor?.Description && (
+                {selectedExhibitor?.['Contact Name'] && (
                   <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>About</Text>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Contact Name</Text>
                     <Text style={[styles.detailValue, { color: appColors.text }]}>
-                      {selectedExhibitor.Description}
+                      {selectedExhibitor['Contact Name']}
                     </Text>
                   </View>
                 )}
 
-                {selectedExhibitor && hasContactInfo(selectedExhibitor) && (
-                  <React.Fragment>
-                    <Text style={[styles.sectionTitle, { color: appColors.text }]}>Contact Information</Text>
-                    {selectedExhibitor['Contact Name'] && (
-                      <View style={styles.detailRow}>
-                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Contact Name</Text>
-                        <Text style={[styles.detailValue, { color: appColors.text }]}>
-                          {selectedExhibitor['Contact Name']}
-                        </Text>
-                      </View>
-                    )}
-                    {selectedExhibitor['Contact Title'] && (
-                      <View style={styles.detailRow}>
-                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Title</Text>
-                        <Text style={[styles.detailValue, { color: appColors.text }]}>
-                          {selectedExhibitor['Contact Title']}
-                        </Text>
-                      </View>
-                    )}
-                    {selectedExhibitor['Contact Email'] && (
-                      <View style={styles.detailRow}>
-                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Email</Text>
-                        <TouchableOpacity
-                          style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
-                          onPress={() => openEmail(selectedExhibitor['Contact Email']!)}
-                        >
-                          <IconSymbol ios_icon_name="envelope" android_material_icon_name="email" size={20} color={appColors.primary} />
-                          <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
-                            {selectedExhibitor['Contact Email']}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    {selectedExhibitor['Contact Phone - Direct'] && (
-                      <View style={styles.detailRow}>
-                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Direct Phone</Text>
-                        <TouchableOpacity
-                          style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
-                          onPress={() => openPhone(selectedExhibitor['Contact Phone - Direct']!)}
-                        >
-                          <IconSymbol ios_icon_name="phone" android_material_icon_name="phone" size={20} color={appColors.primary} />
-                          <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
-                            {selectedExhibitor['Contact Phone - Direct']}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    {selectedExhibitor['Contact Phone - Mobile'] && (
-                      <View style={styles.detailRow}>
-                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Mobile</Text>
-                        <TouchableOpacity
-                          style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
-                          onPress={() => openPhone(selectedExhibitor['Contact Phone - Mobile']!)}
-                        >
-                          <IconSymbol ios_icon_name="phone" android_material_icon_name="phone" size={20} color={appColors.primary} />
-                          <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
-                            {selectedExhibitor['Contact Phone - Mobile']}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </React.Fragment>
+                {selectedExhibitor?.['Contact Email'] && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Contact Email</Text>
+                    <TouchableOpacity
+                      style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
+                      onPress={() => openEmail(selectedExhibitor['Contact Email']!)}
+                    >
+                      <IconSymbol ios_icon_name="envelope" android_material_icon_name="email" size={20} color={appColors.primary} />
+                      <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
+                        {selectedExhibitor['Contact Email']}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
 
                 {selectedExhibitor?.Demonstrations && (
@@ -461,26 +514,6 @@ export default function ExhibitorsScreen() {
                       {selectedExhibitor.Demonstrations}
                     </Text>
                   </View>
-                )}
-
-                {selectedExhibitor?.['Company URL'] && (
-                  <TouchableOpacity
-                    style={[styles.linkButton, { backgroundColor: appColors.primary, marginTop: spacing.md }]}
-                    onPress={() => openWebsite(selectedExhibitor['Company URL']!)}
-                  >
-                    <IconSymbol ios_icon_name="globe" android_material_icon_name="language" size={20} color="#FFFFFF" />
-                    <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>Visit Website</Text>
-                  </TouchableOpacity>
-                )}
-
-                {selectedExhibitor?.LinkedIn && (
-                  <TouchableOpacity
-                    style={[styles.linkButton, { backgroundColor: '#0077B5', marginTop: spacing.sm }]}
-                    onPress={() => openWebsite(selectedExhibitor.LinkedIn!)}
-                  >
-                    <IconSymbol ios_icon_name="link" android_material_icon_name="link" size={20} color="#FFFFFF" />
-                    <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>LinkedIn</Text>
-                  </TouchableOpacity>
                 )}
               </ScrollView>
             </View>
