@@ -24,12 +24,20 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface Announcement {
   id: string;
-  title: string;
-  content: string;
+  // API returns capitalized field names from Airtable
+  Title?: string;
+  Content?: string;
+  Alert?: boolean;
+  Date?: string;
+  Time?: string;
+  Image?: string | null;
+  createdAt: string;
+  // Also support lowercase for backwards compatibility
+  title?: string;
+  content?: string;
   image?: string | null;
   date?: string | null;
   time?: string | null;
-  createdAt: string;
 }
 
 // Helper to resolve image sources (handles both local require() and remote URLs)
@@ -488,27 +496,51 @@ export default function HomeScreen() {
             ) : (
               <React.Fragment>
                 {announcements.map((announcement, index) => {
-                  const formattedCreatedAt = formatDate(announcement.createdAt);
-                  const hasImage = announcement.image && announcement.image.trim() !== '';
-                  const hasDate = announcement.date && announcement.date.trim() !== '';
-                  const hasTime = announcement.time && announcement.time.trim() !== '';
+                  // Support both capitalized (Airtable) and lowercase field names
+                  const announcementTitle = announcement.Title || announcement.title || '';
+                  const announcementContent = announcement.Content || announcement.content || '';
+                  const announcementImage = announcement.Image || announcement.image || null;
+                  const announcementDate = announcement.Date || announcement.date || null;
+                  const announcementTime = announcement.Time || announcement.time || null;
+                  const isAlert = announcement.Alert === true;
+
+                  const hasImage = announcementImage && announcementImage.trim() !== '';
+                  const hasDate = announcementDate && announcementDate.trim() !== '';
+                  const hasTime = announcementTime && announcementTime.trim() !== '';
                   
                   return (
                     <View 
                       key={index}
-                      style={[styles.announcementCard, { backgroundColor: appColors.card }]}
+                      style={[
+                        styles.announcementCard, 
+                        { backgroundColor: appColors.card },
+                        isAlert && { borderLeftWidth: 4, borderLeftColor: '#FF6B6B' }
+                      ]}
                     >
                       {hasImage && (
                         <Image
-                          source={resolveImageSource(announcement.image)}
+                          source={resolveImageSource(announcementImage)}
                           style={styles.announcementImage}
                         />
                       )}
+                      {isAlert && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+                          <IconSymbol
+                            ios_icon_name="exclamationmark.triangle.fill"
+                            android_material_icon_name="warning"
+                            size={16}
+                            color="#FF6B6B"
+                          />
+                          <Text style={{ color: '#FF6B6B', fontSize: 12, fontWeight: '700', marginLeft: 4 }}>
+                            ALERT
+                          </Text>
+                        </View>
+                      )}
                       <Text style={[styles.announcementTitle, { color: appColors.text }]}>
-                        {announcement.title}
+                        {announcementTitle}
                       </Text>
                       <Text style={[styles.announcementContent, { color: appColors.textSecondary }]}>
-                        {announcement.content}
+                        {announcementContent}
                       </Text>
                       <View style={styles.announcementMetaRow}>
                         {hasDate && (
@@ -520,7 +552,7 @@ export default function HomeScreen() {
                               color={appColors.textSecondary}
                             />
                             <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
-                              {announcement.date}
+                              {announcementDate}
                             </Text>
                           </View>
                         )}
@@ -533,7 +565,7 @@ export default function HomeScreen() {
                               color={appColors.textSecondary}
                             />
                             <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
-                              {announcement.time}
+                              {announcementTime}
                             </Text>
                           </View>
                         )}

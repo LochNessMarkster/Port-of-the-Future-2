@@ -242,9 +242,9 @@ export default function NetworkingScreen() {
     }
   };
 
-  const sendMessage = (attendeeId: string) => {
+  const sendMessage = (attendeeId: string, attendeeName: string) => {
     setSelectedAttendee(null);
-    router.push(`/messages?recipientId=${attendeeId}`);
+    router.push(`/messages?recipientId=${encodeURIComponent(attendeeId)}&recipientName=${encodeURIComponent(attendeeName)}`);
   };
 
   // Filter attendees by search query
@@ -494,7 +494,7 @@ export default function NetworkingScreen() {
 
               <TouchableOpacity
                 style={[styles.messageButton, { backgroundColor: appColors.primary }]}
-                onPress={() => selectedAttendee && sendMessage(selectedAttendee.id)}
+                onPress={() => selectedAttendee && sendMessage(selectedAttendee.id, selectedAttendee.name)}
                 activeOpacity={0.7}
               >
                 <IconSymbol
