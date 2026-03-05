@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -119,6 +118,9 @@ export default function FloorPlanScreen() {
   const imageWidth = screenWidth - (spacing.lg * 4);
   const [imageHeight, setImageHeight] = useState(0);
   const [loading, setLoading] = useState(true);
+  // FIX: track whether user is interacting with the map so we can disable
+  // the ScrollView during zoom/pan — prevents the page from scrolling
+  // instead of the map zooming
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const floorPlanImage = require('@/assets/images/5540ed9b-4184-4608-b8ed-cffb84a8b029.jpeg');
@@ -142,6 +144,7 @@ export default function FloorPlanScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+        {/* FIX: scrollEnabled is toggled off while user is zooming/panning the map */}
         <ScrollView 
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -172,6 +175,7 @@ export default function FloorPlanScreen() {
                 <ActivityIndicator size="large" color={appColors.primary} />
               </View>
             ) : (
+              // FIX: onTouchEnd re-enables scrolling when fingers are lifted
               <View
                 style={[styles.zoomContainer, { width: imageWidth, height: imageHeight }]}
                 onTouchEnd={() => setScrollEnabled(true)}
@@ -187,6 +191,7 @@ export default function FloorPlanScreen() {
                   pinchToZoom={true}
                   enableDoubleClickZoom={true}
                   doubleClickInterval={250}
+                  // FIX: disable ScrollView when user starts interacting with map
                   onStartShouldSetPanResponder={() => {
                     setScrollEnabled(false);
                     return true;

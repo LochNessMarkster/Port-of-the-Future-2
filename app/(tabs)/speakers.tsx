@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
@@ -37,13 +36,8 @@ interface Speaker {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: 100,
-  },
+  container: { flex: 1 },
+  scrollContent: { padding: spacing.lg, paddingBottom: 100 },
   searchContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -56,22 +50,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.body,
-    paddingVertical: spacing.xs,
-  },
-  clearButton: {
-    padding: spacing.xs,
-  },
-  speakerGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
+  searchIcon: { marginRight: spacing.sm },
+  searchInput: { flex: 1, ...typography.body, paddingVertical: spacing.xs },
+  clearButton: { padding: spacing.xs },
+  speakerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   speakerCard: {
     width: '47%',
     borderRadius: borderRadius.md,
@@ -82,11 +64,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-      },
-    }),
+    ...Platform.select({ web: { boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } }),
   },
   speakerPhotoContainer: {
     width: '100%',
@@ -95,122 +73,46 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     overflow: 'hidden',
   },
-  speakerPhoto: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  speakerName: {
-    ...typography.h3,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  speakerTitle: {
-    ...typography.bodySmall,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  emptySubtext: {
-    ...typography.bodySmall,
-    textAlign: 'center',
-  },
-  errorContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  errorText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  errorDetail: {
-    ...typography.bodySmall,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  retryButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.md,
-  },
-  retryButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  speakerPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
+  speakerName: { ...typography.h3, textAlign: 'center', marginBottom: spacing.xs },
+  speakerTitle: { ...typography.bodySmall, textAlign: 'center' },
+  loadingContainer: { padding: spacing.xl, alignItems: 'center' },
+  emptyContainer: { padding: spacing.xl, alignItems: 'center' },
+  emptyText: { ...typography.body, textAlign: 'center', marginBottom: spacing.sm },
+  emptySubtext: { ...typography.bodySmall, textAlign: 'center' },
+  errorContainer: { padding: spacing.xl, alignItems: 'center' },
+  errorText: { ...typography.body, textAlign: 'center', marginTop: spacing.md, marginBottom: spacing.xs },
+  errorDetail: { ...typography.bodySmall, textAlign: 'center', marginBottom: spacing.md },
+  retryButton: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: borderRadius.md, marginTop: spacing.md },
+  retryButtonText: { ...typography.body, fontWeight: '600' },
+  // FIX: Modal is now fully scrollable so long bios are readable
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '85%',
     borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    ...Platform.select({ web: { maxWidth: 600 } }),
+  },
+  modalScrollContent: {
     padding: spacing.lg,
-    ...Platform.select({
-      web: {
-        maxWidth: 600,
-      },
-    }),
+    paddingBottom: spacing.xl,
   },
-  modalPhotoContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
+  modalPhotoContainer: { alignItems: 'center', marginBottom: spacing.lg },
   modalPhotoWrapper: {
-    width: 200,
-    height: 200,
+    width: 160,
+    height: 160,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
-  modalPhoto: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  modalName: {
-    ...typography.h2,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  modalTitle: {
-    ...typography.body,
-    textAlign: 'center',
-  },
-  modalSection: {
-    marginBottom: spacing.md,
-  },
-  modalLabel: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  modalText: {
-    ...typography.body,
-    lineHeight: 24,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    zIndex: 1,
-  },
+  modalPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
+  modalName: { ...typography.h2, textAlign: 'center', marginBottom: spacing.xs },
+  modalTitle: { ...typography.body, textAlign: 'center' },
+  modalSection: { marginBottom: spacing.md },
+  modalLabel: { ...typography.bodySmall, fontWeight: '600', marginBottom: spacing.xs },
+  modalText: { ...typography.body, lineHeight: 24 },
+  closeButton: { position: 'absolute', top: spacing.md, right: spacing.md, zIndex: 1 },
 });
 
 export default function SpeakersScreen() {
@@ -222,19 +124,14 @@ export default function SpeakersScreen() {
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    loadSpeakers();
-  }, []);
+  useEffect(() => { loadSpeakers(); }, []);
 
   const loadSpeakers = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await apiGet<Speaker[]>('/api/speakers');
-      
-      // Backend handles pagination and Published filter, but filter defensively on frontend too
-      // Only show speakers where published === true
-      const publishedSpeakers = data.filter((s) => s.published === true);
+      const publishedSpeakers = data.filter(s => s.published === true);
       setSpeakers(publishedSpeakers);
     } catch (err: any) {
       setError(err.message || 'Failed to load speakers. Please try again.');
@@ -244,62 +141,34 @@ export default function SpeakersScreen() {
     }
   };
 
-  // Filter speakers by search query (backend already sorts by last name and filters Published)
   const filteredSpeakers = useMemo(() => {
-    if (searchQuery.trim() === '') {
-      return speakers;
-    }
-    
+    if (searchQuery.trim() === '') return speakers;
     const query = searchQuery.toLowerCase();
-    const filtered = speakers.filter(speaker => {
-      const matchesFirstName = speaker.firstName.toLowerCase().includes(query);
-      const matchesLastName = speaker.lastName.toLowerCase().includes(query);
-      const matchesFullName = speaker.name.toLowerCase().includes(query);
-      const matchesTitle = speaker.title.toLowerCase().includes(query);
-      const matchesTopic = speaker.topic.toLowerCase().includes(query);
-      const matchesBio = speaker.bio.toLowerCase().includes(query);
-      
-      return matchesFirstName || matchesLastName || matchesFullName || matchesTitle || matchesTopic || matchesBio;
-    });
-    
-    return filtered;
+    return speakers.filter(speaker =>
+      speaker.firstName.toLowerCase().includes(query) ||
+      speaker.lastName.toLowerCase().includes(query) ||
+      speaker.name.toLowerCase().includes(query) ||
+      speaker.title.toLowerCase().includes(query) ||
+      speaker.topic.toLowerCase().includes(query) ||
+      speaker.bio.toLowerCase().includes(query)
+    );
   }, [speakers, searchQuery]);
 
-  const clearSearch = () => {
-    setSearchQuery('');
-  };
+  const shouldShowEmail = (speaker: Speaker) =>
+    speaker.publicPersonalData === true && speaker.email && speaker.email.trim() !== '';
 
-  // Check if contact info should be displayed
-  const shouldShowEmail = (speaker: Speaker) => {
-    const show = speaker.publicPersonalData === true && speaker.email && speaker.email.trim() !== '';
-    return show;
-  };
-
-  const shouldShowPhone = (speaker: Speaker) => {
-    const show = speaker.publicPersonalData === true && speaker.phone && speaker.phone.trim() !== '';
-    return show;
-  };
+  const shouldShowPhone = (speaker: Speaker) =>
+    speaker.publicPersonalData === true && speaker.phone && speaker.phone.trim() !== '';
 
   return (
     <React.Fragment>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Speakers',
-          headerBackTitle: 'Back',
-        }}
-      />
-      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+      <Stack.Screen options={{ headerShown: true, title: 'Speakers', headerBackTitle: 'Back' }} />
+      {/* FIX: edges includes 'top' so search bar clears status bar */}
+      <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
-            <IconSymbol
-              ios_icon_name="magnifyingglass"
-              android_material_icon_name="search"
-              size={20}
-              color={appColors.textSecondary}
-              style={styles.searchIcon}
-            />
+            <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={appColors.textSecondary} style={styles.searchIcon} />
             <TextInput
               style={[styles.searchInput, { color: appColors.text }]}
               placeholder="Search speakers, topics..."
@@ -307,65 +176,32 @@ export default function SpeakersScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            {searchQuery.length > 0 ? (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={20}
-                  color={appColors.textSecondary}
-                />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={20} color={appColors.textSecondary} />
               </TouchableOpacity>
-            ) : null}
+            )}
           </View>
         </View>
 
-        <ScrollView 
-          style={styles.container}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={appColors.primary} />
-              <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>
-                Loading speakers...
-              </Text>
+              <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>Loading speakers...</Text>
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>
-              <IconSymbol
-                ios_icon_name="exclamationmark.triangle"
-                android_material_icon_name="warning"
-                size={48}
-                color={appColors.error}
-              />
-              <Text style={[styles.errorText, { color: appColors.text }]}>
-                Error loading speakers
-              </Text>
-              <Text style={[styles.errorDetail, { color: appColors.textSecondary }]}>
-                {error}
-              </Text>
-              <TouchableOpacity 
-                style={[styles.retryButton, { backgroundColor: appColors.primary }]}
-                onPress={() => {
-                  console.log('SpeakersScreen - Retry button pressed');
-                  loadSpeakers();
-                }}
-              >
-                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>
-                  Retry
-                </Text>
+              <IconSymbol ios_icon_name="exclamationmark.triangle" android_material_icon_name="warning" size={48} color={appColors.error} />
+              <Text style={[styles.errorText, { color: appColors.text }]}>Error loading speakers</Text>
+              <Text style={[styles.errorDetail, { color: appColors.textSecondary }]}>{error}</Text>
+              <TouchableOpacity style={[styles.retryButton, { backgroundColor: appColors.primary }]} onPress={loadSpeakers}>
+                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Retry</Text>
               </TouchableOpacity>
             </View>
           ) : filteredSpeakers.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <IconSymbol
-                ios_icon_name="person"
-                android_material_icon_name="person"
-                size={48}
-                color={appColors.textSecondary}
-              />
+              <IconSymbol ios_icon_name="person" android_material_icon_name="person" size={48} color={appColors.textSecondary} />
               <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
                 {searchQuery ? 'No speakers found' : 'No speakers available yet'}
               </Text>
@@ -383,118 +219,65 @@ export default function SpeakersScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.speakerPhotoContainer}>
-                    <Image
-                      source={{ uri: speaker.photo }}
-                      style={styles.speakerPhoto}
-                    />
+                    <Image source={{ uri: speaker.photo }} style={styles.speakerPhoto} />
                   </View>
-                  <Text style={[styles.speakerName, { color: appColors.text }]}>
-                    {speaker.name}
-                  </Text>
-                  <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
-                    {speaker.title}
-                  </Text>
+                  <Text style={[styles.speakerName, { color: appColors.text }]}>{speaker.name}</Text>
+                  <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>{speaker.title}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
         </ScrollView>
 
-        {/* Speaker Detail Modal */}
-        <Modal
-          visible={selectedSpeaker !== null}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setSelectedSpeaker(null)}
-        >
-          <Pressable 
-            style={styles.modalOverlay}
-            onPress={() => setSelectedSpeaker(null)}
-          >
-            <Pressable 
-              style={[styles.modalContent, { backgroundColor: appColors.card }]}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => setSelectedSpeaker(null)}
-              >
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={32}
-                  color={appColors.textSecondary}
-                />
+        {/* Speaker Detail Modal — FIX: ScrollView wraps all content so full bio is readable */}
+        <Modal visible={selectedSpeaker !== null} transparent animationType="fade" onRequestClose={() => setSelectedSpeaker(null)}>
+          <Pressable style={styles.modalOverlay} onPress={() => setSelectedSpeaker(null)}>
+            <Pressable style={[styles.modalContent, { backgroundColor: appColors.card }]} onPress={e => e.stopPropagation()}>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedSpeaker(null)}>
+                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={32} color={appColors.textSecondary} />
               </TouchableOpacity>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={styles.modalScrollContent}>
                 <View style={styles.modalPhotoContainer}>
                   <View style={styles.modalPhotoWrapper}>
-                    <Image
-                      source={{ uri: selectedSpeaker?.photo }}
-                      style={styles.modalPhoto}
-                    />
+                    <Image source={{ uri: selectedSpeaker?.photo }} style={styles.modalPhoto} />
                   </View>
-                  <Text style={[styles.modalName, { color: appColors.text }]}>
-                    {selectedSpeaker?.name}
-                  </Text>
-                  <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
-                    {selectedSpeaker?.title}
-                  </Text>
+                  <Text style={[styles.modalName, { color: appColors.text }]}>{selectedSpeaker?.name}</Text>
+                  <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>{selectedSpeaker?.title}</Text>
                 </View>
 
                 {selectedSpeaker?.topic ? (
                   <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Speaking Topic
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.topic}
-                    </Text>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Speaking Topic</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.topic}</Text>
                   </View>
                 ) : null}
 
                 {selectedSpeaker?.synopsis ? (
                   <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Synopsis
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.synopsis}
-                    </Text>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Synopsis</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.synopsis}</Text>
                   </View>
                 ) : null}
 
                 {selectedSpeaker?.bio ? (
                   <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Biography
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.bio}
-                    </Text>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Biography</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.bio}</Text>
                   </View>
                 ) : null}
 
                 {selectedSpeaker && shouldShowEmail(selectedSpeaker) ? (
                   <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Email
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.email}
-                    </Text>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Email</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.email}</Text>
                   </View>
                 ) : null}
 
                 {selectedSpeaker && shouldShowPhone(selectedSpeaker) ? (
                   <View style={styles.modalSection}>
-                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                      Phone
-                    </Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>
-                      {selectedSpeaker.phone}
-                    </Text>
+                    <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Phone</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.phone}</Text>
                   </View>
                 ) : null}
               </ScrollView>
