@@ -338,7 +338,7 @@ export default function ExhibitorsScreen() {
               {filteredExhibitors.map(exhibitor => (
                 <View key={exhibitor.id} style={styles.card}>
                   <TouchableOpacity
-                    style={[styles.cardInner, { backgroundColor: appColors.card }]}
+                    style={styles.cardInner}
                     onPress={() => setSelectedExhibitor(exhibitor)}
                     activeOpacity={0.7}
                   >

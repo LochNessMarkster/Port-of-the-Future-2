@@ -113,12 +113,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 160,
   },
-  logoContainer: {
+  logoWhiteBackground: {
     width: '100%',
     height: 80,
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.sm,
     marginBottom: spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+    padding: spacing.sm,
   },
   logo: { width: '100%', height: '100%', resizeMode: 'contain' },
   name: {
@@ -318,11 +322,11 @@ export default function ExhibitorsScreen() {
               {filteredExhibitors.map(exhibitor => (
                 <View key={exhibitor.id} style={styles.card}>
                   <TouchableOpacity
-                    style={[styles.cardInner, { backgroundColor: appColors.card }]}
+                    style={styles.cardInner}
                     onPress={() => setSelectedExhibitor(exhibitor)}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.logoContainer}>
+                    <View style={styles.logoWhiteBackground}>
                       {exhibitor.logo ? (
                         <Image source={resolveImageSource(exhibitor.logo)} style={styles.logo} />
                       ) : (

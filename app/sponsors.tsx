@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
@@ -221,7 +222,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Tier display colors
 const TIER_COLORS: Record<string, string> = {
   'Platinum': '#A8B2C1',
   'Gold': '#FFD700',
@@ -278,7 +278,6 @@ export default function SponsorsScreen() {
     );
   }, [sponsors, searchQuery]);
 
-  // Group by tier, then sort each tier alphabetically by name
   const groupedSponsors = useMemo(() => {
     const grouped = filteredSponsors.reduce((acc, sponsor) => {
       const tier = sponsor.tier || 'Partner';
@@ -287,7 +286,6 @@ export default function SponsorsScreen() {
       return acc;
     }, {} as Record<string, Sponsor[]>);
 
-    // FIX: sort each tier's sponsors alphabetically by name
     Object.keys(grouped).forEach(tier => {
       grouped[tier].sort((a, b) => a.name.localeCompare(b.name));
     });
@@ -305,7 +303,6 @@ export default function SponsorsScreen() {
         }}
       />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
             <IconSymbol
@@ -371,7 +368,6 @@ export default function SponsorsScreen() {
 
                 return (
                   <View key={tier} style={styles.tierSection}>
-                    {/* FIX: tier header now shows a colored dot for visual clarity */}
                     <View style={styles.tierHeader}>
                       <View style={[styles.tierDot, { backgroundColor: tierColor }]} />
                       <Text style={[styles.tierTitle, { color: appColors.text }]}>
@@ -379,11 +375,10 @@ export default function SponsorsScreen() {
                       </Text>
                     </View>
 
-                    {/* FIX: sponsors within each tier are sorted alphabetically */}
                     {tierSponsors.map(sponsor => (
                       <TouchableOpacity
                         key={sponsor.id}
-                        style={[styles.sponsorCard, { backgroundColor: appColors.card }]}
+                        style={[styles.sponsorCard, { backgroundColor: 'transparent' }]}
                         onPress={() => setSelectedSponsor(sponsor)}
                         activeOpacity={0.7}
                       >
@@ -410,7 +405,6 @@ export default function SponsorsScreen() {
           )}
         </ScrollView>
 
-        {/* Sponsor Detail Modal */}
         <Modal
           visible={selectedSponsor !== null}
           transparent
