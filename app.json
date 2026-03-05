@@ -42,7 +42,8 @@
     },
     "extra": {
       "router": {},
-      "backendUrl": "https://uufwc6w3behkdb57y7ptup24r75vc4rq.app.specular.dev"
+      "backendUrl": "https://uufwc6w3behkdb57y7ptup24r75vc4rq.app.specular.dev",
+      "ascAppId": "6758594250"
     }
   }
 }
