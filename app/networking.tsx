@@ -178,9 +178,9 @@ export default function NetworkingScreen() {
     }
   };
 
-  const sendMessage = (attendee: Attendee) => {
+  const sendMessage = (attendeeId: string, attendeeName: string) => {
     setSelectedAttendee(null);
-    router.push(`/messages?recipientId=${attendee.id}&recipientName=${encodeURIComponent(attendee.name || `${attendee.firstName} ${attendee.lastName}`.trim())}`);
+    router.push(`/messages?recipientId=${encodeURIComponent(attendeeId)}&recipientName=${encodeURIComponent(attendeeName)}`);
   };
 
   const filteredAttendees = useMemo(() => {
@@ -274,9 +274,8 @@ export default function NetworkingScreen() {
           ) : (
             filteredAttendees.map(attendee => (
               <TouchableOpacity
-                key={attendee.id}
-                style={[styles.attendeeCard, { backgroundColor: appColors.card }]}
-                onPress={() => setSelectedAttendee(attendee)}
+                style={[styles.messageButton, { backgroundColor: appColors.primary }]}
+                onPress={() => selectedAttendee && sendMessage(selectedAttendee.id, selectedAttendee.name)}
                 activeOpacity={0.7}
               >
                 <Image source={resolveImageSource(attendee.image)} style={styles.attendeeImage} />

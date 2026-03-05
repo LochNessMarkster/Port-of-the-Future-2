@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
@@ -528,9 +529,12 @@ export default function AgendaScreen() {
                     </View>
                   ) : null}
 
-                  <View style={[styles.sessionType, { backgroundColor: trackColor + '20', alignSelf: 'flex-start', marginTop: spacing.xs }]}>
-                    <Text style={{ color: trackColor, fontSize: 12 }}>{session.type}</Text>
-                  </View>
+                  {/* FIX: Show type/track badge */}
+                  {session.type ? (
+                    <View style={[styles.sessionType, { backgroundColor: trackColor + '20', alignSelf: 'flex-start', marginTop: spacing.xs }]}>
+                      <Text style={{ color: trackColor, fontSize: 12 }}>{session.type}</Text>
+                    </View>
+                  ) : null}
                 </TouchableOpacity>
               );
             })

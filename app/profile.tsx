@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  useColorScheme, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  useColorScheme,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
@@ -206,45 +206,13 @@ export default function ProfileScreen() {
 
   return (
     <React.Fragment>
-      {/* FIX: back button so user can return from profile */}
-      <Stack.Screen options={{ headerShown: true, title: 'My Profile', headerBackTitle: 'Back' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Profile', headerBackTitle: 'Back' }} />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]}>
         <ScrollView
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* FIX: success feedback banner */}
-          {saveSuccess && (
-            <View style={[styles.successBanner, { backgroundColor: '#4CAF50' + '20' }]}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check-circle"
-                size={20}
-                color="#4CAF50"
-              />
-              <Text style={[styles.successBannerText, { color: '#4CAF50' }]}>
-                Profile saved successfully!
-              </Text>
-            </View>
-          )}
-
-          {/* FIX: error feedback banner */}
-          {saveError && (
-            <View style={[styles.errorBanner, { backgroundColor: appColors.error + '20' }]}>
-              <IconSymbol
-                ios_icon_name="exclamationmark.circle.fill"
-                android_material_icon_name="error"
-                size={20}
-                color={appColors.error}
-              />
-              <Text style={[styles.errorBannerText, { color: appColors.error }]}>
-                {saveError}
-              </Text>
-            </View>
-          )}
-
-          {/* Profile Header */}
           <View style={styles.header}>
             <Image
               source={resolveImageSource(profile?.image)}
@@ -258,7 +226,6 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
-          {/* Personal Information */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: appColors.text }]}>
               Personal Information
@@ -348,11 +315,11 @@ export default function ProfileScreen() {
             />
           </View>
 
-          {/* Privacy Settings */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: appColors.text }]}>
               Privacy Settings
             </Text>
+
             <View style={[styles.switchRow, { backgroundColor: appColors.card }]}>
               <Text style={[styles.switchLabel, { color: appColors.text }]}>
                 Allow other attendees to see my profile and send me messages
@@ -366,7 +333,6 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Save Button */}
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: appColors.primary }]}
             onPress={saveProfile}
@@ -376,17 +342,9 @@ export default function ProfileScreen() {
             {saving ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <React.Fragment>
-                <IconSymbol
-                  ios_icon_name="checkmark.circle"
-                  android_material_icon_name="check-circle"
-                  size={20}
-                  color="#FFFFFF"
-                />
-                <Text style={[styles.saveButtonText, { color: '#FFFFFF' }]}>
-                  Save Changes
-                </Text>
-              </React.Fragment>
+              <Text style={[styles.saveButtonText, { color: '#FFFFFF' }]}>
+                Save Changes
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -394,3 +352,4 @@ export default function ProfileScreen() {
     </React.Fragment>
   );
 }
+
