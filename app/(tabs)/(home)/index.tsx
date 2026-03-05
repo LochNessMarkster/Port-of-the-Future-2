@@ -22,20 +22,12 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface Announcement {
   id: string;
-  // API returns capitalized field names from Airtable
-  Title?: string;
-  Content?: string;
-  Alert?: boolean;
-  Date?: string;
-  Time?: string;
-  Image?: string | null;
-  createdAt: string;
-  // Also support lowercase for backwards compatibility
-  title?: string;
-  content?: string;
+  title: string;
+  content: string;
   image?: string | null;
   date?: string | null;
   time?: string | null;
+  createdAt: string;
 }
 
 function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
@@ -391,58 +383,29 @@ export default function HomeScreen() {
             ) : (
               <React.Fragment>
                 {announcements.map((announcement, index) => {
-                  // Support both capitalized (Airtable) and lowercase field names
-                  const announcementTitle = announcement.Title || announcement.title || '';
-                  const announcementContent = announcement.Content || announcement.content || '';
-                  const announcementImage = announcement.Image || announcement.image || null;
-                  const announcementDate = announcement.Date || announcement.date || null;
-                  const announcementTime = announcement.Time || announcement.time || null;
-                  const isAlert = announcement.Alert === true;
-
-                  const hasImage = announcementImage && announcementImage.trim() !== '';
-                  const hasDate = announcementDate && announcementDate.trim() !== '';
-                  const hasTime = announcementTime && announcementTime.trim() !== '';
-                  
+                  const hasImage = announcement.image && announcement.image.trim() !== '';
+                  const hasDate = announcement.date && announcement.date.trim() !== '';
+                  const hasTime = announcement.time && announcement.time.trim() !== '';
                   return (
-                    <View 
-                      key={index}
-                      style={[
-                        styles.announcementCard, 
-                        { backgroundColor: appColors.card },
-                        isAlert && { borderLeftWidth: 4, borderLeftColor: '#FF6B6B' }
-                      ]}
-                    >
+                    <View key={index} style={[styles.announcementCard, { backgroundColor: appColors.card }]}>
                       {hasImage && (
                         <Image
-                          source={resolveImageSource(announcementImage)}
+                          source={resolveImageSource(announcement.image)}
                           style={styles.announcementImage}
                         />
                       )}
-                      {isAlert && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-                          <IconSymbol
-                            ios_icon_name="exclamationmark.triangle.fill"
-                            android_material_icon_name="warning"
-                            size={16}
-                            color="#FF6B6B"
-                          />
-                          <Text style={{ color: '#FF6B6B', fontSize: 12, fontWeight: '700', marginLeft: 4 }}>
-                            ALERT
-                          </Text>
-                        </View>
-                      )}
                       <Text style={[styles.announcementTitle, { color: appColors.text }]}>
-                        {announcementTitle}
+                        {announcement.title}
                       </Text>
                       <Text style={[styles.announcementContent, { color: appColors.textSecondary }]}>
-                        {announcementContent}
+                        {announcement.content}
                       </Text>
                       <View style={styles.announcementMetaRow}>
                         {hasDate && (
                           <View style={styles.announcementMeta}>
                             <IconSymbol ios_icon_name="calendar" android_material_icon_name="event" size={14} color={appColors.textSecondary} />
                             <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
-                              {announcementDate}
+                              {announcement.date}
                             </Text>
                           </View>
                         )}
@@ -450,7 +413,7 @@ export default function HomeScreen() {
                           <View style={styles.announcementMeta}>
                             <IconSymbol ios_icon_name="clock" android_material_icon_name="access-time" size={14} color={appColors.textSecondary} />
                             <Text style={[styles.announcementMetaText, { color: appColors.textSecondary }]}>
-                              {announcementTime}
+                              {announcement.time}
                             </Text>
                           </View>
                         )}
