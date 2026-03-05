@@ -516,6 +516,100 @@ export async function fetchAirtableAttendees(
   }
 }
 
+/**
+ * Fetch attendees from Airtable Cache (public endpoint, no authentication required)
+ */
+export async function fetchAirtableCacheAttendees(
+  baseId: string = 'appkKjciinTlnsbkd',
+  tableId: string = 'tblIwt4FWHtNm01Z4',
+  options?: { pageSize?: number; offset?: string; logger?: any }
+): Promise<AirtableListResponse<AttendeeFields>> {
+  const params: any = {};
+  if (options?.pageSize) params.pageSize = options.pageSize;
+  if (options?.offset) params.offset = options.offset;
+
+  const cacheUrl = `https://airtablecache.portofthefutureconference.com/v0/${baseId}/${tableId}`;
+
+  if (options?.logger) {
+    options.logger.debug(
+      {
+        cacheUrl,
+        dataSource: 'airtable-cache',
+      },
+      'Fetching attendees from Airtable Cache'
+    );
+  }
+
+  const allRecords: AirtableRecord<AttendeeFields>[] = [];
+  let currentOffset = options?.offset;
+  let pageCount = 0;
+
+  try {
+    // Do-while loop to fetch all pages
+    do {
+      const params: any = {};
+      if (options?.pageSize) params.pageSize = options.pageSize;
+      if (currentOffset) params.offset = currentOffset;
+
+      pageCount++;
+
+      const response = await axios.get<AirtableListResponse<AttendeeFields>>(
+        cacheUrl,
+        { params }
+      );
+
+      allRecords.push(...response.data.records);
+
+      if (options?.logger) {
+        options.logger.info(
+          {
+            dataSource: 'airtable-cache',
+            page: pageCount,
+            pageRecords: response.data.records.length,
+            totalSoFar: allRecords.length,
+            hasNextPage: !!response.data.offset,
+          },
+          'Fetched page of attendees from Airtable Cache'
+        );
+      }
+
+      currentOffset = response.data.offset;
+    } while (currentOffset);
+
+    if (options?.logger) {
+      options.logger.info(
+        {
+          dataSource: 'airtable-cache',
+          totalPages: pageCount,
+          totalRecords: allRecords.length,
+        },
+        'Successfully fetched all attendees from Airtable Cache'
+      );
+    }
+
+    return { records: allRecords };
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorMessage = error.response?.data?.error?.message || error.message;
+
+    if (options?.logger) {
+      options.logger.error(
+        {
+          dataSource: 'airtable-cache',
+          cacheUrl,
+          status,
+          errorMessage,
+          pagesAttempted: pageCount,
+          recordsFetchedBeforeError: allRecords.length,
+        },
+        'Airtable Cache API error while fetching attendees'
+      );
+    }
+
+    throw error;
+  }
+}
+
 // Type definitions for Airtable records
 export interface SessionFields {
   Title: string;
