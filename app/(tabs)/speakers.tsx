@@ -12,7 +12,8 @@ import {
   Modal,
   Pressable,
   TextInput,
-  Platform
+  Platform,
+  ImageSourcePropType
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
@@ -20,13 +21,29 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { fetchFromAirtableCache } from '@/utils/api';
 import { Stack, useRouter } from 'expo-router';
 
+interface AirtablePhoto {
+  id: string;
+  width: number;
+  height: number;
+  url: string;
+  filename: string;
+  size: number;
+  type: string;
+  thumbnails?: {
+    small?: { url: string; width: number; height: number };
+    large?: { url: string; width: number; height: number };
+    full?: { url: string; width: number; height: number };
+  };
+}
+
 interface Speaker {
   id: string;
   'First Name'?: string;
   'Last Name'?: string;
   Name?: string;
+  'Speaker Title'?: string;
   Title?: string;
-  Photo?: string;
+  Photo?: AirtablePhoto[];
   Topic?: string;
   Synopsis?: string;
   Bio?: string;
@@ -36,27 +53,45 @@ interface Speaker {
   Phone?: string;
 }
 
+// Helper to resolve image sources (handles both local and remote URLs)
+function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source as ImageSourcePropType;
+}
+
 function getDisplayName(speaker: Speaker): string {
   const first = (speaker['First Name'] || '').trim();
   const last = (speaker['Last Name'] || '').trim();
   
   if (first && last) {
     const fullName = `${first} ${last}`;
-    console.log(`Speaker display name: "${fullName}" (from First Name: "${first}", Last Name: "${last}")`);
     return fullName;
   }
   if (first) {
-    console.log(`Speaker display name: "${first}" (First Name only)`);
     return first;
   }
   if (last) {
-    console.log(`Speaker display name: "${last}" (Last Name only)`);
     return last;
   }
   
   const fallbackName = speaker.Name || '';
-  console.log(`Speaker display name: "${fallbackName}" (fallback to Name field)`);
   return fallbackName;
+}
+
+function getSpeakerTitle(speaker: Speaker): string {
+  // Use 'Speaker Title' field from Airtable
+  const speakerTitle = speaker['Speaker Title'] || '';
+  return speakerTitle;
+}
+
+function getSpeakerPhotoUrl(speaker: Speaker): string {
+  // Photo is an array of objects with URLs
+  if (speaker.Photo && Array.isArray(speaker.Photo) && speaker.Photo.length > 0) {
+    // Use the full size URL from the first photo
+    return speaker.Photo[0].url || '';
+  }
+  return '';
 }
 
 const styles = StyleSheet.create({
@@ -96,6 +131,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
+    backgroundColor: '#E5E7EB',
   },
   speakerPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
   speakerName: { ...typography.h3, textAlign: 'center', marginBottom: spacing.xs },
@@ -134,10 +170,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     overflow: 'hidden',
     marginBottom: spacing.sm,
+    backgroundColor: '#E5E7EB',
   },
   modalPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
   modalName: { ...typography.h2, textAlign: 'center', marginBottom: spacing.xs },
-  modalTitle: { ...typography.body, textAlign: 'center' },
+  modalTitle: { ...typography.body, textAlign: 'center', marginBottom: spacing.sm },
   modalSection: { marginBottom: spacing.md },
   modalLabel: { ...typography.bodySmall, fontWeight: '600', marginBottom: spacing.xs },
   modalText: { ...typography.body, lineHeight: 24 },
@@ -186,7 +223,8 @@ export default function SpeakersScreen() {
           id: firstSpeaker.id,
           firstName: firstSpeaker['First Name'],
           lastName: firstSpeaker['Last Name'],
-          name: firstSpeaker.Name,
+          speakerTitle: firstSpeaker['Speaker Title'],
+          photo: firstSpeaker.Photo,
           displayName: getDisplayName(firstSpeaker),
         });
       }
@@ -239,7 +277,7 @@ export default function SpeakersScreen() {
       (speaker['First Name'] || '').toLowerCase().includes(query) ||
       (speaker['Last Name'] || '').toLowerCase().includes(query) ||
       (speaker.Name || '').toLowerCase().includes(query) ||
-      (speaker.Title || '').toLowerCase().includes(query) ||
+      (speaker['Speaker Title'] || '').toLowerCase().includes(query) ||
       (speaker.Topic || '').toLowerCase().includes(query) ||
       (speaker.Bio || '').toLowerCase().includes(query)
     );
@@ -251,8 +289,9 @@ export default function SpeakersScreen() {
   const shouldShowPhone = (speaker: Speaker) =>
     speaker['Public Personal Data'] === true && speaker.Phone && speaker.Phone.trim() !== '';
 
-  const displayNameForCard = selectedSpeaker ? getDisplayName(selectedSpeaker) : '';
-  const displayTitleForCard = selectedSpeaker?.Title || '';
+  const displayNameForModal = selectedSpeaker ? getDisplayName(selectedSpeaker) : '';
+  const displayTitleForModal = selectedSpeaker ? getSpeakerTitle(selectedSpeaker) : '';
+  const displayPhotoForModal = selectedSpeaker ? getSpeakerPhotoUrl(selectedSpeaker) : '';
 
   return (
     <React.Fragment>
@@ -295,7 +334,7 @@ export default function SpeakersScreen() {
             <View style={styles.errorContainer}>
               <IconSymbol
                 ios_icon_name={isRateLimited ? 'clock.arrow.circlepath' : 'exclamationmark.triangle'}
-                android_material_icon_name={isRateLimited ? 'hourglass_empty' : 'warning'}
+                android_material_icon_name={isRateLimited ? 'hourglass-empty' : 'warning'}
                 size={48}
                 color={isRateLimited ? appColors.primary : appColors.error}
               />
@@ -326,8 +365,8 @@ export default function SpeakersScreen() {
             <View style={styles.speakerGrid}>
               {filteredSpeakers.map((speaker, index) => {
                 const cardDisplayName = getDisplayName(speaker);
-                const cardTitle = speaker.Title || '';
-                const photoUrl = speaker.Photo || '';
+                const cardTitle = getSpeakerTitle(speaker);
+                const cardPhotoUrl = getSpeakerPhotoUrl(speaker);
                 
                 return (
                   <TouchableOpacity
@@ -336,15 +375,23 @@ export default function SpeakersScreen() {
                     onPress={() => setSelectedSpeaker(speaker)}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.speakerPhotoContainer}>
-                      <Image source={{ uri: photoUrl }} style={styles.speakerPhoto} />
-                    </View>
+                    {cardPhotoUrl ? (
+                      <View style={styles.speakerPhotoContainer}>
+                        <Image source={resolveImageSource(cardPhotoUrl)} style={styles.speakerPhoto} />
+                      </View>
+                    ) : (
+                      <View style={[styles.speakerPhotoContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+                        <IconSymbol ios_icon_name="person.circle" android_material_icon_name="account-circle" size={64} color={appColors.textSecondary} />
+                      </View>
+                    )}
                     <Text style={[styles.speakerName, { color: appColors.text }]}>
                       {cardDisplayName}
                     </Text>
-                    <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
-                      {cardTitle}
-                    </Text>
+                    {cardTitle ? (
+                      <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
+                        {cardTitle}
+                      </Text>
+                    ) : null}
                   </TouchableOpacity>
                 );
               })}
@@ -370,15 +417,23 @@ export default function SpeakersScreen() {
                 bounces={true}
               >
                 <View style={styles.modalPhotoContainer}>
-                  <View style={styles.modalPhotoWrapper}>
-                    <Image source={{ uri: selectedSpeaker?.Photo || '' }} style={styles.modalPhoto} />
-                  </View>
+                  {displayPhotoForModal ? (
+                    <View style={styles.modalPhotoWrapper}>
+                      <Image source={resolveImageSource(displayPhotoForModal)} style={styles.modalPhoto} />
+                    </View>
+                  ) : (
+                    <View style={[styles.modalPhotoWrapper, { justifyContent: 'center', alignItems: 'center' }]}>
+                      <IconSymbol ios_icon_name="person.circle" android_material_icon_name="account-circle" size={80} color={appColors.textSecondary} />
+                    </View>
+                  )}
                   <Text style={[styles.modalName, { color: appColors.text }]}>
-                    {displayNameForCard}
+                    {displayNameForModal}
                   </Text>
-                  <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
-                    {displayTitleForCard}
-                  </Text>
+                  {displayTitleForModal ? (
+                    <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
+                      {displayTitleForModal}
+                    </Text>
+                  ) : null}
                 </View>
 
                 {selectedSpeaker?.Topic ? (
