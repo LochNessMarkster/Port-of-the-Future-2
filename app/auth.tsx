@@ -21,8 +21,6 @@ import { colors, spacing, borderRadius, typography } from "@/styles/commonStyles
 import { apiPost } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-const SHARED_PASSWORD = "POTF2026";
-
 export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -51,21 +49,17 @@ export default function AuthScreen() {
     }
 
     if (!password) {
-      showError("Please enter the password");
+      showError("Please enter a password");
       return;
     }
 
     setLoading(true);
     try {
-      // Call create-account with email and password
-      // The backend will:
-      //   1. Verify password is "POTF2026"
-      //   2. Check if email exists in Airtable cache
-      //   3. If email not found, return 400 error
-      //   4. If email found and password correct, create/update user with Airtable data
-      //   5. Return { user, token } for immediate authentication
+      // Call create-account endpoint which handles both sign-in and sign-up
+      // If the account exists, it signs in
+      // If the account doesn't exist, it creates it and signs in
       console.log('[API] Requesting /api/registration/create-account for email:', email.toLowerCase().trim());
-      const createResponse = await apiPost<{ 
+      const response = await apiPost<{ 
         user: { 
           id: string; 
           email: string; 
@@ -82,14 +76,14 @@ export default function AuthScreen() {
         password: password,
       });
 
-      if (!createResponse.token || !createResponse.user) {
+      if (!response.token || !response.user) {
         showError("Authentication failed. Please try again.");
         return;
       }
 
       console.log('AuthScreen - Account ready, setting user from token');
-      // Use the token returned by create-account to authenticate immediately
-      await setUserFromToken(createResponse.user, createResponse.token);
+      // Use the token returned to authenticate immediately
+      await setUserFromToken(response.user, response.token);
 
       console.log('AuthScreen - Sign in successful, navigating to home');
       router.replace("/(tabs)/(home)/");
@@ -98,7 +92,6 @@ export default function AuthScreen() {
       let errorMsg = error.message || "Authentication failed. Please try again.";
 
       // Try to parse JSON error body from API response
-      // apiCall throws: "API error: 400 - {"error":"..."}"
       try {
         const jsonMatch = errorMsg.match(/API error: \d+ - (.+)$/s);
         if (jsonMatch) {
@@ -109,15 +102,6 @@ export default function AuthScreen() {
         }
       } catch {
         // Not JSON, use raw message
-      }
-
-      // Parse backend error messages
-      if (errorMsg.toLowerCase().includes("not registered") || errorMsg.toLowerCase().includes("not found in airtable")) {
-        errorMsg = "This email is not registered for Port of the Future 2026. Please contact us for assistance.";
-      } else if (errorMsg.toLowerCase().includes("incorrect password") || errorMsg.toLowerCase().includes("invalid password") || errorMsg.toLowerCase().includes("wrong password")) {
-        errorMsg = "Incorrect password. The password for all attendees is POTF2026.";
-      } else if (errorMsg.includes("500") || errorMsg.toLowerCase().includes("internal server error")) {
-        errorMsg = "A server error occurred. Please try again in a moment.";
       }
 
       showError(errorMsg);
@@ -140,7 +124,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            {/* Logo - Using the conference logo with rectangular aspect ratio (904x377) */}
+            {/* Logo */}
             <View style={styles.logoContainer}>
               <Image
                 source={require('@/assets/images/465f7502-1f9b-42b3-b23f-39aa4d796739.jpeg')}
@@ -157,7 +141,7 @@ export default function AuthScreen() {
             {/* Instructions */}
             <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
               <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
-                Enter your registered email address and the conference password to sign in.
+                Enter your email and password to sign in. If you don't have an account, one will be created automatically.
               </Text>
             </View>
 
@@ -187,7 +171,7 @@ export default function AuthScreen() {
                 borderColor: inputBorderColor,
                 color: appColors.text 
               }]}
-              placeholder="POTF2026"
+              placeholder="Enter password"
               placeholderTextColor={appColors.textSecondary}
               value={password}
               onChangeText={setPassword}
