@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { fetchFromAirtableDirect, authenticatedPost, authenticatedDelete } from '@/utils/api';
+import { fetchFromAirtableCache, authenticatedPost, authenticatedDelete } from '@/utils/api';
 
 interface Session {
   id: string;
@@ -30,63 +30,33 @@ interface Session {
   description: string;
 }
 
-interface AirtableSessionRecord {
+interface AirtableSession {
   id: string;
-  fields: {
-    'Session Title'?: string;
-    'Speaker(s)'?: string[] | string;
-    'Room'?: string;
-    'Type/Track'?: string;
-    'Date'?: string;
-    'Start Time'?: string;
-    'Session Description'?: string;
-    [key: string]: any;
-  };
+  title: string;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  room: string | null;
+  track: string | null;
+  description: string | null;
+  speakers: string[];
+  speakerNames: string[];
 }
 
-interface AirtableSpeakerRecord {
+interface AirtableSpeaker {
   id: string;
-  fields: {
-    'First Name'?: string;
-    'Last Name'?: string;
-    'Name'?: string;
-    [key: string]: any;
-  };
-}
-
-function mapSessionResponse(record: AirtableSessionRecord, speakersMap: Map<string, string>): Session {
-  const fields = record.fields;
-  const title = fields['Session Title'] || 'Untitled Session';
-  
-  // Handle speaker IDs - resolve to names
-  let speakerNames: string[] = [];
-  const speakerField = fields['Speaker(s)'];
-  
-  if (Array.isArray(speakerField)) {
-    // Array of speaker record IDs
-    speakerNames = speakerField
-      .map(speakerId => speakersMap.get(speakerId) || '')
-      .filter(name => name.length > 0);
-  } else if (typeof speakerField === 'string') {
-    // Single speaker ID or name
-    const resolved = speakersMap.get(speakerField);
-    if (resolved) {
-      speakerNames = [resolved];
-    } else if (speakerField.length > 0) {
-      speakerNames = [speakerField];
-    }
-  }
-  
-  const speaker = speakerNames.join(', ') || 'TBA';
-  const room = fields['Room'] || 'TBA';
-  const type = fields['Type/Track'] || 'General';
-  const date = fields['Date'] || '';
-  const time = fields['Start Time'] || 'TBA';
-  const description = fields['Session Description'] || 'No description available.';
-
-  console.log(`[AgendaScreen] Mapped session: ${title} | Speaker: ${speaker} | Type: ${type} | Room: ${room}`);
-
-  return { id: record.id, title, speaker, room, type, date, time, description };
+  firstName: string;
+  lastName: string;
+  name: string;
+  title: string | null;
+  photo: string | null;
+  topic: string | null;
+  synopsis: string | null;
+  bio: string | null;
+  published: boolean;
+  publicPersonalData: boolean;
+  email: string | null;
+  phone: string | null;
 }
 
 // Track colors — each track gets a distinct color
@@ -286,39 +256,62 @@ export default function AgendaScreen() {
     try {
       setLoading(true);
       setError(null);
-      console.log('[AgendaScreen] 🔄 Loading sessions from NEW Airtable base...');
+      console.log('[AgendaScreen] 🔄 Loading sessions from Airtable...');
       
       // Fetch speakers first to build a lookup map
       console.log('[AgendaScreen] 📋 Step 1: Fetching speakers...');
-      const speakersRawData = await fetchFromAirtableDirect<AirtableSpeakerRecord>('speakers');
-      console.log(`[AgendaScreen] ✅ Loaded ${speakersRawData.length} speakers`);
+      const speakersData = await fetchFromAirtableCache<AirtableSpeaker>('speakers');
+      console.log(`[AgendaScreen] ✅ Loaded ${speakersData.length} speakers`);
       
       const speakersMap = new Map<string, string>();
-      speakersRawData.forEach(speakerRecord => {
-        const fields = speakerRecord.fields;
-        const firstName = fields['First Name'] || '';
-        const lastName = fields['Last Name'] || '';
-        const name = fields['Name'] || '';
-        const displayName = firstName && lastName 
-          ? `${firstName} ${lastName}` 
-          : name || firstName || lastName;
+      speakersData.forEach(speaker => {
+        const displayName = speaker.name || `${speaker.firstName} ${speaker.lastName}`.trim();
         if (displayName) {
-          speakersMap.set(speakerRecord.id, displayName);
-          console.log(`[AgendaScreen] 👤 Speaker mapped: ${speakerRecord.id} -> ${displayName}`);
+          speakersMap.set(speaker.id, displayName);
+          console.log(`[AgendaScreen] 👤 Speaker mapped: ${speaker.id} -> ${displayName}`);
         }
       });
       
       // Fetch all sessions with pagination
       console.log('[AgendaScreen] 📋 Step 2: Fetching sessions...');
-      const sessionsRawData = await fetchFromAirtableDirect<AirtableSessionRecord>('sessions');
-      console.log(`[AgendaScreen] ✅ Loaded ${sessionsRawData.length} raw session records`);
+      const sessionsData = await fetchFromAirtableCache<AirtableSession>('sessions');
+      console.log(`[AgendaScreen] ✅ Loaded ${sessionsData.length} raw session records`);
       
       // Log first session to see structure
-      if (sessionsRawData.length > 0) {
-        console.log('[AgendaScreen] 📝 Sample session structure:', JSON.stringify(sessionsRawData[0], null, 2));
+      if (sessionsData.length > 0) {
+        console.log('[AgendaScreen] 📝 Sample session structure:', JSON.stringify(sessionsData[0], null, 2));
       }
       
-      const mappedSessions = sessionsRawData.map(session => mapSessionResponse(session, speakersMap));
+      // Map sessions to UI format
+      const mappedSessions: Session[] = sessionsData.map(session => {
+        // Resolve speaker IDs to names
+        let speakerNames: string[] = [];
+        if (Array.isArray(session.speakers)) {
+          speakerNames = session.speakers
+            .map(speakerId => speakersMap.get(speakerId) || '')
+            .filter(name => name.length > 0);
+        }
+        
+        const speaker = speakerNames.join(', ') || 'TBA';
+        const room = session.room || 'TBA';
+        const type = session.track || 'General';
+        const date = session.date || '';
+        const time = session.startTime || 'TBA';
+        const description = session.description || 'No description available.';
+
+        console.log(`[AgendaScreen] Mapped session: ${session.title} | Speaker: ${speaker} | Type: ${type} | Room: ${room}`);
+
+        return {
+          id: session.id,
+          title: session.title,
+          speaker,
+          room,
+          type,
+          date,
+          time,
+          description,
+        };
+      });
       
       // Sort by date and time
       const sortedSessions = mappedSessions.sort((a, b) => {

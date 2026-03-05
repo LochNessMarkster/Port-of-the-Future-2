@@ -1,3 +1,4 @@
+
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -202,24 +203,35 @@ export const fetchFromAirtableCache = async <T = any>(
   tableName: string
 ): Promise<T[]> => {
   const tableId = AIRTABLE_TABLES[tableName];
-  if (!tableId) throw new Error(`Unknown Airtable table: ${tableName}`);
+  if (!tableId) {
+    console.error(`[Airtable] Unknown table: ${tableName}`);
+    throw new Error(`Unknown Airtable table: ${tableName}`);
+  }
 
   const mapper = TABLE_MAPPERS[tableName];
   let allRecords: T[] = [];
   let offset: string | null = null;
+  let pageCount = 0;
+
+  console.log(`[Airtable] 🔄 Fetching ${tableName} from table ${tableId}...`);
 
   do {
+    pageCount++;
     const url = offset
       ? `${AIRTABLE_CACHE_BASE_URL}/${tableId}?offset=${offset}`
       : `${AIRTABLE_CACHE_BASE_URL}/${tableId}`;
 
+    console.log(`[Airtable] 📄 Page ${pageCount}: ${url}`);
+
     const response = await fetch(url);
     if (!response.ok) {
       const text = await response.text();
+      console.error(`[Airtable] ❌ Error fetching ${tableName}: ${response.status} - ${text}`);
       throw new Error(`Airtable error (${tableName}): ${response.status} - ${text}`);
     }
 
     const data = await response.json();
+    console.log(`[Airtable] ✅ Page ${pageCount}: Received ${data.records?.length || 0} records`);
 
     if (data.records && Array.isArray(data.records)) {
       const mapped = data.records.map((record: any) =>
@@ -233,6 +245,7 @@ export const fetchFromAirtableCache = async <T = any>(
     offset = data.offset || null;
   } while (offset);
 
+  console.log(`[Airtable] 🎉 Total ${tableName} records fetched: ${allRecords.length}`);
   return allRecords;
 };
 
@@ -241,9 +254,11 @@ export const fetchFromAirtableCache = async <T = any>(
 export const apiGet = async <T = any>(endpoint: string): Promise<T> => {
   const tableKey = ENDPOINT_TO_TABLE[endpoint];
   if (tableKey) {
+    console.log(`[API] 🔄 Routing ${endpoint} to Airtable table: ${tableKey}`);
     const records = await fetchFromAirtableCache<any>(tableKey);
     return records as unknown as T;
   }
+  console.log(`[API] 🔄 Routing ${endpoint} to backend`);
   return apiCall<T>(endpoint, { method: "GET" });
 };
 
