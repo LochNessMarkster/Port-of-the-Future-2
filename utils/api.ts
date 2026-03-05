@@ -1,48 +1,45 @@
-
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 
 const BEARER_TOKEN_KEY = "portofthefuture_bearer_token";
 
-/**
- * Backend URL is configured in app.json under expo.extra.backendUrl
- * It is set automatically when the backend is deployed
- */
 export const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl || "";
 
-/**
- * Airtable Cache API Base URL
- */
 export const AIRTABLE_CACHE_BASE_URL = "https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd";
 
-/**
- * Airtable Cache Table IDs
- */
-export const AIRTABLE_TABLES = {
-  speakers: "tblNp1JZk4ARZZZlT",
-  exhibitors: "tblzex4bjwEZh1021",
-  sessions: "tblHaxjP8sWviBQjD",
-  ports: "tblxgPx1eRl9iSX2S",
-  sponsors: "tblyI3hc2dZZu0eQA",
-  announcements: "tblGJQ3v4RMIXCP4W",
-  attendees: "tblQhLaWbOSI0t7iX",
+// Correct table IDs provided by user
+export const AIRTABLE_TABLES: Record<string, string> = {
+  speakers:      "tblNp1JZk4ARZZZlT",
+  exhibitors:    "tblzex4bjwEZh1021",
+  agenda:        "tblhUTXC3XHVGssO4",
+  sessions:      "tblhUTXC3XHVGssO4",
+  attendees:     "tblIwt4FWHtNm01Z4",
+  sponsors:      "tblgWrwRvpdcVG8sB",
+  activities:    "tblLpuL7Xff2rpdbB",
+  announcements: "tbl1eqc3UiYaO1pSq",
+  ports:         "tblrXosiVXKhJHYLu",
+  presentations: "tblm5YCpC7ZwRSYWy",
 };
 
-/**
- * Check if backend is properly configured
- */
+// Map backend API endpoints -> Airtable table keys
+const ENDPOINT_TO_TABLE: Record<string, string> = {
+  "/api/speakers":       "speakers",
+  "/api/exhibitors":     "exhibitors",
+  "/api/sessions":       "sessions",
+  "/api/agenda":         "agenda",
+  "/api/attendees":      "attendees",
+  "/api/sponsors":       "sponsors",
+  "/api/activities":     "activities",
+  "/api/announcements":  "announcements",
+  "/api/ports":          "ports",
+  "/api/presentations":  "presentations",
+};
+
 export const isBackendConfigured = (): boolean => {
   return !!BACKEND_URL && BACKEND_URL.length > 0;
 };
 
-/**
- * Get bearer token from platform-specific storage
- * Web: localStorage
- * Native: SecureStore
- *
- * @returns Bearer token or null if not found
- */
 export const getBearerToken = async (): Promise<string | null> => {
   try {
     if (Platform.OS === "web") {
@@ -57,279 +54,152 @@ export const getBearerToken = async (): Promise<string | null> => {
 };
 
 /**
- * Fetch data directly from Airtable Cache API
- * 
- * @param tableName - Name of the table (e.g., 'speakers', 'exhibitors')
- * @returns Parsed JSON response with records array
+ * Fetch all records from an Airtable table, handling pagination automatically.
  */
-export const fetchFromAirtableCache = async <T = any>(tableName: keyof typeof AIRTABLE_TABLES): Promise<T[]> => {
+export const fetchFromAirtableCache = async <T = any>(
+  tableName: string
+): Promise<T[]> => {
   const tableId = AIRTABLE_TABLES[tableName];
-  const url = `${AIRTABLE_CACHE_BASE_URL}/${tableId}`;
-  
-  console.log(`[Airtable Cache] Fetching ${tableName} from:`, url);
-  
-  try {
+  if (!tableId) {
+    throw new Error(`Unknown Airtable table: ${tableName}`);
+  }
+
+  let allRecords: T[] = [];
+  let offset: string | null = null;
+
+  do {
+    const url = offset
+      ? `${AIRTABLE_CACHE_BASE_URL}/${tableId}?offset=${offset}`
+      : `${AIRTABLE_CACHE_BASE_URL}/${tableId}`;
+
     const response = await fetch(url);
-    console.log(`[Airtable Cache] Response status for ${tableName}:`, response.status);
-    
+
     if (!response.ok) {
       const text = await response.text();
-      console.error(`[Airtable Cache] Error response for ${tableName}:`, response.status, text);
-      throw new Error(`Failed to fetch ${tableName}: ${response.status} - ${text}`);
+      throw new Error(`Airtable error for ${tableName}: ${response.status} - ${text}`);
     }
-    
+
     const data = await response.json();
-    console.log(`[Airtable Cache] Received data for ${tableName}:`, data);
-    
-    // Airtable API returns { records: [...] }
+
     if (data.records && Array.isArray(data.records)) {
-      // Transform records to include id and fields
       const transformed = data.records.map((record: any) => ({
         id: record.id,
         ...record.fields,
       }));
-      console.log(`[Airtable Cache] Transformed ${transformed.length} ${tableName} records`);
-      return transformed;
+      allRecords = allRecords.concat(transformed);
     }
-    
-    console.warn(`[Airtable Cache] Unexpected data format for ${tableName}:`, data);
-    return [];
-  } catch (error: any) {
-    console.error(`[Airtable Cache] Request failed for ${tableName}:`, error);
-    
-    if (error.message && error.message.includes("Network request failed")) {
-      throw new Error("Network error: Unable to connect to the server. Please check your internet connection and try again.");
-    }
-    
-    if (error.message && error.message.includes("Failed to fetch")) {
-      throw new Error("Connection error: Unable to reach the server. Please check your internet connection and try again.");
-    }
-    
-    throw error;
-  }
+
+    offset = data.offset || null;
+  } while (offset);
+
+  return allRecords;
 };
 
 /**
- * Generic API call helper with error handling (for backend endpoints)
- *
- * @param endpoint - API endpoint path (e.g., '/users', '/auth/login')
- * @param options - Fetch options (method, headers, body, etc.)
- * @returns Parsed JSON response
- * @throws Error if backend is not configured or request fails
+ * apiGet - intercepts known /api/ endpoints and fetches from Airtable directly.
+ * Falls back to the backend for anything not in the map (e.g. /api/profile).
+ */
+export const apiGet = async <T = any>(endpoint: string): Promise<T> => {
+  const tableKey = ENDPOINT_TO_TABLE[endpoint];
+  if (tableKey) {
+    const records = await fetchFromAirtableCache<any>(tableKey);
+    return records as unknown as T;
+  }
+  // Not a known Airtable endpoint — fall through to backend
+  return apiCall<T>(endpoint, { method: "GET" });
+};
+
+/**
+ * Generic backend API call — only used for endpoints not served by Airtable.
  */
 export const apiCall = async <T = any>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> => {
   if (!isBackendConfigured()) {
-    const errorMsg = "Backend URL not configured. Please rebuild the app.";
-    console.error("[API]", errorMsg);
-    throw new Error(errorMsg);
+    throw new Error("Backend URL not configured. Please rebuild the app.");
   }
 
   const url = `${BACKEND_URL}${endpoint}`;
-  console.log("[API] Calling:", url, options?.method || "GET");
 
-  try {
-    const fetchOptions: RequestInit = {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  };
+
+  const token = await getBearerToken();
+  if (token) {
+    fetchOptions.headers = {
+      ...fetchOptions.headers,
+      Authorization: `Bearer ${token}`,
     };
-
-    console.log("[API] Fetch options:", JSON.stringify(fetchOptions, null, 2));
-
-    // Always send the token if we have it (needed for cross-domain/iframe support)
-    const token = await getBearerToken();
-    if (token) {
-      fetchOptions.headers = {
-        ...fetchOptions.headers,
-        Authorization: `Bearer ${token}`,
-      };
-      console.log("[API] Added Authorization header");
-    }
-
-    console.log("[API] Making fetch request to:", url);
-    const response = await fetch(url, fetchOptions);
-    console.log("[API] Response status:", response.status, response.statusText);
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("[API] Error response:", response.status, text);
-
-      // Surface rate-limit and service-unavailable errors with clear status codes
-      if (response.status === 429) {
-        const retryAfter = response.headers.get("Retry-After");
-        const retryMsg = retryAfter ? ` Retry after ${retryAfter}s.` : "";
-        throw new Error(`429 Rate limit exceeded. Please try again later.${retryMsg}`);
-      }
-      if (response.status === 503) {
-        throw new Error(`503 Service temporarily unavailable. ${text}`);
-      }
-
-      throw new Error(`API error: ${response.status} - ${text}`);
-    }
-
-    const data = await response.json();
-    console.log("[API] Success:", data);
-    return data;
-  } catch (error: any) {
-    console.error("[API] Request failed:", error);
-    
-    // Provide more helpful error messages for common network issues
-    if (error.message && error.message.includes("Network request failed")) {
-      throw new Error("Network error: Unable to connect to the server. Please check your internet connection and try again.");
-    }
-    
-    if (error.message && error.message.includes("Failed to fetch")) {
-      throw new Error("Connection error: Unable to reach the server. Please check your internet connection and try again.");
-    }
-    
-    // Re-throw the original error if it's already formatted
-    throw error;
   }
+
+  const response = await fetch(url, fetchOptions);
+
+  if (!response.ok) {
+    const text = await response.text();
+    if (response.status === 429) {
+      throw new Error(`429 Rate limit exceeded. Please try again later.`);
+    }
+    if (response.status === 503) {
+      throw new Error(`503 Service temporarily unavailable.`);
+    }
+    throw new Error(`API error: ${response.status} - ${text}`);
+  }
+
+  return response.json();
 };
 
-/**
- * GET request helper
- */
-export const apiGet = async <T = any>(endpoint: string): Promise<T> => {
-  return apiCall<T>(endpoint, { method: "GET" });
+export const apiPost = async <T = any>(endpoint: string, data: any): Promise<T> => {
+  return apiCall<T>(endpoint, { method: "POST", body: JSON.stringify(data) });
 };
 
-/**
- * POST request helper
- */
-export const apiPost = async <T = any>(
-  endpoint: string,
-  data: any
-): Promise<T> => {
-  return apiCall<T>(endpoint, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
+export const apiPut = async <T = any>(endpoint: string, data: any): Promise<T> => {
+  return apiCall<T>(endpoint, { method: "PUT", body: JSON.stringify(data) });
 };
 
-/**
- * PUT request helper
- */
-export const apiPut = async <T = any>(
-  endpoint: string,
-  data: any
-): Promise<T> => {
-  return apiCall<T>(endpoint, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
+export const apiPatch = async <T = any>(endpoint: string, data: any): Promise<T> => {
+  return apiCall<T>(endpoint, { method: "PATCH", body: JSON.stringify(data) });
 };
 
-/**
- * PATCH request helper
- */
-export const apiPatch = async <T = any>(
-  endpoint: string,
-  data: any
-): Promise<T> => {
-  return apiCall<T>(endpoint, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
-};
-
-/**
- * DELETE request helper
- * Always sends a body to avoid FST_ERR_CTP_EMPTY_JSON_BODY errors
- */
 export const apiDelete = async <T = any>(endpoint: string, data: any = {}): Promise<T> => {
-  return apiCall<T>(endpoint, {
-    method: "DELETE",
-    body: JSON.stringify(data),
-  });
+  return apiCall<T>(endpoint, { method: "DELETE", body: JSON.stringify(data) });
 };
 
-/**
- * Authenticated API call helper
- * Automatically retrieves bearer token from storage and adds to Authorization header
- *
- * @param endpoint - API endpoint path
- * @param options - Fetch options (method, headers, body, etc.)
- * @returns Parsed JSON response
- * @throws Error if token not found or request fails
- */
 export const authenticatedApiCall = async <T = any>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> => {
   const token = await getBearerToken();
-
   if (!token) {
     throw new Error("Authentication token not found. Please sign in.");
   }
-
   return apiCall<T>(endpoint, {
     ...options,
-    headers: {
-      ...options?.headers,
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { ...options?.headers, Authorization: `Bearer ${token}` },
   });
 };
 
-/**
- * Authenticated GET request
- */
 export const authenticatedGet = async <T = any>(endpoint: string): Promise<T> => {
   return authenticatedApiCall<T>(endpoint, { method: "GET" });
 };
 
-/**
- * Authenticated POST request
- */
-export const authenticatedPost = async <T = any>(
-  endpoint: string,
-  data: any
-): Promise<T> => {
-  return authenticatedApiCall<T>(endpoint, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
+export const authenticatedPost = async <T = any>(endpoint: string, data: any): Promise<T> => {
+  return authenticatedApiCall<T>(endpoint, { method: "POST", body: JSON.stringify(data) });
 };
 
-/**
- * Authenticated PUT request
- */
-export const authenticatedPut = async <T = any>(
-  endpoint: string,
-  data: any
-): Promise<T> => {
-  return authenticatedApiCall<T>(endpoint, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
+export const authenticatedPut = async <T = any>(endpoint: string, data: any): Promise<T> => {
+  return authenticatedApiCall<T>(endpoint, { method: "PUT", body: JSON.stringify(data) });
 };
 
-/**
- * Authenticated PATCH request
- */
-export const authenticatedPatch = async <T = any>(
-  endpoint: string,
-  data: any
-): Promise<T> => {
-  return authenticatedApiCall<T>(endpoint, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
+export const authenticatedPatch = async <T = any>(endpoint: string, data: any): Promise<T> => {
+  return authenticatedApiCall<T>(endpoint, { method: "PATCH", body: JSON.stringify(data) });
 };
 
-/**
- * Authenticated DELETE request
- * Always sends a body to avoid FST_ERR_CTP_EMPTY_JSON_BODY errors
- */
 export const authenticatedDelete = async <T = any>(endpoint: string, data: any = {}): Promise<T> => {
-  return authenticatedApiCall<T>(endpoint, {
-    method: "DELETE",
-    body: JSON.stringify(data),
-  });
+  return authenticatedApiCall<T>(endpoint, { method: "DELETE", body: JSON.stringify(data) });
 };
