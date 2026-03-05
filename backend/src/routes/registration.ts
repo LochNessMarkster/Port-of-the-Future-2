@@ -3,9 +3,11 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { randomBytes } from 'crypto';
-import bcrypt from 'bcrypt';
 import { user, account, session } from '../db/auth-schema.js';
 import { fetchAirtableAttendees, updateAirtableRecord, TABLES } from '../utils/airtable.js';
+
+// Shared password for all users
+const SHARED_PASSWORD = 'POTF2026';
 
 // Generate a session token
 function generateSessionToken(): string {
@@ -104,26 +106,25 @@ export function registerRegistrationRoutes(app: App) {
   );
 
   /**
-   * POST /api/registration/create-account - Create account with password
+   * POST /api/registration/create-account - Create account with email (shared password)
    */
   app.fastify.post(
     '/api/registration/create-account',
     {
       schema: {
-        description: 'Create user account with password',
+        description: 'Create user account with email (uses shared password)',
         tags: ['registration'],
         body: {
           type: 'object',
           properties: {
             email: { type: 'string', format: 'email' },
-            password: { type: 'string', minLength: 8 },
             name: { type: 'string' },
             company: { type: 'string' },
             title: { type: 'string' },
             phone: { type: 'string' },
             linkedin: { type: 'string' },
           },
-          required: ['email', 'password', 'name'],
+          required: ['email'],
         },
         response: {
           200: {
@@ -172,10 +173,9 @@ export function registerRegistrationRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { email, password, name, company, title, phone, linkedin } = request.body as {
+      const { email, name, company, title, phone, linkedin } = request.body as {
         email: string;
-        password: string;
-        name: string;
+        name?: string;
         company?: string;
         title?: string;
         phone?: string;
@@ -184,17 +184,9 @@ export function registerRegistrationRoutes(app: App) {
 
       const normalizedEmail = email.toLowerCase();
 
-      app.logger.info({ email: normalizedEmail }, 'Creating account');
+      app.logger.info({ email: normalizedEmail }, 'Creating account with shared password');
 
       try {
-        // Validate password strength
-        if (password.length < 8) {
-          app.logger.warn({ email: normalizedEmail }, 'Password too weak');
-          return reply.status(400).send({
-            error: 'Password must be at least 8 characters long',
-          });
-        }
-
         // Check if user already exists
         const existingUser = await app.db
           .select()
@@ -202,7 +194,7 @@ export function registerRegistrationRoutes(app: App) {
           .where(eq(user.email, normalizedEmail))
           .limit(1);
 
-        // Fetch attendee details from Airtable if available
+        // Fetch attendee details from Airtable - email MUST exist in Airtable
         let airtableData: any = {};
         let airtableRecordId: string | null = null;
         try {
@@ -215,47 +207,29 @@ export function registerRegistrationRoutes(app: App) {
               record.fields['Email']?.toLowerCase() === normalizedEmail
           );
 
-          if (attendee) {
-            airtableRecordId = attendee.id;
-            airtableData = {
-              company: attendee.fields['Company'],
-              title: attendee.fields['Job Title'],
-              phone: attendee.fields['Phone'],
-              linkedin: attendee.fields['LinkedIn'],
-            };
+          if (!attendee) {
+            app.logger.warn({ email: normalizedEmail }, 'Email not found in Airtable attendees');
+            return reply.status(400).send({
+              error: 'This email is not registered for Port of the Future 2026. Please contact the conference organizers.',
+            });
           }
+
+          airtableRecordId = attendee.id;
+          airtableData = {
+            company: attendee.fields['Company'],
+            title: attendee.fields['Job Title'],
+            phone: attendee.fields['Phone'],
+            linkedin: attendee.fields['LinkedIn'],
+          };
         } catch (airtableError) {
-          app.logger.warn({ err: airtableError }, 'Failed to fetch Airtable data');
-          // Continue without Airtable data
+          app.logger.error({ err: airtableError }, 'Failed to fetch Airtable data');
+          throw airtableError;
         }
 
-        // If user already exists in DB, update their Airtable profile and return existing user with token
+        // If user already exists in DB, just create a new session
         if (existingUser.length > 0) {
           const existingUserData = existingUser[0];
-          app.logger.info({ email: normalizedEmail }, 'User already exists in DB');
-
-          // If attendee exists in Airtable, update their profile
-          if (airtableRecordId) {
-            try {
-              app.logger.info({ airtableRecordId }, 'Updating Airtable attendee profile');
-
-              const updateFields: any = {};
-              if (name && name !== existingUserData.name) updateFields['First Name'] = name.split(' ')[0];
-              if (name && name !== existingUserData.name) updateFields['Last Name'] = name.split(' ').slice(1).join(' ');
-              if (company || existingUserData.company) updateFields['Company'] = company || existingUserData.company;
-              if (title || existingUserData.title) updateFields['Job Title'] = title || existingUserData.title;
-              if (phone || existingUserData.phone) updateFields['Phone'] = phone || existingUserData.phone;
-              if (linkedin || existingUserData.linkedin) updateFields['LinkedIn'] = linkedin || existingUserData.linkedin;
-
-              if (Object.keys(updateFields).length > 0) {
-                await updateAirtableRecord(TABLES.ATTENDEES, airtableRecordId, updateFields, app.logger);
-                app.logger.info({ airtableRecordId }, 'Airtable attendee profile updated');
-              }
-            } catch (updateError) {
-              app.logger.warn({ err: updateError }, 'Failed to update Airtable profile, continuing');
-              // Continue even if Airtable update fails
-            }
-          }
+          app.logger.info({ email: normalizedEmail }, 'User already exists in DB, creating new session');
 
           // Create session for existing user
           const sessionToken = generateSessionToken();
@@ -283,7 +257,7 @@ export function registerRegistrationRoutes(app: App) {
             reply.header('Set-Cookie', cookieValue);
           } catch (sessionError) {
             app.logger.error({ err: sessionError, userId: existingUserData.id }, 'Failed to create session for existing user');
-            // Continue with response even if session creation fails
+            throw sessionError;
           }
 
           // Return existing user data with token
@@ -302,6 +276,7 @@ export function registerRegistrationRoutes(app: App) {
         }
 
         // Merge Airtable data with provided data (Airtable takes precedence)
+        const finalName = name || `${airtableData.firstName || ''} ${airtableData.lastName || ''}`.trim() || normalizedEmail;
         const finalCompany = airtableData.company || company || null;
         const finalTitle = airtableData.title || title || null;
         const finalPhone = airtableData.phone || phone || null;
@@ -314,7 +289,7 @@ export function registerRegistrationRoutes(app: App) {
           .values({
             id: userId,
             email: normalizedEmail,
-            name,
+            name: finalName,
             emailVerified: true,
             company: finalCompany,
             title: finalTitle,
@@ -324,10 +299,7 @@ export function registerRegistrationRoutes(app: App) {
           })
           .returning();
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Create account record with hashed password
+        // Create account record with shared password
         const accountId = randomUUID();
         await app.db
           .insert(account)
@@ -336,27 +308,10 @@ export function registerRegistrationRoutes(app: App) {
             userId,
             accountId: normalizedEmail,
             providerId: 'credential',
-            password: hashedPassword,
+            password: SHARED_PASSWORD,
           });
 
-        app.logger.info({ userId, email: normalizedEmail }, 'User and account created');
-
-        // Update Airtable record with password if attendee exists
-        if (airtableRecordId) {
-          try {
-            app.logger.info({ airtableRecordId }, 'Updating Airtable attendee with password');
-            await updateAirtableRecord(
-              TABLES.ATTENDEES,
-              airtableRecordId,
-              { Password: hashedPassword },
-              app.logger
-            );
-            app.logger.info({ airtableRecordId }, 'Airtable attendee password updated');
-          } catch (airtableError) {
-            app.logger.warn({ err: airtableError }, 'Failed to save password to Airtable, continuing');
-            // Continue even if Airtable update fails
-          }
-        }
+        app.logger.info({ userId, email: normalizedEmail }, 'User and account created with shared password');
 
         // Create session
         const sessionToken = generateSessionToken();
