@@ -13,194 +13,148 @@ import {
   Pressable,
   Linking,
   Platform,
-  TextInput
+  TextInput,
+  RefreshControl,
+  ImageSourcePropType
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet } from '@/utils/api';
+import { fetchFromAirtableCache } from '@/utils/api';
 import { Stack } from 'expo-router';
+
+interface AirtablePhoto {
+  id: string;
+  width: number;
+  height: number;
+  url: string;
+  filename: string;
+  size: number;
+  type: string;
+  thumbnails?: {
+    small?: { url: string; width: number; height: number };
+    large?: { url: string; width: number; height: number };
+    full?: { url: string; width: number; height: number };
+  };
+}
 
 interface Port {
   id: string;
-  name: string;
-  logo: string;
-  bio: string;
-  website: string;
+  Name?: string;
+  Logo?: AirtablePhoto[];
+  Description?: string;
+  'Company URL'?: string;
+  LinkedIn?: string;
+  Facebook?: string;
+  X?: string;
+  Address?: string;
+  City?: string;
+  State?: string;
+  Country?: string;
+}
+
+function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source as ImageSourcePropType;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: 100,
-  },
-  searchContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  searchInputWrapper: {
+  container: { flex: 1 },
+  scrollContent: { padding: spacing.lg, paddingBottom: 100 },
+  searchContainer: { marginBottom: spacing.lg },
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
   },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.body,
-    paddingVertical: spacing.xs,
-  },
-  clearButton: {
-    padding: spacing.xs,
-  },
-  portGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  portCard: {
-    width: '47%',
+  searchIcon: { marginRight: spacing.sm },
+  searchInput: { flex: 1, ...typography.body },
+  clearButton: { padding: spacing.sm },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.sm },
+  card: { width: '50%', padding: spacing.sm },
+  cardInner: {
     borderRadius: borderRadius.md,
     padding: spacing.md,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-      },
-    }),
+    justifyContent: 'center',
+    minHeight: 180,
   },
   logoWhiteBackground: {
+    width: '100%',
+    height: 90,
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.sm,
-    padding: spacing.sm,
-    width: '100%',
-    aspectRatio: 2,
     marginBottom: spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    ...Platform.select({
-      web: {
-        display: 'flex' as any,
-      },
-    }),
+    padding: spacing.sm,
   },
-  portLogo: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  portName: {
-    ...typography.h3,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  emptySubtext: {
+  logo: { width: '100%', height: '100%', resizeMode: 'contain' },
+  name: {
     ...typography.bodySmall,
     textAlign: 'center',
+    fontWeight: '600',
   },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
+  emptyText: { ...typography.h3, textAlign: 'center', marginTop: spacing.md },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: spacing.lg,
   },
   modalContent: {
-    width: '90%',
-    maxHeight: '80%',
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    ...Platform.select({
-      web: {
-        maxWidth: 600,
-      },
-    }),
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '90%',
+    overflow: 'hidden',
   },
+  modalScrollContent: { padding: spacing.xl },
   modalHeader: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: spacing.lg,
   },
-  modalLogoWhiteBackground: {
+  modalTitle: { ...typography.h2, flex: 1, marginRight: spacing.md },
+  closeButton: { 
+    padding: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalLogoContainer: {
+    width: '100%',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.md,
-    padding: spacing.md,
-    width: '100%',
-    maxWidth: 300,
-    aspectRatio: 2,
-    marginBottom: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    ...Platform.select({
-      web: {
-        display: 'flex' as any,
-      },
-    }),
   },
-  modalLogo: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  modalName: {
-    ...typography.h2,
-    textAlign: 'center',
-  },
-  modalSection: {
-    marginBottom: spacing.md,
-  },
-  modalLabel: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  modalText: {
-    ...typography.body,
-    lineHeight: 24,
-  },
-  websiteButton: {
+  modalLogo: { width: '100%', height: 150, resizeMode: 'contain' },
+  detailRow: { marginBottom: spacing.md },
+  detailLabel: { ...typography.bodySmall, fontWeight: '600', marginBottom: spacing.xs },
+  detailValue: { ...typography.body },
+  linkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.md,
-    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.sm,
   },
-  websiteButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    zIndex: 1,
-  },
+  linkButtonText: { ...typography.body, marginLeft: spacing.sm },
 });
 
 export default function PortsScreen() {
@@ -208,213 +162,270 @@ export default function PortsScreen() {
   const appColors = colorScheme === 'dark' ? colors.dark : colors.light;
   const [ports, setPorts] = useState<Port[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedPort, setSelectedPort] = useState<Port | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    console.log('[Ports] Component mounted');
     loadPorts();
   }, []);
 
-  const loadPorts = async () => {
-    try {
+  const loadPorts = async (isRefresh = false) => {
+    if (isRefresh) {
+      console.log('[Ports] User triggered refresh');
+      setRefreshing(true);
+    } else {
       setLoading(true);
-      const data = await apiGet<Port[]>('/api/ports');
-      setPorts(data);
-      console.log('PortsScreen - Loaded ports:', data.length);
+    }
+    
+    try {
+      console.log('[Ports] Loading ports from Airtable Cache...');
+      const data = await fetchFromAirtableCache<Port>('ports');
+      console.log(`[Ports] Received ${data.length} ports from Airtable Cache`);
+      
+      const sorted = data.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
+      console.log('[Ports] Sorted ports alphabetically');
+      setPorts(sorted);
     } catch (error) {
-      console.error('PortsScreen - Error loading ports:', error);
+      console.error('[Ports] Failed to load ports:', error);
       setPorts([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const openWebsite = (url: string) => {
-    if (url) {
-      Linking.openURL(url).catch(err => console.error('Error opening URL:', err));
-    }
-  };
-
-  // Filter ports by search query
   const filteredPorts = useMemo(() => {
-    if (searchQuery.trim() === '') return ports;
-    
+    if (!searchQuery.trim()) return ports;
     const query = searchQuery.toLowerCase();
-    return ports.filter(port => {
-      const matchesName = port.name.toLowerCase().includes(query);
-      const matchesBio = port.bio.toLowerCase().includes(query);
-      
-      return matchesName || matchesBio;
-    });
+    return ports.filter(p =>
+      (p.Name || '').toLowerCase().includes(query) ||
+      (p.Description || '').toLowerCase().includes(query)
+    );
   }, [ports, searchQuery]);
 
-  const clearSearch = () => {
-    console.log('PortsScreen - Clearing search');
-    setSearchQuery('');
+  const openWebsite = (url: string) => {
+    console.log('[Ports] Opening website:', url);
+    Linking.openURL(url).catch(err => console.error('[Ports] Failed to open URL:', err));
   };
+
+  const getPortLogoUrl = (logo: AirtablePhoto[] | undefined): string | undefined => {
+    return logo && logo.length > 0 ? logo[0].url : undefined;
+  };
+
+  const getFullAddress = (port: Port): string | null => {
+    if (port.Address) return port.Address;
+    
+    const parts = [];
+    if (port.City) parts.push(port.City);
+    if (port.State) parts.push(port.State);
+    if (port.Country) parts.push(port.Country);
+    
+    return parts.length > 0 ? parts.join(', ') : null;
+  };
+
+  if (loading) {
+    return (
+      <React.Fragment>
+        <Stack.Screen options={{ headerShown: true, title: 'Ports', headerBackTitle: 'Back' }} />
+        <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={appColors.primary} />
+            <Text style={[styles.emptyText, { color: appColors.textSecondary, marginTop: spacing.md }]}>
+              Loading ports...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </React.Fragment>
+    );
+  }
 
   return (
     <React.Fragment>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Ports',
-          headerBackTitle: 'Back',
-        }}
-      />
+      <Stack.Screen options={{ headerShown: true, title: 'Ports', headerBackTitle: 'Back' }} />
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['bottom']}>
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
-            <IconSymbol
-              ios_icon_name="magnifyingglass"
-              android_material_icon_name="search"
-              size={20}
-              color={appColors.textSecondary}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={[styles.searchInput, { color: appColors.text }]}
-              placeholder="Search ports..."
-              placeholderTextColor={appColors.textSecondary}
-              value={searchQuery}
-              onChangeText={(text) => {
-                console.log('PortsScreen - Search query changed:', text);
-                setSearchQuery(text);
-              }}
-            />
-            {searchQuery.length > 0 ? (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={20}
-                  color={appColors.textSecondary}
-                />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
-
-        <ScrollView 
+        <ScrollView
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadPorts(true)}
+              tintColor={appColors.primary}
+              colors={[appColors.primary]}
+            />
+          }
         >
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={appColors.primary} />
-            </View>
-          ) : filteredPorts.length === 0 ? (
-            <View style={styles.emptyContainer}>
+          <View style={styles.searchContainer}>
+            <View style={[styles.searchInputContainer, { backgroundColor: appColors.card }]}>
               <IconSymbol
-                ios_icon_name="anchor"
-                android_material_icon_name="place"
-                size={48}
+                ios_icon_name="magnifyingglass"
+                android_material_icon_name="search"
+                size={20}
                 color={appColors.textSecondary}
+                style={styles.searchIcon}
               />
-              <Text style={[styles.emptyText, { color: appColors.text, marginTop: spacing.md }]}>
-                {searchQuery ? 'No ports found' : 'No ports available yet'}
-              </Text>
-              <Text style={[styles.emptySubtext, { color: appColors.textSecondary }]}>
-                {searchQuery ? 'Try a different search term' : 'Check back later for updates'}
-              </Text>
+              <TextInput
+                style={[styles.searchInput, { color: appColors.text }]}
+                placeholder="Search ports..."
+                placeholderTextColor={appColors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                  <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={20} color={appColors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {filteredPorts.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol ios_icon_name="anchor" android_material_icon_name="place" size={64} color={appColors.textSecondary} />
+              <Text style={[styles.emptyText, { color: appColors.text }]}>No ports found</Text>
             </View>
           ) : (
-            <View style={styles.portGrid}>
-              {filteredPorts.map((port, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.portCard, { backgroundColor: appColors.card }]}
-                  onPress={() => setSelectedPort(port)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.logoWhiteBackground}>
-                    <Image
-                      source={{ uri: port.logo }}
-                      style={styles.portLogo}
-                      defaultSource={require('@/assets/images/POF-ICON.png')}
-                    />
+            <View style={styles.grid}>
+              {filteredPorts.map(port => {
+                const portName = port.Name || '';
+                const portLogoUrl = getPortLogoUrl(port.Logo);
+                
+                return (
+                  <View key={port.id} style={styles.card}>
+                    <TouchableOpacity
+                      style={styles.cardInner}
+                      onPress={() => {
+                        console.log('[Ports] User tapped port card:', portName);
+                        setSelectedPort(port);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.logoWhiteBackground}>
+                        {portLogoUrl ? (
+                          <Image source={resolveImageSource(portLogoUrl)} style={styles.logo} />
+                        ) : (
+                          <IconSymbol
+                            ios_icon_name="anchor"
+                            android_material_icon_name="place"
+                            size={40}
+                            color={appColors.textSecondary}
+                          />
+                        )}
+                      </View>
+                      <Text
+                        style={[styles.name, { color: appColors.text }]}
+                        numberOfLines={2}
+                        adjustsFontSizeToFit
+                      >
+                        {portName}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                  <Text style={[styles.portName, { color: appColors.text }]} numberOfLines={2}>
-                    {port.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                );
+              })}
             </View>
           )}
         </ScrollView>
 
-        {/* Port Detail Modal */}
         <Modal
           visible={selectedPort !== null}
           transparent
           animationType="fade"
           onRequestClose={() => setSelectedPort(null)}
         >
-          <Pressable 
-            style={styles.modalOverlay}
-            onPress={() => setSelectedPort(null)}
-          >
+          <View style={styles.modalOverlay}>
             <Pressable 
-              style={[styles.modalContent, { backgroundColor: appColors.card }]}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => setSelectedPort(null)}
+              style={StyleSheet.absoluteFill} 
+              onPress={() => setSelectedPort(null)} 
+            />
+            <View style={[styles.modalContent, { backgroundColor: appColors.card }]}>
+              <ScrollView 
+                showsVerticalScrollIndicator={true} 
+                contentContainerStyle={styles.modalScrollContent}
+                bounces={true}
               >
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={32}
-                  color={appColors.textSecondary}
-                />
-              </TouchableOpacity>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
-                  <View style={styles.modalLogoWhiteBackground}>
+                  <Text style={[styles.modalTitle, { color: appColors.text }]}>
+                    {selectedPort?.Name || ''}
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.closeButton} 
+                    onPress={() => {
+                      console.log('[Ports] User closed port modal');
+                      setSelectedPort(null);
+                    }}
+                  >
+                    <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+
+                {selectedPort?.Logo && selectedPort.Logo.length > 0 && (
+                  <View style={styles.modalLogoContainer}>
                     <Image
-                      source={{ uri: selectedPort?.logo }}
+                      source={resolveImageSource(getPortLogoUrl(selectedPort.Logo))}
                       style={styles.modalLogo}
-                      defaultSource={require('@/assets/images/POF-ICON.png')}
+                      resizeMode="contain"
                     />
                   </View>
-                  <Text style={[styles.modalName, { color: appColors.text }]}>
-                    {selectedPort?.name}
-                  </Text>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>
-                    About
-                  </Text>
-                  <Text style={[styles.modalText, { color: appColors.text }]}>
-                    {selectedPort?.bio}
-                  </Text>
-                </View>
-
-                {selectedPort?.website && (
-                  <TouchableOpacity
-                    style={[styles.websiteButton, { backgroundColor: appColors.primary }]}
-                    onPress={() => openWebsite(selectedPort.website)}
-                    activeOpacity={0.7}
-                  >
-                    <IconSymbol
-                      ios_icon_name="globe"
-                      android_material_icon_name="language"
-                      size={20}
-                      color="#FFFFFF"
-                    />
-                    <Text style={[styles.websiteButtonText, { color: '#FFFFFF' }]}>
-                      Visit Website
-                    </Text>
-                  </TouchableOpacity>
                 )}
+
+                {selectedPort?.Description && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Description</Text>
+                    <Text style={[styles.detailValue, { color: appColors.text }]}>
+                      {selectedPort.Description}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedPort?.['Company URL'] && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Website</Text>
+                    <TouchableOpacity
+                      style={[styles.linkButton, { backgroundColor: appColors.primary }]}
+                      onPress={() => openWebsite(selectedPort['Company URL']!)}
+                    >
+                      <IconSymbol ios_icon_name="globe" android_material_icon_name="language" size={20} color="#FFFFFF" />
+                      <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>Visit Website</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {selectedPort?.LinkedIn && (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>LinkedIn</Text>
+                    <TouchableOpacity
+                      style={[styles.linkButton, { backgroundColor: '#0077B5' }]}
+                      onPress={() => openWebsite(selectedPort.LinkedIn!)}
+                    >
+                      <IconSymbol ios_icon_name="link" android_material_icon_name="link" size={20} color="#FFFFFF" />
+                      <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>View LinkedIn Profile</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {(() => {
+                  const fullAddress = selectedPort ? getFullAddress(selectedPort) : null;
+                  if (fullAddress) {
+                    return (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Location</Text>
+                        <Text style={[styles.detailValue, { color: appColors.text }]}>
+                          {fullAddress}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
               </ScrollView>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       </SafeAreaView>
     </React.Fragment>
