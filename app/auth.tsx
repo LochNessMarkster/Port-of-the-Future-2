@@ -33,15 +33,15 @@ export default function AuthScreen() {
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  console.log('AuthScreen - Email:', email);
-
   const showError = (message: string) => {
+    console.log('[AuthScreen] Showing error:', message);
     setErrorMessage(message);
     setErrorModalVisible(true);
   };
 
   const handleSignIn = async () => {
-    console.log('AuthScreen - User tapped Sign In, email:', email);
+    console.log('🔐 [AuthScreen] User tapped Sign In');
+    console.log('📧 [AuthScreen] Email:', email);
     
     if (!email || !email.includes('@')) {
       showError("Please enter a valid email address");
@@ -56,88 +56,135 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       // Step 1: Check if email exists in Airtable cache
-      console.log('[Airtable] Checking email verification for:', email.toLowerCase().trim());
+      console.log('🔍 [Airtable] Starting email verification for:', email.toLowerCase().trim());
       
       const airtableUrl = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
-      const airtableResponse = await fetch(airtableUrl);
+      console.log('🌐 [Airtable] Fetching from:', airtableUrl);
+      
+      let airtableResponse;
+      try {
+        airtableResponse = await fetch(airtableUrl);
+        console.log('✅ [Airtable] Fetch completed, status:', airtableResponse.status);
+      } catch (fetchError: any) {
+        console.error('❌ [Airtable] Fetch failed:', fetchError);
+        console.error('❌ [Airtable] Error details:', {
+          message: fetchError.message,
+          name: fetchError.name,
+          stack: fetchError.stack
+        });
+        showError("Unable to connect to verification server. Please check your internet connection.");
+        return;
+      }
       
       if (!airtableResponse.ok) {
-        console.error('[Airtable] Failed to fetch records:', airtableResponse.status);
+        console.error('❌ [Airtable] Bad response status:', airtableResponse.status);
         showError("Unable to verify email. Please try again later.");
         return;
       }
 
-      const airtableData = await airtableResponse.json();
-      console.log('[Airtable] Fetched records count:', airtableData.records?.length || 0);
+      let airtableData;
+      try {
+        airtableData = await airtableResponse.json();
+        console.log('📦 [Airtable] Parsed JSON, records count:', airtableData.records?.length || 0);
+      } catch (jsonError: any) {
+        console.error('❌ [Airtable] JSON parse failed:', jsonError);
+        showError("Unable to verify email. Please try again later.");
+        return;
+      }
 
       // Search for email match (case-insensitive)
       const normalizedEmail = email.toLowerCase().trim();
+      console.log('🔎 [Airtable] Searching for email:', normalizedEmail);
+      
       const emailExists = airtableData.records?.some((record: any) => {
         const recordEmail = record.fields?.Email || record.fields?.email;
         if (!recordEmail) return false;
         const normalizedRecordEmail = recordEmail.toLowerCase().trim();
-        console.log('[Airtable] Comparing:', normalizedRecordEmail, 'with', normalizedEmail);
         return normalizedRecordEmail === normalizedEmail;
       });
 
       if (!emailExists) {
-        console.log('[Airtable] Email not found in registered attendees');
+        console.log('❌ [Airtable] Email not found in registered attendees');
         showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
         return;
       }
 
-      console.log('[Airtable] Email verified successfully');
+      console.log('✅ [Airtable] Email verified successfully');
 
-      // Step 2: Proceed with Liquid Backend login
-      console.log('[API] Requesting /api/registration/create-account for email:', normalizedEmail);
-      const response = await apiPost<{ 
-        user: { 
-          id: string; 
-          email: string; 
-          name: string; 
-          company: string | null; 
-          title: string | null; 
-          phone: string | null;
-          registrationType: string | null;
-          emailVerified: boolean;
-        }; 
-        token: string;
-      }>('/api/registration/create-account', {
-        email: normalizedEmail,
-        password: password,
-      });
+      // Step 2: Proceed with backend login
+      console.log('🚀 [API] Calling /api/registration/create-account');
+      console.log('📤 [API] Request data:', { email: normalizedEmail, password: '***' });
+      
+      let response;
+      try {
+        response = await apiPost<{ 
+          user: { 
+            id: string; 
+            email: string; 
+            name: string; 
+            company: string | null; 
+            title: string | null; 
+            phone: string | null;
+            registrationType: string | null;
+            emailVerified: boolean;
+          }; 
+          token: string;
+        }>('/api/registration/create-account', {
+          email: normalizedEmail,
+          password: password,
+        });
+        console.log('✅ [API] Response received:', { hasUser: !!response.user, hasToken: !!response.token });
+      } catch (apiError: any) {
+        console.error('❌ [API] Request failed:', apiError);
+        console.error('❌ [API] Error details:', {
+          message: apiError.message,
+          name: apiError.name,
+          stack: apiError.stack
+        });
+        throw apiError;
+      }
 
       if (!response.token || !response.user) {
+        console.error('❌ [API] Invalid response - missing token or user');
         showError("Authentication failed. Please try again.");
         return;
       }
 
-      console.log('AuthScreen - Account ready, setting user from token');
-      // Use the token returned to authenticate immediately
+      console.log('💾 [AuthContext] Setting user from token');
       await setUserFromToken(response.user, response.token);
 
-      console.log('AuthScreen - Sign in successful, navigating to home');
+      console.log('🎉 [AuthScreen] Sign in successful, navigating to home');
       router.replace("/(tabs)/(home)/");
     } catch (error: any) {
-      console.error('AuthScreen - Auth error:', error);
-      let errorMsg = error.message || "Authentication failed. Please try again.";
+      console.error('❌ [AuthScreen] Auth error:', error);
+      console.error('❌ [AuthScreen] Error type:', typeof error);
+      console.error('❌ [AuthScreen] Error keys:', Object.keys(error));
+      
+      let errorMsg = "Authentication failed. Please try again.";
 
-      // Try to parse JSON error body from API response
-      try {
-        const jsonMatch = errorMsg.match(/API error: \d+ - (.+)$/s);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[1]);
-          if (parsed.error) {
-            errorMsg = parsed.error;
+      if (error && error.message) {
+        errorMsg = error.message;
+        console.log('📝 [AuthScreen] Using error.message:', errorMsg);
+        
+        // Try to parse JSON error body from API response
+        try {
+          const jsonMatch = errorMsg.match(/API error: \d+ - (.+)$/s);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[1]);
+            if (parsed.error) {
+              errorMsg = parsed.error;
+              console.log('📝 [AuthScreen] Extracted error from JSON:', errorMsg);
+            }
           }
+        } catch (parseError) {
+          console.log('⚠️ [AuthScreen] Could not parse error as JSON');
         }
-      } catch {
-        // Not JSON, use raw message
       }
 
       showError(errorMsg);
     } finally {
       setLoading(false);
+      console.log('🏁 [AuthScreen] Sign in flow completed');
     }
   };
 
@@ -172,7 +219,7 @@ export default function AuthScreen() {
             {/* Instructions */}
             <View style={[styles.instructionsBox, { backgroundColor: appColors.card, borderColor: appColors.border }]}>
               <Text style={[styles.instructionsText, { color: appColors.textSecondary }]}>
-                Enter your email and password to sign in. If you don't have an account, one will be created automatically.
+                Enter your email and password to sign in. If you don&apos;t have an account, one will be created automatically.
               </Text>
             </View>
 
