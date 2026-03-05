@@ -13,11 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.p7c5fb37f61a743e49f21fd473f02937d.app",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "supportsTablet": true,
+        "bundleIdentifier": "com.p7c5fb37f61a743e49f21fd473f02937d.app",
+        "buildNumber": "2",
+        "infoPlist": {
+            "ITSAppUsesNonExemptEncryption": false
+        }
     },
     "android": {
       "adaptiveIcon": {
