@@ -55,10 +55,41 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      // Call create-account endpoint which handles both sign-in and sign-up
-      // If the account exists, it signs in
-      // If the account doesn't exist, it creates it and signs in
-      console.log('[API] Requesting /api/registration/create-account for email:', email.toLowerCase().trim());
+      // Step 1: Check if email exists in Airtable cache
+      console.log('[Airtable] Checking email verification for:', email.toLowerCase().trim());
+      
+      const airtableUrl = 'https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd/tblIwt4FWHtNm01Z4';
+      const airtableResponse = await fetch(airtableUrl);
+      
+      if (!airtableResponse.ok) {
+        console.error('[Airtable] Failed to fetch records:', airtableResponse.status);
+        showError("Unable to verify email. Please try again later.");
+        return;
+      }
+
+      const airtableData = await airtableResponse.json();
+      console.log('[Airtable] Fetched records count:', airtableData.records?.length || 0);
+
+      // Search for email match (case-insensitive)
+      const normalizedEmail = email.toLowerCase().trim();
+      const emailExists = airtableData.records?.some((record: any) => {
+        const recordEmail = record.fields?.Email || record.fields?.email;
+        if (!recordEmail) return false;
+        const normalizedRecordEmail = recordEmail.toLowerCase().trim();
+        console.log('[Airtable] Comparing:', normalizedRecordEmail, 'with', normalizedEmail);
+        return normalizedRecordEmail === normalizedEmail;
+      });
+
+      if (!emailExists) {
+        console.log('[Airtable] Email not found in registered attendees');
+        showError("This email is not registered for Port of the Future 2026. Please contact us for assistance.");
+        return;
+      }
+
+      console.log('[Airtable] Email verified successfully');
+
+      // Step 2: Proceed with Liquid Backend login
+      console.log('[API] Requesting /api/registration/create-account for email:', normalizedEmail);
       const response = await apiPost<{ 
         user: { 
           id: string; 
@@ -72,7 +103,7 @@ export default function AuthScreen() {
         }; 
         token: string;
       }>('/api/registration/create-account', {
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         password: password,
       });
 
