@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   View, 
@@ -35,15 +36,27 @@ interface Speaker {
   phone: string;
 }
 
-// FIX: always build a display name from firstName + lastName,
-// falling back to the combined name field if both are missing
 function getDisplayName(speaker: Speaker): string {
   const first = (speaker.firstName || '').trim();
   const last = (speaker.lastName || '').trim();
-  if (first && last) return `${first} ${last}`;
-  if (first) return first;
-  if (last) return last;
-  return speaker.name || '';
+  
+  if (first && last) {
+    const fullName = `${first} ${last}`;
+    console.log(`Speaker display name: "${fullName}" (from firstName: "${first}", lastName: "${last}")`);
+    return fullName;
+  }
+  if (first) {
+    console.log(`Speaker display name: "${first}" (firstName only)`);
+    return first;
+  }
+  if (last) {
+    console.log(`Speaker display name: "${last}" (lastName only)`);
+    return last;
+  }
+  
+  const fallbackName = speaker.name || '';
+  console.log(`Speaker display name: "${fallbackName}" (fallback to name field)`);
+  return fallbackName;
 }
 
 const styles = StyleSheet.create({
@@ -96,7 +109,6 @@ const styles = StyleSheet.create({
   errorDetail: { ...typography.bodySmall, textAlign: 'center', marginBottom: spacing.md },
   retryButton: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: borderRadius.md, marginTop: spacing.md },
   retryButtonText: { ...typography.body, fontWeight: '600' },
-  // FIX: modal is scrollable so long bios are fully readable
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
     width: '90%',
@@ -140,12 +152,28 @@ export default function SpeakersScreen() {
 
   const loadSpeakers = async () => {
     try {
+      console.log('Loading speakers from API...');
       setLoading(true);
       setError(null);
       const data = await apiGet<Speaker[]>('/api/speakers');
+      console.log(`Received ${data.length} speakers from API`);
+      
+      if (data.length > 0) {
+        const firstSpeaker = data[0];
+        console.log('First speaker data:', {
+          id: firstSpeaker.id,
+          firstName: firstSpeaker.firstName,
+          lastName: firstSpeaker.lastName,
+          name: firstSpeaker.name,
+          displayName: getDisplayName(firstSpeaker)
+        });
+      }
+      
       const publishedSpeakers = data.filter(s => s.published === true);
+      console.log(`Filtered to ${publishedSpeakers.length} published speakers`);
       setSpeakers(publishedSpeakers);
     } catch (err: any) {
+      console.error('Error loading speakers:', err);
       setError(err.message || 'Failed to load speakers. Please try again.');
       setSpeakers([]);
     } finally {
@@ -172,14 +200,14 @@ export default function SpeakersScreen() {
   const shouldShowPhone = (speaker: Speaker) =>
     speaker.publicPersonalData === true && speaker.phone && speaker.phone.trim() !== '';
 
+  const displayNameForCard = selectedSpeaker ? getDisplayName(selectedSpeaker) : '';
+  const displayTitleForCard = selectedSpeaker?.title || '';
+
   return (
     <React.Fragment>
-      {/* FIX: back button shown in header so user can return to home */}
       <Stack.Screen options={{ headerShown: true, title: 'Speakers', headerBackTitle: 'Back' }} />
-      {/* FIX: edges includes 'top' so search bar clears the status bar */}
       <SafeAreaView style={[styles.container, { backgroundColor: appColors.background }]} edges={['top', 'bottom']}>
 
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: appColors.card }]}>
             <IconSymbol
@@ -233,30 +261,33 @@ export default function SpeakersScreen() {
             </View>
           ) : (
             <View style={styles.speakerGrid}>
-              {filteredSpeakers.map((speaker, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.speakerCard, { backgroundColor: appColors.card }]}
-                  onPress={() => setSelectedSpeaker(speaker)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.speakerPhotoContainer}>
-                    <Image source={{ uri: speaker.photo }} style={styles.speakerPhoto} />
-                  </View>
-                  {/* FIX: use getDisplayName() so firstName is never missing */}
-                  <Text style={[styles.speakerName, { color: appColors.text }]}>
-                    {getDisplayName(speaker)}
-                  </Text>
-                  <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
-                    {speaker.title}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {filteredSpeakers.map((speaker, index) => {
+                const cardDisplayName = getDisplayName(speaker);
+                const cardTitle = speaker.title;
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.speakerCard, { backgroundColor: appColors.card }]}
+                    onPress={() => setSelectedSpeaker(speaker)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.speakerPhotoContainer}>
+                      <Image source={{ uri: speaker.photo }} style={styles.speakerPhoto} />
+                    </View>
+                    <Text style={[styles.speakerName, { color: appColors.text }]}>
+                      {cardDisplayName}
+                    </Text>
+                    <Text style={[styles.speakerTitle, { color: appColors.textSecondary }]} numberOfLines={2}>
+                      {cardTitle}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </ScrollView>
 
-        {/* Speaker Detail Modal — FIX: ScrollView wraps all content so full bio is readable */}
         <Modal
           visible={selectedSpeaker !== null}
           transparent
@@ -277,12 +308,11 @@ export default function SpeakersScreen() {
                   <View style={styles.modalPhotoWrapper}>
                     <Image source={{ uri: selectedSpeaker?.photo }} style={styles.modalPhoto} />
                   </View>
-                  {/* FIX: use getDisplayName() in modal too */}
                   <Text style={[styles.modalName, { color: appColors.text }]}>
-                    {selectedSpeaker ? getDisplayName(selectedSpeaker) : ''}
+                    {displayNameForCard}
                   </Text>
                   <Text style={[styles.modalTitle, { color: appColors.textSecondary }]}>
-                    {selectedSpeaker?.title}
+                    {displayTitleForCard}
                   </Text>
                 </View>
 
