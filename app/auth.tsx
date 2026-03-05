@@ -43,6 +43,7 @@ export default function AuthScreen() {
     console.log('🔐 Sign In - Starting authentication process');
     console.log('🔐 Backend URL:', BACKEND_URL);
     console.log('🔐 Backend configured:', isBackendConfigured());
+    console.log('🔐 Timestamp:', new Date().toISOString());
     
     if (!email || !email.includes('@')) {
       console.log('❌ Sign In - Invalid email format');
@@ -63,7 +64,10 @@ export default function AuthScreen() {
 
     // Step 1: Verify email exists in Airtable via public verify-email endpoint (no auth required)
     try {
-      console.log('📋 Sign In - Verifying email with /api/verify-email...');
+      console.log('📋 Sign In - Step 1: Verifying email with /api/verify-email...');
+      console.log('📋 Sign In - Request URL:', `${BACKEND_URL}/api/verify-email`);
+      console.log('📋 Sign In - Request body:', { email: normalizedEmail });
+      
       const checkResponse = await apiPost<{ exists: boolean; message?: string }>('/api/verify-email', {
         email: normalizedEmail
       });
@@ -80,6 +84,9 @@ export default function AuthScreen() {
       console.log('✅ Sign In - Email verified, proceeding to authentication');
     } catch (verifyError: any) {
       console.error('❌ Sign In - Email verification failed:', verifyError);
+      console.error('❌ Sign In - Error type:', typeof verifyError);
+      console.error('❌ Sign In - Error message:', verifyError.message);
+      console.error('❌ Sign In - Error stack:', verifyError.stack);
       
       let userErrorMessage = "Unable to verify your registration.\n\n";
       
@@ -88,22 +95,29 @@ export default function AuthScreen() {
         verifyError.message.includes("Network request failed") ||
         verifyError.message.includes("Failed to fetch") ||
         verifyError.message.includes("Network error") ||
-        verifyError.message.includes("Connection error")
+        verifyError.message.includes("Connection error") ||
+        verifyError.message.includes("fetch")
       )) {
         userErrorMessage = "Network Connection Error\n\n";
         userErrorMessage += "Unable to connect to the server. This could be due to:\n\n";
+        userErrorMessage += "• Server is temporarily down or restarting\n";
         userErrorMessage += "• No internet connection\n";
-        userErrorMessage += "• Server is temporarily unavailable\n";
         userErrorMessage += "• Firewall or network restrictions\n\n";
-        userErrorMessage += "Please check your internet connection and try again.";
+        userErrorMessage += "Please try again in a few moments.\n\n";
+        userErrorMessage += "If the problem persists, please contact the conference organizers.";
       } else if (verifyError.message && verifyError.message.includes("500")) {
         userErrorMessage = "Server Error\n\n";
         userErrorMessage += "The server encountered an error while processing your request.\n\n";
         userErrorMessage += "This is a temporary issue. Please try again in a few moments.\n\n";
         userErrorMessage += "If the problem persists, please contact the conference organizers.";
+      } else if (verifyError.message && verifyError.message.includes("Backend URL not configured")) {
+        userErrorMessage = "Configuration Error\n\n";
+        userErrorMessage += "The app is not properly configured to connect to the server.\n\n";
+        userErrorMessage += "Please contact the conference organizers for assistance.";
       } else {
         userErrorMessage += `Error: ${verifyError.message || 'Unknown error'}\n\n`;
-        userErrorMessage += "Please check your internet connection and try again.";
+        userErrorMessage += "Please check your internet connection and try again.\n\n";
+        userErrorMessage += "If the problem persists, please contact the conference organizers.";
       }
       
       showError(userErrorMessage);
@@ -113,7 +127,10 @@ export default function AuthScreen() {
 
     // Step 2: Sign in via backend
     try {
-      console.log('🔐 Sign In - Calling backend API /api/registration/create-account');
+      console.log('🔐 Sign In - Step 2: Calling backend API /api/registration/create-account');
+      console.log('🔐 Sign In - Request URL:', `${BACKEND_URL}/api/registration/create-account`);
+      console.log('🔐 Sign In - Request body:', { email: normalizedEmail, password: '***' });
+      
       const response = await apiPost<{
         user: {
           id: string;
@@ -132,6 +149,8 @@ export default function AuthScreen() {
       });
 
       console.log('✅ Sign In - Backend API response received');
+      console.log('✅ Sign In - User ID:', response.user?.id);
+      console.log('✅ Sign In - Token received:', response.token ? 'Yes' : 'No');
 
       if (!response.token || !response.user) {
         console.error('❌ Sign In - Invalid response from backend (missing token or user)');
@@ -146,6 +165,9 @@ export default function AuthScreen() {
       router.replace("/(tabs)/(home)/");
     } catch (apiError: any) {
       console.error('❌ Sign In - Backend API error:', apiError);
+      console.error('❌ Sign In - Error type:', typeof apiError);
+      console.error('❌ Sign In - Error message:', apiError.message);
+      console.error('❌ Sign In - Error stack:', apiError.stack);
       
       let errorMsg = "Authentication failed. Please try again.";
       
@@ -154,19 +176,25 @@ export default function AuthScreen() {
         apiError.message.includes("Network request failed") ||
         apiError.message.includes("Failed to fetch") ||
         apiError.message.includes("Network error") ||
-        apiError.message.includes("Connection error")
+        apiError.message.includes("Connection error") ||
+        apiError.message.includes("fetch")
       )) {
         errorMsg = "Network Connection Error\n\n";
         errorMsg += "Unable to connect to the server. This could be due to:\n\n";
+        errorMsg += "• Server is temporarily down or restarting\n";
         errorMsg += "• No internet connection\n";
-        errorMsg += "• Server is temporarily unavailable\n";
         errorMsg += "• Firewall or network restrictions\n\n";
-        errorMsg += "Please check your internet connection and try again.";
+        errorMsg += "Please try again in a few moments.\n\n";
+        errorMsg += "If the problem persists, please contact the conference organizers.";
       } else if (apiError.message && apiError.message.includes("500")) {
         errorMsg = "Server Error\n\n";
         errorMsg += "The server encountered an error while processing your request.\n\n";
         errorMsg += "This is a temporary issue. Please try again in a few moments.\n\n";
         errorMsg += "If the problem persists, please contact the conference organizers.";
+      } else if (apiError.message && apiError.message.includes("Backend URL not configured")) {
+        errorMsg = "Configuration Error\n\n";
+        errorMsg += "The app is not properly configured to connect to the server.\n\n";
+        errorMsg += "Please contact the conference organizers for assistance.";
       } else if (apiError && apiError.message) {
         errorMsg = apiError.message;
         try {
