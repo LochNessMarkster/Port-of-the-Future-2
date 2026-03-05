@@ -17,45 +17,45 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet } from '@/utils/api';
+import { fetchFromAirtableCache } from '@/utils/api';
 import { Stack, useRouter } from 'expo-router';
 
 interface Speaker {
   id: string;
-  firstName: string;
-  lastName: string;
-  name: string;
-  title: string;
-  photo: string;
-  topic: string;
-  synopsis: string;
-  bio: string;
-  published: boolean;
-  publicPersonalData: boolean;
-  email: string;
-  phone: string;
+  'First Name'?: string;
+  'Last Name'?: string;
+  Name?: string;
+  Title?: string;
+  Photo?: string;
+  Topic?: string;
+  Synopsis?: string;
+  Bio?: string;
+  Published?: boolean;
+  'Public Personal Data'?: boolean;
+  Email?: string;
+  Phone?: string;
 }
 
 function getDisplayName(speaker: Speaker): string {
-  const first = (speaker.firstName || '').trim();
-  const last = (speaker.lastName || '').trim();
+  const first = (speaker['First Name'] || '').trim();
+  const last = (speaker['Last Name'] || '').trim();
   
   if (first && last) {
     const fullName = `${first} ${last}`;
-    console.log(`Speaker display name: "${fullName}" (from firstName: "${first}", lastName: "${last}")`);
+    console.log(`Speaker display name: "${fullName}" (from First Name: "${first}", Last Name: "${last}")`);
     return fullName;
   }
   if (first) {
-    console.log(`Speaker display name: "${first}" (firstName only)`);
+    console.log(`Speaker display name: "${first}" (First Name only)`);
     return first;
   }
   if (last) {
-    console.log(`Speaker display name: "${last}" (lastName only)`);
+    console.log(`Speaker display name: "${last}" (Last Name only)`);
     return last;
   }
   
-  const fallbackName = speaker.name || '';
-  console.log(`Speaker display name: "${fallbackName}" (fallback to name field)`);
+  const fallbackName = speaker.Name || '';
+  console.log(`Speaker display name: "${fallbackName}" (fallback to Name field)`);
   return fallbackName;
 }
 
@@ -172,26 +172,26 @@ export default function SpeakersScreen() {
 
   const loadSpeakers = async (attempt = 0) => {
     try {
-      console.log(`[Speakers] Loading speakers from API (attempt ${attempt + 1})...`);
+      console.log(`[Speakers] Loading speakers from Airtable Cache (attempt ${attempt + 1})...`);
       setLoading(true);
       setError(null);
       setIsRateLimited(false);
 
-      const data = await apiGet<Speaker[]>('/api/speakers');
-      console.log(`[Speakers] Received ${data.length} speakers from API`);
+      const data = await fetchFromAirtableCache<Speaker>('speakers');
+      console.log(`[Speakers] Received ${data.length} speakers from Airtable Cache`);
 
       if (data.length > 0) {
         const firstSpeaker = data[0];
         console.log('[Speakers] First speaker data:', {
           id: firstSpeaker.id,
-          firstName: firstSpeaker.firstName,
-          lastName: firstSpeaker.lastName,
-          name: firstSpeaker.name,
+          firstName: firstSpeaker['First Name'],
+          lastName: firstSpeaker['Last Name'],
+          name: firstSpeaker.Name,
           displayName: getDisplayName(firstSpeaker),
         });
       }
 
-      const publishedSpeakers = data.filter(s => s.published === true);
+      const publishedSpeakers = data.filter(s => s.Published === true);
       console.log(`[Speakers] Filtered to ${publishedSpeakers.length} published speakers`);
       setSpeakers(publishedSpeakers);
       setRetryCount(0);
@@ -206,7 +206,7 @@ export default function SpeakersScreen() {
         errMsg.toLowerCase().includes('rate_limit');
 
       if (isRateLimit && attempt < 3) {
-        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        const delay = Math.pow(2, attempt) * 1000;
         console.log(`[Speakers] Rate limited. Retrying in ${delay}ms (attempt ${attempt + 1}/3)...`);
         setIsRateLimited(true);
         setRetryCount(attempt + 1);
@@ -236,23 +236,23 @@ export default function SpeakersScreen() {
     if (searchQuery.trim() === '') return speakers;
     const query = searchQuery.toLowerCase();
     return speakers.filter(speaker =>
-      (speaker.firstName || '').toLowerCase().includes(query) ||
-      (speaker.lastName || '').toLowerCase().includes(query) ||
-      (speaker.name || '').toLowerCase().includes(query) ||
-      (speaker.title || '').toLowerCase().includes(query) ||
-      (speaker.topic || '').toLowerCase().includes(query) ||
-      (speaker.bio || '').toLowerCase().includes(query)
+      (speaker['First Name'] || '').toLowerCase().includes(query) ||
+      (speaker['Last Name'] || '').toLowerCase().includes(query) ||
+      (speaker.Name || '').toLowerCase().includes(query) ||
+      (speaker.Title || '').toLowerCase().includes(query) ||
+      (speaker.Topic || '').toLowerCase().includes(query) ||
+      (speaker.Bio || '').toLowerCase().includes(query)
     );
   }, [speakers, searchQuery]);
 
   const shouldShowEmail = (speaker: Speaker) =>
-    speaker.publicPersonalData === true && speaker.email && speaker.email.trim() !== '';
+    speaker['Public Personal Data'] === true && speaker.Email && speaker.Email.trim() !== '';
 
   const shouldShowPhone = (speaker: Speaker) =>
-    speaker.publicPersonalData === true && speaker.phone && speaker.phone.trim() !== '';
+    speaker['Public Personal Data'] === true && speaker.Phone && speaker.Phone.trim() !== '';
 
   const displayNameForCard = selectedSpeaker ? getDisplayName(selectedSpeaker) : '';
-  const displayTitleForCard = selectedSpeaker?.title || '';
+  const displayTitleForCard = selectedSpeaker?.Title || '';
 
   return (
     <React.Fragment>
@@ -326,7 +326,8 @@ export default function SpeakersScreen() {
             <View style={styles.speakerGrid}>
               {filteredSpeakers.map((speaker, index) => {
                 const cardDisplayName = getDisplayName(speaker);
-                const cardTitle = speaker.title;
+                const cardTitle = speaker.Title || '';
+                const photoUrl = speaker.Photo || '';
                 
                 return (
                   <TouchableOpacity
@@ -336,7 +337,7 @@ export default function SpeakersScreen() {
                     activeOpacity={0.7}
                   >
                     <View style={styles.speakerPhotoContainer}>
-                      <Image source={{ uri: speaker.photo }} style={styles.speakerPhoto} />
+                      <Image source={{ uri: photoUrl }} style={styles.speakerPhoto} />
                     </View>
                     <Text style={[styles.speakerName, { color: appColors.text }]}>
                       {cardDisplayName}
@@ -370,7 +371,7 @@ export default function SpeakersScreen() {
               >
                 <View style={styles.modalPhotoContainer}>
                   <View style={styles.modalPhotoWrapper}>
-                    <Image source={{ uri: selectedSpeaker?.photo }} style={styles.modalPhoto} />
+                    <Image source={{ uri: selectedSpeaker?.Photo || '' }} style={styles.modalPhoto} />
                   </View>
                   <Text style={[styles.modalName, { color: appColors.text }]}>
                     {displayNameForCard}
@@ -380,38 +381,38 @@ export default function SpeakersScreen() {
                   </Text>
                 </View>
 
-                {selectedSpeaker?.topic ? (
+                {selectedSpeaker?.Topic ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Speaking Topic</Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.topic}</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.Topic}</Text>
                   </View>
                 ) : null}
 
-                {selectedSpeaker?.synopsis ? (
+                {selectedSpeaker?.Synopsis ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Synopsis</Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.synopsis}</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.Synopsis}</Text>
                   </View>
                 ) : null}
 
-                {selectedSpeaker?.bio ? (
+                {selectedSpeaker?.Bio ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Biography</Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.bio}</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.Bio}</Text>
                   </View>
                 ) : null}
 
                 {selectedSpeaker && shouldShowEmail(selectedSpeaker) ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Email</Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.email}</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.Email}</Text>
                   </View>
                 ) : null}
 
                 {selectedSpeaker && shouldShowPhone(selectedSpeaker) ? (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalLabel, { color: appColors.textSecondary }]}>Phone</Text>
-                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.phone}</Text>
+                    <Text style={[styles.modalText, { color: appColors.text }]}>{selectedSpeaker.Phone}</Text>
                   </View>
                 ) : null}
               </ScrollView>

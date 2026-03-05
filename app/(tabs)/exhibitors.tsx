@@ -19,75 +19,32 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { apiGet } from '@/utils/api';
+import { fetchFromAirtableCache } from '@/utils/api';
 import { Stack } from 'expo-router';
 
 interface Exhibitor {
   id: string;
-  name: string;
-  logo: string | null;
-  description: string | null;
-  contactName: string | null;
-  contactTitle: string | null;
-  contactEmail: string | null;
-  contactPhoneDirect: string | null;
-  contactPhoneMobile: string | null;
-  contactFax: string | null;
-  companyUrl: string | null;
-  linkedIn: string | null;
-  facebook: string | null;
-  x: string | null;
-  boothNumber: string | null;
-  demonstrations: string | null;
-}
-
-interface ExhibitorBackendResponse {
-  id: string;
-  name?: string;
-  logo?: string;
-  logoUrl?: string;
-  description?: string;
-  bio?: string;
-  contactName?: string;
-  contactTitle?: string;
-  contactEmail?: string;
-  contactPhoneDirect?: string;
-  contactPhoneMobile?: string;
-  contactFax?: string;
-  companyUrl?: string;
-  website?: string;
-  linkedIn?: string;
-  facebook?: string;
-  x?: string;
-  boothNumber?: string;
-  demonstrations?: string;
+  Name?: string;
+  Logo?: string;
+  Description?: string;
+  'Contact Name'?: string;
+  'Contact Title'?: string;
+  'Contact Email'?: string;
+  'Contact Phone - Direct'?: string;
+  'Contact Phone - Mobile'?: string;
+  'Contact Fax'?: string;
+  'Company URL'?: string;
+  LinkedIn?: string;
+  Facebook?: string;
+  X?: string;
+  'Booth Number'?: string;
+  Demonstrations?: string;
 }
 
 function resolveImageSource(source: string | number | undefined) {
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
   return source;
-}
-
-function mapExhibitorResponse(data: ExhibitorBackendResponse): Exhibitor {
-  return {
-    id: data.id,
-    name: data.name || '',
-    logo: data.logoUrl || data.logo || null,
-    description: data.description || data.bio || null,
-    contactName: data.contactName || null,
-    contactTitle: data.contactTitle || null,
-    contactEmail: data.contactEmail || null,
-    contactPhoneDirect: data.contactPhoneDirect || null,
-    contactPhoneMobile: data.contactPhoneMobile || null,
-    contactFax: data.contactFax || null,
-    companyUrl: data.companyUrl || data.website || null,
-    linkedIn: data.linkedIn || null,
-    facebook: data.facebook || null,
-    x: data.x || null,
-    boothNumber: data.boothNumber || null,
-    demonstrations: data.demonstrations || null,
-  };
 }
 
 const styles = StyleSheet.create({
@@ -226,9 +183,11 @@ export default function ExhibitorsScreen() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const data = await apiGet<ExhibitorBackendResponse[]>('/api/exhibitors');
-      const mapped = data.map(mapExhibitorResponse).sort((a, b) => a.name.localeCompare(b.name));
-      setExhibitors(mapped);
+      console.log('[Exhibitors] Loading exhibitors from Airtable Cache...');
+      const data = await fetchFromAirtableCache<Exhibitor>('exhibitors');
+      console.log(`[Exhibitors] Received ${data.length} exhibitors from Airtable Cache`);
+      const sorted = data.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
+      setExhibitors(sorted);
     } catch (error) {
       console.error('[Exhibitors] Failed to load exhibitors:', error);
     } finally {
@@ -241,9 +200,9 @@ export default function ExhibitorsScreen() {
     if (!searchQuery.trim()) return exhibitors;
     const query = searchQuery.toLowerCase();
     return exhibitors.filter(e =>
-      e.name.toLowerCase().includes(query) ||
-      e.boothNumber?.toLowerCase().includes(query) ||
-      e.description?.toLowerCase().includes(query)
+      (e.Name || '').toLowerCase().includes(query) ||
+      (e['Booth Number'] || '').toLowerCase().includes(query) ||
+      (e.Description || '').toLowerCase().includes(query)
     );
   }, [exhibitors, searchQuery]);
 
@@ -251,7 +210,7 @@ export default function ExhibitorsScreen() {
   const openEmail = (email: string) => Linking.openURL(`mailto:${email}`).catch(console.error);
   const openPhone = (phone: string) => Linking.openURL(`tel:${phone}`).catch(console.error);
   const hasContactInfo = (e: Exhibitor) =>
-    !!(e.contactName || e.contactTitle || e.contactEmail || e.contactPhoneDirect || e.contactPhoneMobile);
+    !!(e['Contact Name'] || e['Contact Title'] || e['Contact Email'] || e['Contact Phone - Direct'] || e['Contact Phone - Mobile']);
 
   if (loading) {
     return (
@@ -335,42 +294,48 @@ export default function ExhibitorsScreen() {
             </View>
           ) : (
             <View style={styles.grid}>
-              {filteredExhibitors.map(exhibitor => (
-                <View key={exhibitor.id} style={styles.card}>
-                  <TouchableOpacity
-                    style={styles.cardInner}
-                    onPress={() => setSelectedExhibitor(exhibitor)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.logoWhiteBackground}>
-                      {exhibitor.logo ? (
-                        <Image source={resolveImageSource(exhibitor.logo)} style={styles.logo} />
-                      ) : (
-                        <IconSymbol
-                          ios_icon_name="building.2"
-                          android_material_icon_name="business"
-                          size={40}
-                          color={appColors.textSecondary}
-                        />
-                      )}
-                    </View>
-                    <Text
-                      style={[styles.name, { color: appColors.text }]}
-                      numberOfLines={2}
-                      adjustsFontSizeToFit
+              {filteredExhibitors.map(exhibitor => {
+                const exhibitorName = exhibitor.Name || '';
+                const exhibitorLogo = exhibitor.Logo || '';
+                const exhibitorBoothNumber = exhibitor['Booth Number'] || '';
+                
+                return (
+                  <View key={exhibitor.id} style={styles.card}>
+                    <TouchableOpacity
+                      style={styles.cardInner}
+                      onPress={() => setSelectedExhibitor(exhibitor)}
+                      activeOpacity={0.7}
                     >
-                      {exhibitor.name}
-                    </Text>
-                    {exhibitor.boothNumber && (
-                      <View style={[styles.boothBadge, { backgroundColor: appColors.primary }]}>
-                        <Text style={[styles.boothBadgeText, { color: '#FFFFFF' }]}>
-                          Booth {exhibitor.boothNumber}
-                        </Text>
+                      <View style={styles.logoWhiteBackground}>
+                        {exhibitorLogo ? (
+                          <Image source={resolveImageSource(exhibitorLogo)} style={styles.logo} />
+                        ) : (
+                          <IconSymbol
+                            ios_icon_name="building.2"
+                            android_material_icon_name="business"
+                            size={40}
+                            color={appColors.textSecondary}
+                          />
+                        )}
                       </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ))}
+                      <Text
+                        style={[styles.name, { color: appColors.text }]}
+                        numberOfLines={2}
+                        adjustsFontSizeToFit
+                      >
+                        {exhibitorName}
+                      </Text>
+                      {exhibitorBoothNumber && (
+                        <View style={[styles.boothBadge, { backgroundColor: appColors.primary }]}>
+                          <Text style={[styles.boothBadgeText, { color: '#FFFFFF' }]}>
+                            Booth {exhibitorBoothNumber}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </View>
           )}
         </ScrollView>
@@ -390,37 +355,37 @@ export default function ExhibitorsScreen() {
               >
                 <View style={styles.modalHeader}>
                   <Text style={[styles.modalTitle, { color: appColors.text }]}>
-                    {selectedExhibitor?.name}
+                    {selectedExhibitor?.Name || ''}
                   </Text>
                   <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedExhibitor(null)}>
                     <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={24} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
 
-                {selectedExhibitor?.logo && (
+                {selectedExhibitor?.Logo && (
                   <View style={styles.modalLogoContainer}>
                     <Image
-                      source={resolveImageSource(selectedExhibitor.logo)}
+                      source={resolveImageSource(selectedExhibitor.Logo)}
                       style={styles.modalLogo}
                       resizeMode="contain"
                     />
                   </View>
                 )}
 
-                {selectedExhibitor?.boothNumber && (
+                {selectedExhibitor?.['Booth Number'] && (
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Booth Number</Text>
                     <Text style={[styles.detailValue, { color: appColors.text }]}>
-                      {selectedExhibitor.boothNumber}
+                      {selectedExhibitor['Booth Number']}
                     </Text>
                   </View>
                 )}
 
-                {selectedExhibitor?.description && (
+                {selectedExhibitor?.Description && (
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>About</Text>
                     <Text style={[styles.detailValue, { color: appColors.text }]}>
-                      {selectedExhibitor.description}
+                      {selectedExhibitor.Description}
                     </Text>
                   </View>
                 )}
@@ -428,60 +393,60 @@ export default function ExhibitorsScreen() {
                 {selectedExhibitor && hasContactInfo(selectedExhibitor) && (
                   <React.Fragment>
                     <Text style={[styles.sectionTitle, { color: appColors.text }]}>Contact Information</Text>
-                    {selectedExhibitor.contactName && (
+                    {selectedExhibitor['Contact Name'] && (
                       <View style={styles.detailRow}>
                         <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Contact Name</Text>
                         <Text style={[styles.detailValue, { color: appColors.text }]}>
-                          {selectedExhibitor.contactName}
+                          {selectedExhibitor['Contact Name']}
                         </Text>
                       </View>
                     )}
-                    {selectedExhibitor.contactTitle && (
+                    {selectedExhibitor['Contact Title'] && (
                       <View style={styles.detailRow}>
                         <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Title</Text>
                         <Text style={[styles.detailValue, { color: appColors.text }]}>
-                          {selectedExhibitor.contactTitle}
+                          {selectedExhibitor['Contact Title']}
                         </Text>
                       </View>
                     )}
-                    {selectedExhibitor.contactEmail && (
+                    {selectedExhibitor['Contact Email'] && (
                       <View style={styles.detailRow}>
                         <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Email</Text>
                         <TouchableOpacity
                           style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
-                          onPress={() => openEmail(selectedExhibitor.contactEmail!)}
+                          onPress={() => openEmail(selectedExhibitor['Contact Email']!)}
                         >
                           <IconSymbol ios_icon_name="envelope" android_material_icon_name="email" size={20} color={appColors.primary} />
                           <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
-                            {selectedExhibitor.contactEmail}
+                            {selectedExhibitor['Contact Email']}
                           </Text>
                         </TouchableOpacity>
                       </View>
                     )}
-                    {selectedExhibitor.contactPhoneDirect && (
+                    {selectedExhibitor['Contact Phone - Direct'] && (
                       <View style={styles.detailRow}>
                         <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Direct Phone</Text>
                         <TouchableOpacity
                           style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
-                          onPress={() => openPhone(selectedExhibitor.contactPhoneDirect!)}
+                          onPress={() => openPhone(selectedExhibitor['Contact Phone - Direct']!)}
                         >
                           <IconSymbol ios_icon_name="phone" android_material_icon_name="phone" size={20} color={appColors.primary} />
                           <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
-                            {selectedExhibitor.contactPhoneDirect}
+                            {selectedExhibitor['Contact Phone - Direct']}
                           </Text>
                         </TouchableOpacity>
                       </View>
                     )}
-                    {selectedExhibitor.contactPhoneMobile && (
+                    {selectedExhibitor['Contact Phone - Mobile'] && (
                       <View style={styles.detailRow}>
                         <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Mobile</Text>
                         <TouchableOpacity
                           style={[styles.linkButton, { backgroundColor: appColors.primary + '20' }]}
-                          onPress={() => openPhone(selectedExhibitor.contactPhoneMobile!)}
+                          onPress={() => openPhone(selectedExhibitor['Contact Phone - Mobile']!)}
                         >
                           <IconSymbol ios_icon_name="phone" android_material_icon_name="phone" size={20} color={appColors.primary} />
                           <Text style={[styles.linkButtonText, { color: appColors.primary }]}>
-                            {selectedExhibitor.contactPhoneMobile}
+                            {selectedExhibitor['Contact Phone - Mobile']}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -489,29 +454,29 @@ export default function ExhibitorsScreen() {
                   </React.Fragment>
                 )}
 
-                {selectedExhibitor?.demonstrations && (
+                {selectedExhibitor?.Demonstrations && (
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: appColors.textSecondary }]}>Demonstrations</Text>
                     <Text style={[styles.detailValue, { color: appColors.text }]}>
-                      {selectedExhibitor.demonstrations}
+                      {selectedExhibitor.Demonstrations}
                     </Text>
                   </View>
                 )}
 
-                {selectedExhibitor?.companyUrl && (
+                {selectedExhibitor?.['Company URL'] && (
                   <TouchableOpacity
                     style={[styles.linkButton, { backgroundColor: appColors.primary, marginTop: spacing.md }]}
-                    onPress={() => openWebsite(selectedExhibitor.companyUrl!)}
+                    onPress={() => openWebsite(selectedExhibitor['Company URL']!)}
                   >
                     <IconSymbol ios_icon_name="globe" android_material_icon_name="language" size={20} color="#FFFFFF" />
                     <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>Visit Website</Text>
                   </TouchableOpacity>
                 )}
 
-                {selectedExhibitor?.linkedIn && (
+                {selectedExhibitor?.LinkedIn && (
                   <TouchableOpacity
                     style={[styles.linkButton, { backgroundColor: '#0077B5', marginTop: spacing.sm }]}
-                    onPress={() => openWebsite(selectedExhibitor.linkedIn!)}
+                    onPress={() => openWebsite(selectedExhibitor.LinkedIn!)}
                   >
                     <IconSymbol ios_icon_name="link" android_material_icon_name="link" size={20} color="#FFFFFF" />
                     <Text style={[styles.linkButtonText, { color: '#FFFFFF' }]}>LinkedIn</Text>

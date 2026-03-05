@@ -12,6 +12,24 @@ const BEARER_TOKEN_KEY = "portofthefuture_bearer_token";
 export const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl || "";
 
 /**
+ * Airtable Cache API Base URL
+ */
+export const AIRTABLE_CACHE_BASE_URL = "https://airtablecache.portofthefutureconference.com/v0/appkKjciinTlnsbkd";
+
+/**
+ * Airtable Cache Table IDs
+ */
+export const AIRTABLE_TABLES = {
+  speakers: "tblNp1JZk4ARZZZlT",
+  exhibitors: "tblzex4bjwEZh1021",
+  sessions: "tblHaxjP8sWviBQjD",
+  ports: "tblxgPx1eRl9iSX2S",
+  sponsors: "tblyI3hc2dZZu0eQA",
+  announcements: "tblGJQ3v4RMIXCP4W",
+  attendees: "tblQhLaWbOSI0t7iX",
+};
+
+/**
  * Check if backend is properly configured
  */
 export const isBackendConfigured = (): boolean => {
@@ -39,7 +57,60 @@ export const getBearerToken = async (): Promise<string | null> => {
 };
 
 /**
- * Generic API call helper with error handling
+ * Fetch data directly from Airtable Cache API
+ * 
+ * @param tableName - Name of the table (e.g., 'speakers', 'exhibitors')
+ * @returns Parsed JSON response with records array
+ */
+export const fetchFromAirtableCache = async <T = any>(tableName: keyof typeof AIRTABLE_TABLES): Promise<T[]> => {
+  const tableId = AIRTABLE_TABLES[tableName];
+  const url = `${AIRTABLE_CACHE_BASE_URL}/${tableId}`;
+  
+  console.log(`[Airtable Cache] Fetching ${tableName} from:`, url);
+  
+  try {
+    const response = await fetch(url);
+    console.log(`[Airtable Cache] Response status for ${tableName}:`, response.status);
+    
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[Airtable Cache] Error response for ${tableName}:`, response.status, text);
+      throw new Error(`Failed to fetch ${tableName}: ${response.status} - ${text}`);
+    }
+    
+    const data = await response.json();
+    console.log(`[Airtable Cache] Received data for ${tableName}:`, data);
+    
+    // Airtable API returns { records: [...] }
+    if (data.records && Array.isArray(data.records)) {
+      // Transform records to include id and fields
+      const transformed = data.records.map((record: any) => ({
+        id: record.id,
+        ...record.fields,
+      }));
+      console.log(`[Airtable Cache] Transformed ${transformed.length} ${tableName} records`);
+      return transformed;
+    }
+    
+    console.warn(`[Airtable Cache] Unexpected data format for ${tableName}:`, data);
+    return [];
+  } catch (error: any) {
+    console.error(`[Airtable Cache] Request failed for ${tableName}:`, error);
+    
+    if (error.message && error.message.includes("Network request failed")) {
+      throw new Error("Network error: Unable to connect to the server. Please check your internet connection and try again.");
+    }
+    
+    if (error.message && error.message.includes("Failed to fetch")) {
+      throw new Error("Connection error: Unable to reach the server. Please check your internet connection and try again.");
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Generic API call helper with error handling (for backend endpoints)
  *
  * @param endpoint - API endpoint path (e.g., '/users', '/auth/login')
  * @param options - Fetch options (method, headers, body, etc.)
