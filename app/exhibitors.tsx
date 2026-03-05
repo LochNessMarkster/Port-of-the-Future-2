@@ -300,13 +300,20 @@ export default function ExhibitorsScreen() {
     }
   };
 
-  const getFullAddress = (exhibitor: Exhibitor): string => {
+  // FIX: Add null check for exhibitor parameter
+  const getFullAddress = (exhibitor: Exhibitor | null): string => {
+    if (!exhibitor) {
+      console.warn('ExhibitorsScreen - getFullAddress called with null exhibitor');
+      return '';
+    }
+    
     const parts = [
       exhibitor.Address,
       exhibitor.City,
       exhibitor.State,
       exhibitor.Country
     ].filter(Boolean);
+    
     return parts.join(', ');
   };
 
@@ -442,7 +449,7 @@ export default function ExhibitorsScreen() {
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalHeader}>
                   <Text style={[styles.modalTitle, { color: appColors.text }]}>
-                    {selectedExhibitor?.Name}
+                    {selectedExhibitor?.Name || 'Exhibitor Details'}
                   </Text>
                   <TouchableOpacity
                     style={styles.closeButton}
@@ -488,13 +495,13 @@ export default function ExhibitorsScreen() {
                   </View>
                 )}
 
-                {getFullAddress(selectedExhibitor!) && (
+                {selectedExhibitor && getFullAddress(selectedExhibitor) && (
                   <View style={styles.modalSection}>
                     <Text style={[styles.modalSectionTitle, { color: appColors.text }]}>
                       Location
                     </Text>
                     <Text style={[styles.modalSectionText, { color: appColors.textSecondary }]}>
-                      {getFullAddress(selectedExhibitor!)}
+                      {getFullAddress(selectedExhibitor)}
                     </Text>
                   </View>
                 )}
